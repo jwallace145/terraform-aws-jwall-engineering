@@ -22,28 +22,74 @@ variables {
   ]
 }
 
+# The roles are built from github-oidc-role. These pin the details that must
+# not change across that refactor, so existing roles are adopted in place.
+run "composed_roles_keep_their_identity" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for k, r in module.role : (
+        keys(r.inline_policies) == ["policy"] &&
+        r.inline_policies["policy"].name == "${r.name}-policy"
+      )
+    ])
+    error_message = "each role must have exactly one inline policy named <role>-policy"
+  }
+
+  assert {
+    condition = alltrue([
+      for k, r in module.role : length(r.managed_policy_arns) == 0
+    ])
+    error_message = "site CI roles attach no managed policies"
+  }
+
+  assert {
+    condition = alltrue([
+      for k, r in module.role : r.tags == tomap({ Component = "site-ci-roles" })
+    ])
+    error_message = "Component must be the only tag the module sets"
+  }
+
+  assert {
+    condition = alltrue([
+      for k, r in module.role : jsondecode(r.assume_role_policy).Statement[0].Sid == "GitHubOidc"
+    ])
+    error_message = "trust statement Sid must stay GitHubOidc"
+  }
+
+  assert {
+    condition = local.role_descriptions == {
+      plan    = "GitHub Actions plan role for jwallace145/guitar (guitar)"
+      preview = "GitHub Actions preview role for jwallace145/guitar (guitar)"
+      apply   = "GitHub Actions apply role for jwallace145/guitar (guitar)"
+    }
+    error_message = "descriptions must stay `GitHub Actions <key> role for <repository> (<project>)`"
+  }
+}
+
 run "role_names_and_trust" {
   command = plan
 
   assert {
     condition = (
-      aws_iam_role.this["plan"].name == "jwall-engineering-guitar-ci-plan" &&
-      aws_iam_role.this["preview"].name == "jwall-engineering-guitar-ci-preview" &&
-      aws_iam_role.this["apply"].name == "jwall-engineering-guitar-ci-apply"
+      module.role["plan"].name == "jwall-engineering-guitar-ci-plan" &&
+      module.role["preview"].name == "jwall-engineering-guitar-ci-preview" &&
+      module.role["apply"].name == "jwall-engineering-guitar-ci-apply"
     )
     error_message = "roles must be named jwall-engineering-<project>-ci-{plan,preview,apply}"
   }
 
   assert {
     condition = alltrue([
-      for k, r in aws_iam_role.this : r.tags["Component"] == "site-ci-roles"
+      for k, r in module.role : r.tags["Component"] == "site-ci-roles"
     ])
     error_message = "every role must carry Component = site-ci-roles"
   }
 
   assert {
     condition = alltrue([
-      for k, r in aws_iam_role.this : (
+      for k, r in module.role : (
         jsondecode(r.assume_role_policy).Statement[0].Action == "sts:AssumeRoleWithWebIdentity" &&
         jsondecode(r.assume_role_policy).Statement[0].Principal.Federated == var.oidc_provider_arn &&
         jsondecode(r.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
@@ -54,9 +100,9 @@ run "role_names_and_trust" {
 
   assert {
     condition = (
-      jsondecode(aws_iam_role.this["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:pull_request"] &&
-      jsondecode(aws_iam_role.this["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:pull_request"] &&
-      jsondecode(aws_iam_role.this["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:environment:prod"]
+      jsondecode(module.role["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:pull_request"] &&
+      jsondecode(module.role["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:pull_request"] &&
+      jsondecode(module.role["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:environment:prod"]
     )
     error_message = "without IDs, sub claims must be only the classic form: pull_request for plan/preview and environment:prod for apply"
   }
@@ -72,15 +118,15 @@ run "trusts_immutable_subjects_when_ids_given" {
 
   assert {
     condition = (
-      jsondecode(aws_iam_role.this["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      jsondecode(module.role["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
         "repo:jwallace145/guitar:pull_request",
         "repo:jwallace145@35950238/guitar@1413965497:pull_request",
       ] &&
-      jsondecode(aws_iam_role.this["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      jsondecode(module.role["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
         "repo:jwallace145/guitar:pull_request",
         "repo:jwallace145@35950238/guitar@1413965497:pull_request",
       ] &&
-      jsondecode(aws_iam_role.this["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      jsondecode(module.role["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
         "repo:jwallace145/guitar:environment:prod",
         "repo:jwallace145@35950238/guitar@1413965497:environment:prod",
       ]
@@ -115,8 +161,8 @@ run "no_role_has_iam_permissions" {
 
   assert {
     condition = alltrue(flatten([
-      for k, p in aws_iam_role_policy.this : [
-        for s in jsondecode(p.policy).Statement : [
+      for k, r in module.role : [
+        for s in jsondecode(r.inline_policies["policy"].policy).Statement : [
           for a in flatten([s.Action]) : !startswith(a, "iam:")
         ]
       ]
@@ -126,8 +172,8 @@ run "no_role_has_iam_permissions" {
 
   assert {
     condition = alltrue(flatten([
-      for k, p in aws_iam_role_policy.this : [
-        for s in jsondecode(p.policy).Statement : s.Effect == "Allow"
+      for k, r in module.role : [
+        for s in jsondecode(r.inline_policies["policy"].policy).Statement : s.Effect == "Allow"
       ]
     ]))
     error_message = "policies are allow-lists only"
@@ -139,7 +185,7 @@ run "plan_role_state_access" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["plan"].policy).Statement :
+      for s in jsondecode(module.role["plan"].inline_policies["policy"].policy).Statement :
       s.Sid == "ReadProjectState" && s.Action == "s3:GetObject" && s.Resource == "arn:aws:s3:::jwall-engineering-terraform-state/project=guitar/*"
     ])
     error_message = "plan role must read state under project=<project>/*"
@@ -147,7 +193,7 @@ run "plan_role_state_access" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["plan"].policy).Statement :
+      for s in jsondecode(module.role["plan"].inline_policies["policy"].policy).Statement :
       s.Sid == "ManageProjectStateLocks" && s.Resource == "arn:aws:s3:::jwall-engineering-terraform-state/project=guitar/*.tflock"
       && contains(s.Action, "s3:PutObject") && contains(s.Action, "s3:DeleteObject")
     ])
@@ -156,7 +202,7 @@ run "plan_role_state_access" {
 
   assert {
     condition = alltrue([
-      for s in jsondecode(aws_iam_role_policy.this["plan"].policy).Statement :
+      for s in jsondecode(module.role["plan"].inline_policies["policy"].policy).Statement :
       !(contains(flatten([s.Action]), "s3:PutObject") || contains(flatten([s.Action]), "s3:DeleteObject")) || s.Sid == "ManageProjectStateLocks"
     ])
     error_message = "plan role may only write .tflock files"
@@ -164,7 +210,7 @@ run "plan_role_state_access" {
 
   assert {
     condition = alltrue([
-      for s in jsondecode(aws_iam_role_policy.this["plan"].policy).Statement :
+      for s in jsondecode(module.role["plan"].inline_policies["policy"].policy).Statement :
       alltrue([for a in flatten([s.Action]) : !can(regex("^(cloudfront|acm):(Create|Update|Delete|Tag|Untag|Request|Publish)", a))])
     ])
     error_message = "plan role must be read-only on CloudFront and ACM"
@@ -172,7 +218,7 @@ run "plan_role_state_access" {
 
   assert {
     condition = alltrue([
-      for s in jsondecode(aws_iam_role_policy.this["plan"].policy).Statement :
+      for s in jsondecode(module.role["plan"].inline_policies["policy"].policy).Statement :
       !contains(flatten([s.Action]), "route53:ChangeResourceRecordSets")
     ])
     error_message = "plan role must not change Route 53 records"
@@ -183,13 +229,13 @@ run "preview_role_is_limited_to_previews_prefix" {
   command = plan
 
   assert {
-    condition     = length(jsondecode(aws_iam_role_policy.this["preview"].policy).Statement) == 2
+    condition     = length(jsondecode(module.role["preview"].inline_policies["policy"].policy).Statement) == 2
     error_message = "preview role must have exactly the list and write statements"
   }
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["preview"].policy).Statement :
+      for s in jsondecode(module.role["preview"].inline_policies["policy"].policy).Statement :
       s.Action == "s3:ListBucket" && s.Resource == "arn:aws:s3:::jwall-engineering-guitar" && s.Condition.StringLike["s3:prefix"] == "previews/*"
     ])
     error_message = "preview role ListBucket must be conditioned on s3:prefix previews/*"
@@ -197,7 +243,7 @@ run "preview_role_is_limited_to_previews_prefix" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["preview"].policy).Statement :
+      for s in jsondecode(module.role["preview"].inline_policies["policy"].policy).Statement :
       s.Resource == "arn:aws:s3:::jwall-engineering-guitar/previews/*" && contains(s.Action, "s3:PutObject") && contains(s.Action, "s3:DeleteObject") && length(s.Action) == 2
     ])
     error_message = "preview role must only Put/Delete under previews/*"
@@ -209,7 +255,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "ReadWriteProjectState" && s.Resource == "arn:aws:s3:::jwall-engineering-terraform-state/project=guitar/*"
       && contains(s.Action, "s3:GetObject") && contains(s.Action, "s3:PutObject") && contains(s.Action, "s3:DeleteObject")
     ])
@@ -218,7 +264,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "WriteSiteContent"
       && contains(s.Resource, "arn:aws:s3:::jwall-engineering-guitar/prod/*")
       && contains(s.Resource, "arn:aws:s3:::jwall-engineering-guitar/dev/*")
@@ -229,7 +275,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = alltrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       !can(regex("previews", jsonencode(s.Resource)))
     ])
     error_message = "apply role must not touch previews/*"
@@ -237,7 +283,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "ManageProjectDistributions"
       && s.Resource == "arn:aws:cloudfront::123456789012:distribution/*"
       && s.Condition.StringEquals["aws:ResourceTag/Project"] == "guitar"
@@ -249,7 +295,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "CreateProjectDistributions" && s.Condition.StringEquals["aws:RequestTag/Project"] == "guitar"
       && contains(s.Action, "cloudfront:CreateDistribution") && contains(s.Action, "cloudfront:CreateFunction")
     ])
@@ -258,7 +304,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "ManageProjectFunctions"
       && s.Resource == "arn:aws:cloudfront::123456789012:function/jwall-engineering-guitar-*"
       && s.Condition.StringEquals["aws:ResourceTag/Project"] == "guitar"
@@ -268,10 +314,10 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "RequestProjectCertificates" && s.Action == "acm:RequestCertificate" && s.Condition.StringEquals["aws:RequestTag/Project"] == "guitar"
       ]) && anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "ManageProjectCertificates"
       && s.Resource == "arn:aws:acm:us-east-1:123456789012:certificate/*"
       && s.Condition.StringEquals["aws:ResourceTag/Project"] == "guitar"
@@ -281,7 +327,7 @@ run "apply_role_permissions" {
 
   assert {
     condition = anytrue([
-      for s in jsondecode(aws_iam_role_policy.this["apply"].policy).Statement :
+      for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Action == "route53:ChangeResourceRecordSets"
       && s.Resource == "arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ"
       && s.Condition["ForAllValues:StringLike"]["route53:ChangeResourceRecordSetsNormalizedRecordNames"] == [
