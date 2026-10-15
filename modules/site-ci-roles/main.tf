@@ -11,11 +11,23 @@ locals {
     apply   = "${local.name_root}-ci-apply"
   }
 
+  # GitHub issues the `sub` claim in one of two shapes depending on the
+  # repository's OIDC settings: the classic repo:<owner>/<name> and the
+  # immutable repo:<owner>@<owner_id>/<name>@<repository_id>. Trust both when
+  # the IDs are supplied so the roles work whichever form the repo uses.
+  github_owner = split("/", var.repository)[0]
+  github_name  = split("/", var.repository)[1]
+
+  subject_prefixes = concat(
+    ["repo:${var.repository}"],
+    var.owner_id == null ? [] : ["repo:${local.github_owner}@${var.owner_id}/${local.github_name}@${var.repository_id}"],
+  )
+
   # OIDC `sub` claims each role trusts.
   subjects = {
-    plan    = "repo:${var.repository}:pull_request"
-    preview = "repo:${var.repository}:pull_request"
-    apply   = "repo:${var.repository}:environment:prod"
+    plan    = [for p in local.subject_prefixes : "${p}:pull_request"]
+    preview = [for p in local.subject_prefixes : "${p}:pull_request"]
+    apply   = [for p in local.subject_prefixes : "${p}:environment:prod"]
   }
 
   state_prefix = "project=${var.project}/"

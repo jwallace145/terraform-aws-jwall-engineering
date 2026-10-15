@@ -5,7 +5,13 @@ assume through OIDC. The infra repo calls this module once per project. **No
 role has any IAM permissions.**
 
 Every trust policy requires `token.actions.githubusercontent.com:aud` to be
-`sts.amazonaws.com` and pins the `sub` claim:
+`sts.amazonaws.com` and pins the `sub` claim. GitHub issues `sub` in one of
+two shapes depending on the repository's OIDC settings: the classic
+`repo:<owner>/<name>:...` and the immutable
+`repo:<owner>@<owner_id>/<name>@<repository_id>:...`. Pass `owner_id` and
+`repository_id` (from `gh api users/<owner> --jq .id` and
+`gh api repos/<owner>/<repo> --jq .id`) and the roles trust both forms;
+without them only the classic form is trusted.
 
 | Role | `sub` | Permissions |
 |---|---|---|
@@ -53,6 +59,8 @@ module "site_ci_roles" {
 
   project           = "guitar"
   repository        = "jwallace145/guitar"
+  owner_id          = "35950238"   # gh api users/jwallace145 --jq .id
+  repository_id     = "123456789"  # gh api repos/jwallace145/guitar --jq .id
   bucket_arn        = module.site_bucket.arn
   state_bucket_arn  = "arn:aws:s3:::jwall-engineering-terraform-state"
   oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
@@ -102,6 +110,8 @@ No modules.
 | repository | GitHub repository whose workflows may assume the roles, as `owner/repo`. | `string` | n/a | yes |
 | state\_bucket\_arn | ARN of the shared Terraform state bucket. The project's state lives under the key prefix `project=<project>/`. | `string` | n/a | yes |
 | zone\_id | Route 53 hosted zone ID in which the project may change records. | `string` | n/a | yes |
+| owner\_id | Numeric GitHub ID of the repository owner (`gh api users/<owner> --jq .id`). When set together with `repository_id`, the roles also trust GitHub's immutable subject form `repo:<owner>@<owner_id>/<name>@<repository_id>:...`. | `string` | `null` | no |
+| repository\_id | Numeric GitHub ID of the repository (`gh api repos/<owner>/<repo> --jq .id`). When set together with `owner_id`, the roles also trust GitHub's immutable subject form. | `string` | `null` | no |
 
 ## Outputs
 
