@@ -75,7 +75,9 @@ jobs:
       - run: terraform fmt -check -recursive -diff
 
   terraform:
-    name: terraform
+    # Explicit name so the check context is `terraform (<module>)` rather than
+    # the default `terraform (<module>, <path>)` for a multi-key matrix.
+    name: terraform (${{ matrix.module }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
