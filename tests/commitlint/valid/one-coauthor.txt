@@ -1,0 +1,3 @@
+chore: scaffold repository
+
+Co-authored-by: Jane Doe <jane@example.com>

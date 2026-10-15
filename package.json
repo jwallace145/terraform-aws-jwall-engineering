@@ -1,0 +1,15 @@
+{
+  "name": "terraform-library",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Commit-message tooling for the jwall-engineering terraform-library repo",
+  "license": "MIT",
+  "scripts": {
+    "commitlint": "commitlint",
+    "test:commitlint": "bash scripts/test-commitlint.sh"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3"
+  }
+}

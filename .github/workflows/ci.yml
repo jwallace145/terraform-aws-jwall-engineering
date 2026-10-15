@@ -1,0 +1,127 @@
+name: ci
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.14.7"
+  TFLINT_VERSION: "v0.59.1"
+  TERRAFORM_DOCS_VERSION: "v0.24.0"
+
+jobs:
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint every commit in the PR range (base..head)
+        run: npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
+
+  pr-title:
+    name: pr-title
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint the PR title as a commit header
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
+
+  commitlint-rules:
+    name: commitlint-rules
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Check fixture messages pass/fail as expected
+        run: bash scripts/test-commitlint.sh
+
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      - run: terraform fmt -check -recursive -diff
+
+  terraform:
+    name: terraform
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [context, site-bucket, site-ci-roles, static-site, preview-site]
+    defaults:
+      run:
+        working-directory: modules/${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+      - name: terraform init (module)
+        run: terraform init -backend=false -input=false
+      - name: terraform validate (module)
+        run: terraform validate
+      - name: terraform init (example)
+        run: terraform init -backend=false -input=false
+        working-directory: modules/${{ matrix.module }}/examples/basic
+      - name: terraform validate (example)
+        run: terraform validate
+        working-directory: modules/${{ matrix.module }}/examples/basic
+      - name: tflint --init
+        run: tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: tflint (module)
+        run: tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
+      - name: tflint (example)
+        run: tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
+        working-directory: modules/${{ matrix.module }}/examples/basic
+      - name: terraform test (mock provider, no AWS credentials)
+        run: terraform test
+      - name: terraform-docs diff check
+        uses: terraform-docs/gh-actions@v1.4.1
+        with:
+          working-dir: modules/${{ matrix.module }}
+          config-file: .terraform-docs.yml
+          output-file: README.md
+          output-method: inject
+          fail-on-diff: "true"
+          git-push: "false"

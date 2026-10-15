@@ -1,0 +1,4 @@
+docs(static-site): document 403 to 404 mapping
+
+Co-authored-by: Jane Doe <jane@example.com>
+Co-authored-by: Sam Roe <sam@example.com>

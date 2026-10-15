@@ -1,0 +1,3 @@
+fix: tighten policy
+
+Closes #12
