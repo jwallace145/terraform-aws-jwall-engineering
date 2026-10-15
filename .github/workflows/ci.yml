@@ -88,8 +88,11 @@ jobs:
           - { module: root, path: . }
           - { module: context, path: modules/context }
           - { module: site-bucket, path: modules/site-bucket }
+          - { module: tfstate-bucket, path: modules/tfstate-bucket }
+          - { module: hosted-zone, path: modules/hosted-zone }
           - { module: github-oidc-role, path: modules/github-oidc-role }
           - { module: site-ci-roles, path: modules/site-ci-roles }
+          - { module: infra-ci-roles, path: modules/infra-ci-roles }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:

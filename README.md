@@ -7,7 +7,8 @@
 
 **Registry:** <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest>
 
-Versioned Terraform modules for the jwall-engineering static sites. Public,
+Versioned Terraform modules for the jwall-engineering static sites and the
+account-level foundation they run on. Public,
 MIT-licensed, and holds **no state**: this repo only publishes modules. The
 `jwall-engineering-infra` repo and the individual project repos consume them.
 
@@ -40,8 +41,11 @@ The bucket and the CI roles come from the infra repo (`site-bucket` and
 |---|---|---|
 | [`context`](modules/context) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/context)) | everyone | Nothing. Derives `tags`, `name_prefix` and `bucket_name` from `project`, `environment` and `repository`. Feed `tags` into the provider's `default_tags`. |
 | [`site-bucket`](modules/site-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-bucket)) | infra repo, one per project | The hardened `jwall-engineering-<project>` S3 bucket with lifecycle rules and a CloudFront-only bucket policy. |
+| [`tfstate-bucket`](modules/tfstate-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/tfstate-bucket)) | infra repo, once per account | The versioned, encrypted, TLS-only S3 bucket that holds every stack's state. Locking uses the native `.tflock` object. |
+| [`hosted-zone`](modules/hosted-zone) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/hosted-zone)) | infra repo, once per domain | A Route 53 hosted zone and its zone-level CAA record. Project repos own the records inside it. |
 | [`github-oidc-role`](modules/github-oidc-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/github-oidc-role)) | `site-ci-roles`, any stack that needs one CI role | One IAM role trusted by GitHub Actions through OIDC, in both the classic and the immutable `sub` form, with inline and managed policies. |
 | [`site-ci-roles`](modules/site-ci-roles) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-ci-roles)) | infra repo, one per project | Three GitHub OIDC IAM roles (`ci-plan`, `ci-preview`, `ci-apply`), built from `github-oidc-role`, with tightly scoped, IAM-free permissions. |
+| [`infra-ci-roles`](modules/infra-ci-roles) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/infra-ci-roles)) | infra repo | The plan and apply roles for the foundation stack, built from `github-oidc-role`, with the apply role's IAM and S3 access scoped to `<name_root>-*` and its Route 53 access to one zone. |
 | [`static-site`](modules/static-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site)) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
 | [`preview-site`](modules/preview-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site)) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
 
@@ -49,7 +53,7 @@ The bucket and the CI roles come from the infra repo (`site-bucket` and
 
 Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
 as `jwallace145/jwall-engineering/aws`. The root module is the site stack; the
-six modules under `modules/` are published as
+nine modules under `modules/` are published as
 [submodules](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules).
 Pin a version:
 
