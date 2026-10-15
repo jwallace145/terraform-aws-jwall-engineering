@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.2.0...v0.3.0) (2026-10-15)
+
+
+### Features
+
+* **site-ci-roles:** trust immutable github oidc subjects via owner_id and repository_id ([#8](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/8)) ([04ad505](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/04ad505d58a5e1b471448a0dce060ffdf8f1a34a))
+
 ## [0.2.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.1.0...v0.2.0) (2026-10-15)
 
 
