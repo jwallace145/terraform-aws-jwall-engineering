@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.4.0...v0.5.0) (2026-10-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **site-ci-roles:** remove the moved blocks for 0.3.x role addresses ([#13](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/13))
+
+### Bug Fixes
+
+* **site-ci-roles:** allow cloudfront:ListTagsForResource on project functions ([#15](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/15)) ([5aab970](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/5aab97040c11d34abb81229cf8f1d344afe74163))
+
+
+### Code Refactoring
+
+* **site-ci-roles:** remove the moved blocks for 0.3.x role addresses ([#13](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/13)) ([bcc6b29](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/bcc6b299a4756e6ebb7f2d7b763a5503a5e455c8))
+
 ## [0.4.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.3.0...v0.4.0) (2026-10-15)
 
 
