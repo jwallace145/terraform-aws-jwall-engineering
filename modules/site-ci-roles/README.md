@@ -14,12 +14,12 @@ two shapes depending on the repository's OIDC settings: the classic
 without them only the classic form is trusted.
 
 Each role is an instance of [`github-oidc-role`](../github-oidc-role), so the
-trust-policy logic lives in one place. Roles created by `site-ci-roles`
-0.3.x and earlier are adopted in place: the module carries `moved` blocks from
-`aws_iam_role.this["<key>"]` to `module.role["<key>"].aws_iam_role.this` and
-from `aws_iam_role_policy.this["<key>"]` to
-`module.role["<key>"].aws_iam_role_policy.this["policy"]`. Upgrading shows no
-changes.
+trust-policy logic lives in one place. Roles created by `site-ci-roles` 0.3.x
+and earlier sit at `aws_iam_role.this["<key>"]` and
+`aws_iam_role_policy.this["<key>"]`. This module no longer carries `moved`
+blocks for them, so a caller upgrading from 0.3.x must add its own, mapping
+them to `module.<name>.module.role["<key>"].aws_iam_role.this` and
+`module.<name>.module.role["<key>"].aws_iam_role_policy.this["policy"]`.
 
 | Role | `sub` | Permissions |
 |---|---|---|

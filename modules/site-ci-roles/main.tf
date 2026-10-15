@@ -368,35 +368,3 @@ module "role" {
     policy = local.policies[each.key]
   }
 }
-
-# Adopt roles created by site-ci-roles <= 0.3.x, which defined the roles and
-# their policies directly in this module.
-moved {
-  from = aws_iam_role.this["plan"]
-  to   = module.role["plan"].aws_iam_role.this
-}
-
-moved {
-  from = aws_iam_role_policy.this["plan"]
-  to   = module.role["plan"].aws_iam_role_policy.this["policy"]
-}
-
-moved {
-  from = aws_iam_role.this["preview"]
-  to   = module.role["preview"].aws_iam_role.this
-}
-
-moved {
-  from = aws_iam_role_policy.this["preview"]
-  to   = module.role["preview"].aws_iam_role_policy.this["policy"]
-}
-
-moved {
-  from = aws_iam_role.this["apply"]
-  to   = module.role["apply"].aws_iam_role.this
-}
-
-moved {
-  from = aws_iam_role_policy.this["apply"]
-  to   = module.role["apply"].aws_iam_role_policy.this["policy"]
-}
