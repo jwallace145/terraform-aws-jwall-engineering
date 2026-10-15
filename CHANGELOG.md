@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.3.0...v0.4.0) (2026-10-15)
+
+
+### Features
+
+* **foundation:** add tfstate-bucket, hosted-zone and infra-ci-roles modules ([#11](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/11)) ([1296e2e](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/1296e2e924650b35929c3963cad2721b4670a8ac))
+* **github-oidc-role:** add the github oidc role module and build site-ci-roles on it ([#10](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/10)) ([55c1516](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/55c151614659dfb7821f94b419be66b2deaa756c))
+
 ## [0.3.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.2.0...v0.3.0) (2026-10-15)
 
 
