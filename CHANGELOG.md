@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.5.0...v0.6.0) (2026-10-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ci-roles:** replace site-ci-roles and infra-ci-roles with per-role modules and a policy catalog ([#16](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/16))
+
+### Features
+
+* **ci-roles:** replace site-ci-roles and infra-ci-roles with per-role modules and a policy catalog ([#16](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/16)) ([a10353e](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/a10353eb88fd111e8356f40f8ca100a43051588f))
+
 ## [0.5.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.4.0...v0.5.0) (2026-10-15)
 
 
