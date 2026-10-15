@@ -27,11 +27,11 @@ Run the full CI suite locally before opening a PR:
 
 ```sh
 terraform fmt -check -recursive
-for m in modules/*; do
+for m in . modules/*; do
   (cd "$m" && terraform init -backend=false && terraform validate \
-    && tflint --config "$PWD/../../.tflint.hcl" && terraform test)
+    && tflint --config "$OLDPWD/.tflint.hcl" && terraform test)
 done
-for m in modules/*; do terraform-docs "$m"; done && git diff --exit-code
+for m in . modules/*; do terraform-docs "$m"; done && git diff --exit-code
 npm run test:commitlint
 ```
 
@@ -87,7 +87,10 @@ local `only-coauthor-trailers` rule in `commitlint/`). The fixtures in
 ## Module standards
 
 - Layout: `modules/<name>/` with `main.tf`, `variables.tf`, `outputs.tf`,
-  `versions.tf`, `README.md`, `examples/basic/`, `tests/`.
+  `versions.tf`, `README.md`, `examples/basic/`, `tests/`. The repo root is
+  itself a module (the site stack) with the same layout and is checked the
+  same way; the Terraform Registry publishes it as
+  `jwallace145/jwall-engineering/aws` with the others as submodules.
 - `required_version = ">= 1.11"`, AWS provider `~> 6.0`. Modules never
   configure providers.
 - Everything runs in `us-east-1`. Modules that create CloudFront or ACM

@@ -75,17 +75,25 @@ jobs:
       - run: terraform fmt -check -recursive -diff
 
   terraform:
-    name: terraform
+    # Explicit name so the check context is `terraform (<module>)` rather than
+    # the default `terraform (<module>, <path>)` for a multi-key matrix.
+    name: terraform (${{ matrix.module }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        module: [context, site-bucket, site-ci-roles, static-site, preview-site]
+        include:
+          - { module: root, path: . }
+          - { module: context, path: modules/context }
+          - { module: site-bucket, path: modules/site-bucket }
+          - { module: site-ci-roles, path: modules/site-ci-roles }
+          - { module: static-site, path: modules/static-site }
+          - { module: preview-site, path: modules/preview-site }
     defaults:
       run:
-        working-directory: modules/${{ matrix.module }}
+        working-directory: ${{ matrix.path }}
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
@@ -101,10 +109,10 @@ jobs:
         run: terraform validate
       - name: terraform init (example)
         run: terraform init -backend=false -input=false
-        working-directory: modules/${{ matrix.module }}/examples/basic
+        working-directory: ${{ matrix.path }}/examples/basic
       - name: terraform validate (example)
         run: terraform validate
-        working-directory: modules/${{ matrix.module }}/examples/basic
+        working-directory: ${{ matrix.path }}/examples/basic
       - name: tflint --init
         run: tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
         env:
@@ -113,7 +121,7 @@ jobs:
         run: tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
       - name: tflint (example)
         run: tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
-        working-directory: modules/${{ matrix.module }}/examples/basic
+        working-directory: ${{ matrix.path }}/examples/basic
       - name: terraform test (mock provider, no AWS credentials)
         run: terraform test
       - name: Install terraform-docs
