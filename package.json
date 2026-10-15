@@ -1,8 +1,8 @@
 {
-  "name": "terraform-library",
+  "name": "terraform-aws-jwall-engineering",
   "version": "0.0.0",
   "private": true,
-  "description": "Commit-message tooling for the jwall-engineering terraform-library repo",
+  "description": "Commit-message tooling for the terraform-aws-jwall-engineering repo",
   "license": "MIT",
   "scripts": {
     "commitlint": "commitlint",

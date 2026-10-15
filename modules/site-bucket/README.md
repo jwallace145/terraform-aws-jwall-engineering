@@ -32,7 +32,8 @@ the caller's provider `default_tags` (see the `context` module).
 
 ```hcl
 module "site_bucket" {
-  source = "git::https://github.com/jwallace145/terraform-library.git//modules/site-bucket?ref=v0.1.0"
+  source  = "jwallace145/jwall-engineering/aws//modules/site-bucket"
+  version = "~> 0.1"
 
   project = "guitar"
 }

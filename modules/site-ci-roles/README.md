@@ -46,7 +46,8 @@ Every trust policy requires `token.actions.githubusercontent.com:aud` to be
 
 ```hcl
 module "site_ci_roles" {
-  source = "git::https://github.com/jwallace145/terraform-library.git//modules/site-ci-roles?ref=v0.1.0"
+  source  = "jwallace145/jwall-engineering/aws//modules/site-ci-roles"
+  version = "~> 0.1"
 
   project           = "guitar"
   repository        = "jwallace145/guitar"

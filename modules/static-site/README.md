@@ -36,7 +36,8 @@ truncated to 64 characters, so that it matches the
 
 ```hcl
 module "context" {
-  source      = "git::https://github.com/jwallace145/terraform-library.git//modules/context?ref=v0.1.0"
+  source  = "jwallace145/jwall-engineering/aws//modules/context"
+  version = "~> 0.1"
   project     = "guitar"
   environment = "prod"
   repository  = "jwallace145/guitar"
@@ -48,7 +49,8 @@ provider "aws" {
 }
 
 module "prod" {
-  source = "git::https://github.com/jwallace145/terraform-library.git//modules/static-site?ref=v0.1.0"
+  source  = "jwallace145/jwall-engineering/aws//modules/static-site"
+  version = "~> 0.1"
 
   bucket_name                 = module.context.bucket_name
   bucket_regional_domain_name = "${module.context.bucket_name}.s3.us-east-1.amazonaws.com"
