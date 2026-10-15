@@ -42,6 +42,8 @@ Every trust policy requires `token.actions.githubusercontent.com:aud` to be
 | `cloudfront:CreateDistribution`, `cloudfront:CreateFunction`, `acm:RequestCertificate` | Create actions take no resource ARN; they are conditioned on `aws:RequestTag/Project` instead, so only resources tagged with the project can be created. |
 | `route53:GetChange` on `change/*` | Change IDs are random; this is read-only status polling. |
 
+On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-ci-roles>
+
 ## Usage
 
 ```hcl

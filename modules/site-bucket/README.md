@@ -28,6 +28,8 @@ the caller's provider `default_tags` (see the `context` module).
 | `dev/` | `static-site` with `origin_path = "/dev"` | `ci-apply` role |
 | `previews/pr-<n>/` | `preview-site` (`pr-<n>.preview.<domain>`) | `ci-preview` role; objects expire after 14 days |
 
+On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-bucket>
+
 ## Usage
 
 ```hcl

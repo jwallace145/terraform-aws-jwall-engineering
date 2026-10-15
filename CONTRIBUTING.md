@@ -116,8 +116,11 @@ Releases are managed by [Release Please](https://github.com/googleapis/release-p
 - **Merging the Release Please PR is the deliberate, human-reviewed act that
   releases a new version.** Nobody creates tags by hand.
 - Every tag is picked up by the public Terraform Registry, where the repo is
-  published as `jwallace145/jwall-engineering/aws` (the registry requires the
-  `terraform-<provider>-<name>` repo name). Consumers pin a version:
+  published as [`jwallace145/jwall-engineering/aws`](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
+  (the registry requires the `terraform-<provider>-<name>` repo name). The
+  registry is linked to the `jwallace145` public namespace in HCP Terraform;
+  publishing happens through its GitHub webhook, nothing in CI. Consumers pin
+  a version:
 
   ```hcl
   source  = "jwallace145/jwall-engineering/aws//modules/<name>"
