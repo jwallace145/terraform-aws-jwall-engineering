@@ -32,8 +32,8 @@ module "site" {
 }
 ```
 
-The bucket and the CI roles come from the infra repo (`site-bucket` and
-`site-ci-roles` submodules). Each submodule can also be used on its own.
+The bucket and the CI roles come from the infra repo (`site-bucket`,
+`ci-plan-role`, `ci-preview-role` and `ci-apply-role` submodules). Each submodule can also be used on its own.
 
 ## Submodules
 
@@ -43,9 +43,11 @@ The bucket and the CI roles come from the infra repo (`site-bucket` and
 | [`site-bucket`](modules/site-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-bucket)) | infra repo, one per project | The hardened `jwall-engineering-<project>` S3 bucket with lifecycle rules and a CloudFront-only bucket policy. |
 | [`tfstate-bucket`](modules/tfstate-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/tfstate-bucket)) | infra repo, once per account | The versioned, encrypted, TLS-only S3 bucket that holds every stack's state. Locking uses the native `.tflock` object. |
 | [`hosted-zone`](modules/hosted-zone) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/hosted-zone)) | infra repo, once per domain | A Route 53 hosted zone and its zone-level CAA record. Project repos own the records inside it. |
-| [`github-oidc-role`](modules/github-oidc-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/github-oidc-role)) | `site-ci-roles`, any stack that needs one CI role | One IAM role trusted by GitHub Actions through OIDC, in both the classic and the immutable `sub` form, with inline and managed policies. |
-| [`site-ci-roles`](modules/site-ci-roles) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-ci-roles)) | infra repo, one per project | Three GitHub OIDC IAM roles (`ci-plan`, `ci-preview`, `ci-apply`), built from `github-oidc-role`, with tightly scoped, IAM-free permissions. |
-| [`infra-ci-roles`](modules/infra-ci-roles) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/infra-ci-roles)) | infra repo | The plan and apply roles for the foundation stack, built from `github-oidc-role`, with the apply role's IAM and S3 access scoped to `<name_root>-*` and its Route 53 access to one zone. |
+| [`github-oidc-role`](modules/github-oidc-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/github-oidc-role)) | the CI role modules, any stack that needs one CI role | One IAM role trusted by GitHub Actions through OIDC, in both the classic and the immutable `sub` form, with inline and managed policies. |
+| [`ci-plan-role`](modules/ci-plan-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-plan-role)) | infra repo, one per project | The `<name_root>-<project>-ci-plan` role, trusted by `pull_request`, with the **read** policies it requests from `ci-policies`. |
+| [`ci-preview-role`](modules/ci-preview-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-preview-role)) | infra repo, one per site project | The `<name_root>-<project>-ci-preview` role, trusted by `pull_request`, with the **preview** policies it requests from `ci-policies`. |
+| [`ci-apply-role`](modules/ci-apply-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-apply-role)) | infra repo, one per project | The `<name_root>-<project>-ci-apply` role, trusted by a GitHub environment, with the **read** and **write** policies it requests from `ci-policies`. |
+| [`ci-policies`](modules/ci-policies) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-policies)) | the CI role modules | The catalog of managed policies (`tfstate/*`, `static-site/*`, `foundation/*`) a CI role can request, built per project and role, and the per-role allow-lists. |
 | [`static-site`](modules/static-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site)) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
 | [`preview-site`](modules/preview-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site)) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
 
@@ -53,7 +55,7 @@ The bucket and the CI roles come from the infra repo (`site-bucket` and
 
 Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
 as `jwallace145/jwall-engineering/aws`. The root module is the site stack; the
-nine modules under `modules/` are published as
+eleven modules under `modules/` are published as
 [submodules](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules).
 Pin a version:
 
@@ -86,6 +88,119 @@ Every module targets `us-east-1`, requires Terraform `>= 1.11` and the AWS
 provider `~> 6.0`, never configures a provider, and tags its resources with
 `Component = "<module-name>"`. Each module's README has the full input and
 output reference generated by terraform-docs.
+
+## Migrating CI roles from 0.5.x
+
+0.6.0 replaces `site-ci-roles` and `infra-ci-roles` with `ci-plan-role`,
+`ci-preview-role` and `ci-apply-role`. The roles keep their names, so their
+ARNs and every workflow's `role-to-assume` stay the same. Each role moves to
+`module.<name>.module.role.aws_iam_role.this`; its inline policies are
+replaced by managed policies from `ci-policies`.
+
+For a project previously created with `module "site_ci_roles"`:
+
+```hcl
+module "ci_plan" {
+  source  = "jwallace145/jwall-engineering/aws//modules/ci-plan-role"
+  version = "~> 0.6"
+
+  project           = "guitar"
+  repository        = "jwallace145/guitar"
+  oidc_provider_arn = local.oidc_provider_arn
+  policies          = ["tfstate/read", "static-site/read"]
+  policy_inputs = {
+    tfstate     = { bucket_arn = module.state_bucket.arn, prefix = "project=guitar/" }
+    static_site = { bucket_arn = module.site_bucket.arn, zone_id = module.zone.zone_id }
+  }
+}
+
+module "ci_preview" {
+  source  = "jwallace145/jwall-engineering/aws//modules/ci-preview-role"
+  version = "~> 0.6"
+
+  project           = "guitar"
+  repository        = "jwallace145/guitar"
+  oidc_provider_arn = local.oidc_provider_arn
+  policies          = ["static-site/previews"]
+  policy_inputs = {
+    static_site = { bucket_arn = module.site_bucket.arn }
+  }
+}
+
+module "ci_apply" {
+  source  = "jwallace145/jwall-engineering/aws//modules/ci-apply-role"
+  version = "~> 0.6"
+
+  project           = "guitar"
+  repository        = "jwallace145/guitar"
+  oidc_provider_arn = local.oidc_provider_arn
+  policies          = ["tfstate/write", "static-site/read", "static-site/deploy"]
+  policy_inputs = {
+    tfstate = { bucket_arn = module.state_bucket.arn, prefix = "project=guitar/" }
+    static_site = {
+      bucket_arn   = module.site_bucket.arn
+      zone_id      = module.zone.zone_id
+      record_names = ["guitar.jwall.engineering", "dev.guitar.jwall.engineering", "*.preview.guitar.jwall.engineering"]
+    }
+  }
+}
+
+moved {
+  from = module.site_ci_roles.module.role["plan"].aws_iam_role.this
+  to   = module.ci_plan.module.role.aws_iam_role.this
+}
+
+moved {
+  from = module.site_ci_roles.module.role["preview"].aws_iam_role.this
+  to   = module.ci_preview.module.role.aws_iam_role.this
+}
+
+moved {
+  from = module.site_ci_roles.module.role["apply"].aws_iam_role.this
+  to   = module.ci_apply.module.role.aws_iam_role.this
+}
+```
+
+For the foundation stack, previously `module "infra_ci_roles"`, request
+`["tfstate/read", "foundation/read"]` for plan and
+`["tfstate/write", "foundation/read", "foundation/manage"]` for apply, with
+`tfstate = { bucket_arn, key = "<the stack's state key>" }` and
+`foundation = { state_bucket_arn, hosted_zone_arn }` (plus
+`managed_bucket_patterns` or `attachable_policy_arns` if you overrode them),
+and move the roles:
+
+```hcl
+moved {
+  from = module.infra_ci_roles.module.plan.aws_iam_role.this
+  to   = module.infra_ci_plan.module.role.aws_iam_role.this
+}
+
+moved {
+  from = module.infra_ci_roles.module.apply.aws_iam_role.this
+  to   = module.infra_ci_apply.module.role.aws_iam_role.this
+}
+```
+
+The plan then shows, per role:
+
+- the role updated in place: its trust statement `Sid`, `description` and
+  tags (`Component = ci`, `Name = <role name>`);
+- its inline policies destroyed, and for the foundation roles the
+  `ReadOnlyAccess` attachment destroyed;
+- one managed policy created and attached per requested policy.
+
+Permissions intentionally change in three ways. `ReadOnlyAccess` is gone,
+replaced by `foundation/read`, so the foundation roles can no longer read
+other projects' state. `foundation/manage` no longer reaches objects in
+`<name_root>-*` buckets, which included the state bucket, and no longer
+allows attaching `ReadOnlyAccess`. The site apply role can no longer delete
+state objects, only `.tflock` files.
+
+**Run this apply with administrator credentials, not through a CI apply
+role.** The foundation apply role's own policies are replaced in the same
+apply, and IAM changes take a few seconds to propagate, so it can lose a
+permission it still needs partway through. Expect the same brief gap for
+any workflow that assumes a role while the apply runs.
 
 ## Development
 

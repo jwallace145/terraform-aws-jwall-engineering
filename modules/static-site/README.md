@@ -25,12 +25,12 @@ plan in any other region.
 
 Every resource is tagged `Component = "static-site"`. All other tags come from
 the caller's provider `default_tags` (see the `context` module). The `Project`
-tag from `default_tags` is what the `site-ci-roles` apply role uses to
-authorise changes to these resources.
+tag from `default_tags` is what the `static-site/*` CI policies in
+`ci-policies` use to authorise changes to these resources.
 
 The CloudFront Function is named `<bucket_name>-<domain-with-dashes>`,
 truncated to 64 characters, so that it matches the
-`jwall-engineering-<project>-*` name scope in `site-ci-roles`.
+`jwall-engineering-<project>-*` name scope of the `static-site/*` CI policies.
 
 On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site>
 

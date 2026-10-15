@@ -201,6 +201,50 @@ run "no_attachments_by_default" {
     condition     = length(aws_iam_role_policy_attachment.this) == 0
     error_message = "managed_policy_arns defaults to none"
   }
+
+  assert {
+    condition     = length(aws_iam_role_policy_attachment.keyed) == 0
+    error_message = "managed_policies defaults to none"
+  }
+}
+
+run "keyed_managed_policy_attachments" {
+  command = plan
+
+  variables {
+    managed_policy_arns = []
+    managed_policies = {
+      "static-site/read" = "arn:aws:iam::123456789012:policy/jwall-engineering-guitar-ci-plan-static-site-read"
+      "tfstate/read"     = "arn:aws:iam::123456789012:policy/jwall-engineering-guitar-ci-plan-tfstate-read"
+    }
+  }
+
+  assert {
+    condition     = keys(aws_iam_role_policy_attachment.keyed) == ["static-site/read", "tfstate/read"]
+    error_message = "one aws_iam_role_policy_attachment.keyed per managed_policies entry, keyed by its name"
+  }
+
+  assert {
+    condition = alltrue([
+      for k, a in aws_iam_role_policy_attachment.keyed : a.policy_arn == var.managed_policies[k]
+    ])
+    error_message = "every keyed attachment must attach the ARN under its key"
+  }
+
+  assert {
+    condition     = jsonencode(output.managed_policies) == jsonencode(var.managed_policies)
+    error_message = "managed_policies output must map each key to its attached ARN"
+  }
+}
+
+run "rejects_non_policy_arn_in_managed_policies" {
+  command = plan
+
+  variables {
+    managed_policies = { bad = "arn:aws:iam::123456789012:role/not-a-policy" }
+  }
+
+  expect_failures = [var.managed_policies]
 }
 
 run "rejects_empty_subjects" {
@@ -265,7 +309,7 @@ run "rejects_wrong_oidc_provider" {
 }
 
 # terraform test cannot address resources inside a child module, so composing
-# modules (site-ci-roles, infra-ci-roles) test the role through these outputs.
+# modules (ci-plan-role, ci-preview-role, ci-apply-role) test the role through these outputs.
 run "outputs_expose_role_policies_for_composing_modules" {
   command = plan
 

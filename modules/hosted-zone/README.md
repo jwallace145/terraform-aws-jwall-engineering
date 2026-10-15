@@ -93,8 +93,8 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
-| arn | Hosted zone ARN, for `hosted_zone_arn` of `infra-ci-roles`. |
+| arn | Hosted zone ARN, for `policy_inputs.foundation.hosted_zone_arn` of the CI role modules. |
 | name | Zone name. |
 | name\_servers | Name servers to delegate the domain to at its registrar. |
-| zone\_id | Hosted zone ID, for `zone_id` of `site-ci-roles`, `static-site` and the root site stack. |
+| zone\_id | Hosted zone ID, for `policy_inputs.static_site.zone_id` of the CI role modules, `static-site` and the root site stack. |
 <!-- END_TF_DOCS -->

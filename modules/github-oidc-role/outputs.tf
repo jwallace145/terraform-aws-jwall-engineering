@@ -37,3 +37,8 @@ output "managed_policy_arns" {
   description = "ARNs of the managed policies attached to the role, sorted."
   value       = sort(keys(aws_iam_role_policy_attachment.this))
 }
+
+output "managed_policies" {
+  description = "Map of `managed_policies` key to the ARN attached under it."
+  value       = { for k, a in aws_iam_role_policy_attachment.keyed : k => a.policy_arn }
+}

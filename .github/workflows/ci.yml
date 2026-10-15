@@ -91,8 +91,18 @@ jobs:
           - { module: tfstate-bucket, path: modules/tfstate-bucket }
           - { module: hosted-zone, path: modules/hosted-zone }
           - { module: github-oidc-role, path: modules/github-oidc-role }
-          - { module: site-ci-roles, path: modules/site-ci-roles }
-          - { module: infra-ci-roles, path: modules/infra-ci-roles }
+          - { module: ci-plan-role, path: modules/ci-plan-role }
+          - { module: ci-preview-role, path: modules/ci-preview-role }
+          - { module: ci-apply-role, path: modules/ci-apply-role }
+          - { module: ci-policies, path: modules/ci-policies }
+          # Policy leaves are internal to ci-policies and have no example.
+          - { module: ci-policies/tfstate/read, path: modules/ci-policies/tfstate/read, example: false }
+          - { module: ci-policies/tfstate/write, path: modules/ci-policies/tfstate/write, example: false }
+          - { module: ci-policies/static-site/read, path: modules/ci-policies/static-site/read, example: false }
+          - { module: ci-policies/static-site/deploy, path: modules/ci-policies/static-site/deploy, example: false }
+          - { module: ci-policies/static-site/previews, path: modules/ci-policies/static-site/previews, example: false }
+          - { module: ci-policies/foundation/read, path: modules/ci-policies/foundation/read, example: false }
+          - { module: ci-policies/foundation/manage, path: modules/ci-policies/foundation/manage, example: false }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:
@@ -112,9 +122,11 @@ jobs:
       - name: terraform validate (module)
         run: terraform validate
       - name: terraform init (example)
+        if: matrix.example != false
         run: terraform init -backend=false -input=false
         working-directory: ${{ matrix.path }}/examples/basic
       - name: terraform validate (example)
+        if: matrix.example != false
         run: terraform validate
         working-directory: ${{ matrix.path }}/examples/basic
       - name: tflint --init
@@ -124,6 +136,7 @@ jobs:
       - name: tflint (module)
         run: tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
       - name: tflint (example)
+        if: matrix.example != false
         run: tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
         working-directory: ${{ matrix.path }}/examples/basic
       - name: terraform test (mock provider, no AWS credentials)

@@ -1,10 +1,10 @@
 output "zone_id" {
-  description = "Hosted zone ID, for `zone_id` of `site-ci-roles`, `static-site` and the root site stack."
+  description = "Hosted zone ID, for `policy_inputs.static_site.zone_id` of the CI role modules, `static-site` and the root site stack."
   value       = aws_route53_zone.this.zone_id
 }
 
 output "arn" {
-  description = "Hosted zone ARN, for `hosted_zone_arn` of `infra-ci-roles`."
+  description = "Hosted zone ARN, for `policy_inputs.foundation.hosted_zone_arn` of the CI role modules."
   value       = aws_route53_zone.this.arn
 }
 

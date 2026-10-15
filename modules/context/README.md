@@ -27,8 +27,8 @@ provider "aws" {
 }
 ```
 
-The `Project` tag that this module emits is what the `site-ci-roles` module
-uses to scope CloudFront and ACM permissions, so every caller must pass
+The `Project` tag that this module emits is what the `static-site/*` CI
+policies in `ci-policies` use to scope CloudFront and ACM permissions, so every caller must pass
 `module.context.tags` to `default_tags`.
 
 ## Conventions

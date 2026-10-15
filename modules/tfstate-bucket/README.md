@@ -26,8 +26,8 @@ Each stack stores its state at:
 project=<project>/env=<env>/<project>-<env>.tfstate
 ```
 
-The `site-ci-roles` and `infra-ci-roles` modules scope their CI roles to these
-prefixes, so a stack's roles can only read and write its own state.
+The `tfstate/*` CI policies in `ci-policies` scope CI roles to one key or
+one prefix, so a stack's roles can only read and write its own state.
 
 ## Locking
 
@@ -100,6 +100,6 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
-| arn | ARN of the state bucket, for CI role policies (`state_bucket_arn` of `site-ci-roles` and `infra-ci-roles`). |
+| arn | ARN of the state bucket, for CI role policies (`policy_inputs.tfstate.bucket_arn` and `policy_inputs.foundation.state_bucket_arn` of the CI role modules). |
 | name | Name of the state bucket, for the `bucket` argument of an `s3` backend. |
 <!-- END_TF_DOCS -->
