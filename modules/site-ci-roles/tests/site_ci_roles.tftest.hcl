@@ -54,12 +54,60 @@ run "role_names_and_trust" {
 
   assert {
     condition = (
-      jsondecode(aws_iam_role.this["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == "repo:jwallace145/guitar:pull_request" &&
-      jsondecode(aws_iam_role.this["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == "repo:jwallace145/guitar:pull_request" &&
-      jsondecode(aws_iam_role.this["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == "repo:jwallace145/guitar:environment:prod"
+      jsondecode(aws_iam_role.this["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:pull_request"] &&
+      jsondecode(aws_iam_role.this["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:pull_request"] &&
+      jsondecode(aws_iam_role.this["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:jwallace145/guitar:environment:prod"]
     )
-    error_message = "sub claims must be pull_request for plan/preview and environment:prod for apply"
+    error_message = "without IDs, sub claims must be only the classic form: pull_request for plan/preview and environment:prod for apply"
   }
+}
+
+run "trusts_immutable_subjects_when_ids_given" {
+  command = plan
+
+  variables {
+    owner_id      = "35950238"
+    repository_id = "1413965497"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_iam_role.this["plan"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+        "repo:jwallace145/guitar:pull_request",
+        "repo:jwallace145@35950238/guitar@1413965497:pull_request",
+      ] &&
+      jsondecode(aws_iam_role.this["preview"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+        "repo:jwallace145/guitar:pull_request",
+        "repo:jwallace145@35950238/guitar@1413965497:pull_request",
+      ] &&
+      jsondecode(aws_iam_role.this["apply"].assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+        "repo:jwallace145/guitar:environment:prod",
+        "repo:jwallace145@35950238/guitar@1413965497:environment:prod",
+      ]
+    )
+    error_message = "with IDs, every role must trust both the classic and the immutable repo:<owner>@<id>/<name>@<id> subject"
+  }
+}
+
+run "rejects_owner_id_without_repository_id" {
+  command = plan
+
+  variables {
+    owner_id = "35950238"
+  }
+
+  expect_failures = [var.owner_id]
+}
+
+run "rejects_non_numeric_repository_id" {
+  command = plan
+
+  variables {
+    owner_id      = "35950238"
+    repository_id = "guitar"
+  }
+
+  expect_failures = [var.repository_id]
 }
 
 run "no_role_has_iam_permissions" {

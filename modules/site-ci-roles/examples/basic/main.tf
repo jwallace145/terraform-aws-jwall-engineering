@@ -25,6 +25,8 @@ module "site_ci_roles" {
 
   project           = "guitar"
   repository        = "jwallace145/guitar"
+  owner_id          = "35950238"
+  repository_id     = "123456789"
   bucket_arn        = module.site_bucket.arn
   state_bucket_arn  = "arn:aws:s3:::jwall-engineering-terraform-state"
   oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"

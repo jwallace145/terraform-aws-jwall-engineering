@@ -79,3 +79,30 @@ variable "record_names" {
     error_message = "every record name must be a lowercase FQDN without a trailing dot, optionally prefixed with `*.` (e.g. `*.preview.guitar.example.com`)."
   }
 }
+
+variable "owner_id" {
+  description = "Numeric GitHub ID of the repository owner (`gh api users/<owner> --jq .id`). When set together with `repository_id`, the roles also trust GitHub's immutable subject form `repo:<owner>@<owner_id>/<name>@<repository_id>:...`."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.owner_id == null || can(regex("^[0-9]+$", var.owner_id))
+    error_message = "owner_id must be null or a numeric GitHub user/organization ID."
+  }
+
+  validation {
+    condition     = (var.owner_id == null) == (var.repository_id == null)
+    error_message = "owner_id and repository_id must be set together (or both left null)."
+  }
+}
+
+variable "repository_id" {
+  description = "Numeric GitHub ID of the repository (`gh api repos/<owner>/<repo> --jq .id`). When set together with `owner_id`, the roles also trust GitHub's immutable subject form."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.repository_id == null || can(regex("^[0-9]+$", var.repository_id))
+    error_message = "repository_id must be null or a numeric GitHub repository ID."
+  }
+}
