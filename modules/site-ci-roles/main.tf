@@ -11,23 +11,17 @@ locals {
     apply   = "${local.name_root}-ci-apply"
   }
 
-  # GitHub issues the `sub` claim in one of two shapes depending on the
-  # repository's OIDC settings: the classic repo:<owner>/<name> and the
-  # immutable repo:<owner>@<owner_id>/<name>@<repository_id>. Trust both when
-  # the IDs are supplied so the roles work whichever form the repo uses.
-  github_owner = split("/", var.repository)[0]
-  github_name  = split("/", var.repository)[1]
+  role_descriptions = {
+    for k, n in local.role_names : k => "GitHub Actions ${k} role for ${var.repository} (${var.project})"
+  }
 
-  subject_prefixes = concat(
-    ["repo:${var.repository}"],
-    var.owner_id == null ? [] : ["repo:${local.github_owner}@${var.owner_id}/${local.github_name}@${var.repository_id}"],
-  )
-
-  # OIDC `sub` claims each role trusts.
+  # OIDC `sub` suffixes each role trusts. github-oidc-role prepends the
+  # classic repo:<owner>/<name> prefix and, when the IDs are set, the
+  # immutable repo:<owner>@<owner_id>/<name>@<repository_id> prefix.
   subjects = {
-    plan    = [for p in local.subject_prefixes : "${p}:pull_request"]
-    preview = [for p in local.subject_prefixes : "${p}:pull_request"]
-    apply   = [for p in local.subject_prefixes : "${p}:environment:prod"]
+    plan    = ["pull_request"]
+    preview = ["pull_request"]
+    apply   = ["environment:prod"]
   }
 
   state_prefix = "project=${var.project}/"
@@ -357,41 +351,52 @@ locals {
   }
 }
 
-resource "aws_iam_role" "this" {
+module "role" {
+  source   = "../github-oidc-role"
   for_each = local.role_names
 
-  name        = each.value
-  description = "GitHub Actions ${each.key} role for ${var.repository} (${var.project})"
+  name              = each.value
+  description       = local.role_descriptions[each.key]
+  repository        = var.repository
+  owner_id          = var.owner_id
+  repository_id     = var.repository_id
+  oidc_provider_arn = var.oidc_provider_arn
+  subjects          = local.subjects[each.key]
+  component         = local.component
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "GitHubOidc"
-        Effect = "Allow"
-        Principal = {
-          Federated = var.oidc_provider_arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = local.subjects[each.key]
-          }
-        }
-      },
-    ]
-  })
-
-  tags = {
-    Component = local.component
+  inline_policies = {
+    policy = local.policies[each.key]
   }
 }
 
-resource "aws_iam_role_policy" "this" {
-  for_each = local.policies
+# Adopt roles created by site-ci-roles <= 0.3.x, which defined the roles and
+# their policies directly in this module.
+moved {
+  from = aws_iam_role.this["plan"]
+  to   = module.role["plan"].aws_iam_role.this
+}
 
-  name   = "${local.role_names[each.key]}-policy"
-  role   = aws_iam_role.this[each.key].id
-  policy = jsonencode(each.value)
+moved {
+  from = aws_iam_role_policy.this["plan"]
+  to   = module.role["plan"].aws_iam_role_policy.this["policy"]
+}
+
+moved {
+  from = aws_iam_role.this["preview"]
+  to   = module.role["preview"].aws_iam_role.this
+}
+
+moved {
+  from = aws_iam_role_policy.this["preview"]
+  to   = module.role["preview"].aws_iam_role_policy.this["policy"]
+}
+
+moved {
+  from = aws_iam_role.this["apply"]
+  to   = module.role["apply"].aws_iam_role.this
+}
+
+moved {
+  from = aws_iam_role_policy.this["apply"]
+  to   = module.role["apply"].aws_iam_role_policy.this["policy"]
 }

@@ -88,6 +88,7 @@ jobs:
           - { module: root, path: . }
           - { module: context, path: modules/context }
           - { module: site-bucket, path: modules/site-bucket }
+          - { module: github-oidc-role, path: modules/github-oidc-role }
           - { module: site-ci-roles, path: modules/site-ci-roles }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }

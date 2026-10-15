@@ -13,6 +13,14 @@ two shapes depending on the repository's OIDC settings: the classic
 `gh api repos/<owner>/<repo> --jq .id`) and the roles trust both forms;
 without them only the classic form is trusted.
 
+Each role is an instance of [`github-oidc-role`](../github-oidc-role), so the
+trust-policy logic lives in one place. Roles created by `site-ci-roles`
+0.3.x and earlier are adopted in place: the module carries `moved` blocks from
+`aws_iam_role.this["<key>"]` to `module.role["<key>"].aws_iam_role.this` and
+from `aws_iam_role_policy.this["<key>"]` to
+`module.role["<key>"].aws_iam_role_policy.this["policy"]`. Upgrading shows no
+changes.
+
 | Role | `sub` | Permissions |
 |---|---|---|
 | `jwall-engineering-<project>-ci-plan` | `repo:<repository>:pull_request` | Read-only on the project's bucket config, distributions, functions, certificates and hosted zone; read state under `project=<project>/*`; `PutObject`/`DeleteObject` **only** on `project=<project>/*.tflock` |
@@ -89,14 +97,14 @@ module "site_ci_roles" {
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+| ---- | ------ | ------- |
+| role | ../github-oidc-role | n/a |
 
 ## Resources
 
 | Name | Type |
 | ---- | ---- |
-| [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 
 ## Inputs
