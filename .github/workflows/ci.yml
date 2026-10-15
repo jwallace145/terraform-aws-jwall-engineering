@@ -116,12 +116,11 @@ jobs:
         working-directory: modules/${{ matrix.module }}/examples/basic
       - name: terraform test (mock provider, no AWS credentials)
         run: terraform test
+      - name: Install terraform-docs
+        run: |
+          curl -fsSL "https://terraform-docs.io/dl/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" terraform-docs
+          install -m 0755 "$RUNNER_TEMP/terraform-docs" /usr/local/bin/terraform-docs
+          terraform-docs --version
       - name: terraform-docs diff check
-        uses: terraform-docs/gh-actions@v1.4.1
-        with:
-          working-dir: modules/${{ matrix.module }}
-          config-file: .terraform-docs.yml
-          output-file: README.md
-          output-method: inject
-          fail-on-diff: "true"
-          git-push: "false"
+        run: terraform-docs --config "$GITHUB_WORKSPACE/.terraform-docs.yml" --output-check .
