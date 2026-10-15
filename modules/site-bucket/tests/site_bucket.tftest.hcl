@@ -136,3 +136,122 @@ run "rejects_non_kebab_project" {
 
   expect_failures = [var.project]
 }
+
+# --- Hardened policy ----------------------------------------------------------
+
+run "hardened_policy" {
+  command = plan
+
+  variables {
+    admin_principal_arns = [
+      "arn:aws:iam::123456789012:user/admin",
+      "arn:aws:iam::123456789012:role/jwall-engineering-infra-ci-apply",
+    ]
+    prefix_writers = {
+      "prod/"     = ["arn:aws:iam::123456789012:role/jwall-engineering-guitar-ci-apply"]
+      "dev/"      = ["arn:aws:iam::123456789012:role/jwall-engineering-guitar-ci-apply"]
+      "previews/" = ["arn:aws:iam::123456789012:role/jwall-engineering-guitar-ci-preview"]
+    }
+  }
+
+  assert {
+    condition = [for s in jsondecode(output.policy).Statement : s.Sid] == [
+      "DenyInsecureTransport",
+      "AllowCloudFrontServicePrincipalRead",
+      "DenyWritesOutsidePrefixes",
+      "DenyWritesToPrefix0",
+      "DenyWritesToPrefix1",
+      "DenyWritesToPrefix2",
+      "DenyUnmanagedConfiguration",
+    ]
+    error_message = "the hardened policy must keep the TLS and CloudFront statements and add exactly the documented denies"
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.policy).Statement : s.Effect == "Deny" && s.Principal == "*"
+      if s.Sid != "AllowCloudFrontServicePrincipalRead"
+    ])
+    error_message = "every hardening statement must be a Deny for Principal = *"
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for s in jsondecode(output.policy).Statement : [
+        for a in flatten([s.Action]) : !startswith(a, "s3:GetObject")
+      ] if startswith(s.Sid, "DenyWrites")
+    ]))
+    error_message = "write denies must never block reads; CloudFront and refresh must keep working"
+  }
+
+  assert {
+    condition = jsonencode([for s in jsondecode(output.policy).Statement : s if s.Sid == "DenyWritesOutsidePrefixes"][0].NotResource) == jsonencode([
+      "arn:aws:s3:::jwall-engineering-guitar/dev/*",
+      "arn:aws:s3:::jwall-engineering-guitar/previews/*",
+      "arn:aws:s3:::jwall-engineering-guitar/prod/*",
+    ])
+    error_message = "outside the declared prefixes only admins may write"
+  }
+
+  assert {
+    condition = (
+      [for s in jsondecode(output.policy).Statement : s if s.Sid == "DenyWritesToPrefix1"][0].Resource == "arn:aws:s3:::jwall-engineering-guitar/previews/*" &&
+      jsonencode([for s in jsondecode(output.policy).Statement : s if s.Sid == "DenyWritesToPrefix1"][0].Condition.ArnNotEquals["aws:PrincipalArn"]) == jsonencode([
+        "arn:aws:iam::123456789012:role/jwall-engineering-guitar-ci-preview",
+        "arn:aws:iam::123456789012:user/admin",
+        "arn:aws:iam::123456789012:role/jwall-engineering-infra-ci-apply",
+      ])
+    )
+    error_message = "only the preview role and admins may write previews/"
+  }
+
+  assert {
+    condition     = jsonencode([for s in jsondecode(output.policy).Statement : s if s.Sid == "DenyUnmanagedConfiguration"][0].Condition.ArnNotEquals["aws:PrincipalArn"]) == jsonencode(var.admin_principal_arns)
+    error_message = "only admins may change bucket configuration, including the bucket policy"
+  }
+}
+
+run "rejects_prefix_writers_without_admins" {
+  command = plan
+
+  variables {
+    prefix_writers = { "prod/" = ["arn:aws:iam::123456789012:role/a"] }
+  }
+
+  expect_failures = [var.prefix_writers]
+}
+
+run "rejects_prefix_without_trailing_slash" {
+  command = plan
+
+  variables {
+    admin_principal_arns = ["arn:aws:iam::123456789012:user/admin"]
+    prefix_writers       = { "prod" = ["arn:aws:iam::123456789012:role/a"] }
+  }
+
+  expect_failures = [var.prefix_writers]
+}
+
+run "rejects_overlapping_prefixes" {
+  command = plan
+
+  variables {
+    admin_principal_arns = ["arn:aws:iam::123456789012:user/admin"]
+    prefix_writers = {
+      "previews/"      = ["arn:aws:iam::123456789012:role/a"]
+      "previews/pr-1/" = ["arn:aws:iam::123456789012:role/b"]
+    }
+  }
+
+  expect_failures = [var.prefix_writers]
+}
+
+run "rejects_wildcard_principal" {
+  command = plan
+
+  variables {
+    admin_principal_arns = ["arn:aws:iam::123456789012:role/*"]
+  }
+
+  expect_failures = [var.admin_principal_arns]
+}
