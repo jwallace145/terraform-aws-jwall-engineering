@@ -1,5 +1,12 @@
 # terraform-aws-jwall-engineering
 
+[![Terraform Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.terraform.io%2Fv1%2Fmodules%2Fjwallace145%2Fjwall-engineering%2Faws&query=%24.version&prefix=v&label=registry&logo=terraform&color=7B42BC)](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
+[![GitHub release](https://img.shields.io/github/v/release/jwallace145/terraform-aws-jwall-engineering?label=release)](https://github.com/jwallace145/terraform-aws-jwall-engineering/releases/latest)
+[![CI](https://github.com/jwallace145/terraform-aws-jwall-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/jwallace145/terraform-aws-jwall-engineering/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**Registry:** <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest>
+
 Versioned Terraform modules for the jwall-engineering static sites. Public,
 MIT-licensed, and holds **no state**: this repo only publishes modules. The
 `jwall-engineering-infra` repo and the individual project repos consume them.
@@ -31,16 +38,18 @@ The bucket and the CI roles come from the infra repo (`site-bucket` and
 
 | Module | Used by | Creates |
 |---|---|---|
-| [`context`](modules/context) | everyone | Nothing. Derives `tags`, `name_prefix` and `bucket_name` from `project`, `environment` and `repository`. Feed `tags` into the provider's `default_tags`. |
-| [`site-bucket`](modules/site-bucket) | infra repo, one per project | The hardened `jwall-engineering-<project>` S3 bucket with lifecycle rules and a CloudFront-only bucket policy. |
-| [`site-ci-roles`](modules/site-ci-roles) | infra repo, one per project | Three GitHub OIDC IAM roles (`ci-plan`, `ci-preview`, `ci-apply`) with tightly scoped, IAM-free permissions. |
-| [`static-site`](modules/static-site) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
-| [`preview-site`](modules/preview-site) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
+| [`context`](modules/context) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/context)) | everyone | Nothing. Derives `tags`, `name_prefix` and `bucket_name` from `project`, `environment` and `repository`. Feed `tags` into the provider's `default_tags`. |
+| [`site-bucket`](modules/site-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-bucket)) | infra repo, one per project | The hardened `jwall-engineering-<project>` S3 bucket with lifecycle rules and a CloudFront-only bucket policy. |
+| [`site-ci-roles`](modules/site-ci-roles) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/site-ci-roles)) | infra repo, one per project | Three GitHub OIDC IAM roles (`ci-plan`, `ci-preview`, `ci-apply`) with tightly scoped, IAM-free permissions. |
+| [`static-site`](modules/static-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site)) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
+| [`preview-site`](modules/preview-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site)) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
 
 ## Usage
 
-Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws)
-as `jwallace145/jwall-engineering/aws`; each module is a submodule under `modules/`.
+Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
+as `jwallace145/jwall-engineering/aws`. The root module is the site stack; the
+five modules under `modules/` are published as
+[submodules](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules).
 Pin a version:
 
 ```hcl

@@ -4,6 +4,8 @@ Derives the naming and tagging conventions for a jwall-engineering project.
 This module **creates no resources**, so all of its outputs are known at plan
 time and can be fed into the AWS provider's `default_tags`.
 
+On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/context>
+
 ## Usage
 
 ```hcl

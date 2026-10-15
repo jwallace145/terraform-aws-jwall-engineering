@@ -30,6 +30,8 @@ the caller's provider `default_tags` (see the `context` module). The function
 is named `<bucket_name>-preview` so that it matches the
 `jwall-engineering-<project>-*` name scope in `site-ci-roles`.
 
+On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site>
+
 ## Usage
 
 ```hcl

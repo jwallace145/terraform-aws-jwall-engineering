@@ -32,6 +32,8 @@ The CloudFront Function is named `<bucket_name>-<domain-with-dashes>`,
 truncated to 64 characters, so that it matches the
 `jwall-engineering-<project>-*` name scope in `site-ci-roles`.
 
+On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site>
+
 ## Usage
 
 ```hcl
