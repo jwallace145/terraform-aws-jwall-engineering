@@ -303,6 +303,18 @@ run "apply_role_permissions" {
   }
 
   assert {
+    condition = alltrue([
+      for r in ["plan", "apply"] : anytrue([
+        for s in jsondecode(module.role[r].inline_policies["policy"].policy).Statement :
+        s.Sid == "ReadProjectFunctions"
+        && s.Resource == "arn:aws:cloudfront::123456789012:function/jwall-engineering-guitar-*"
+        && contains(s.Action, "cloudfront:ListTagsForResource")
+      ])
+    ])
+    error_message = "plan and apply roles must be able to list tags on project functions"
+  }
+
+  assert {
     condition = anytrue([
       for s in jsondecode(module.role["apply"].inline_policies["policy"].policy).Statement :
       s.Sid == "ManageProjectFunctions"

@@ -85,6 +85,7 @@ locals {
       Action = [
         "cloudfront:DescribeFunction",
         "cloudfront:GetFunction",
+        "cloudfront:ListTagsForResource",
       ]
       Resource  = local.cloudfront_function_arn
       Condition = local.project_tag_condition
