@@ -40,6 +40,23 @@ the Sid an existing role already uses to adopt it without a trust-policy diff.
 These resource addresses are part of the module's contract. Callers adopting
 existing roles write `moved` blocks against them.
 
+### Managed policy ARNs must be known at plan time
+
+Terraform needs the keys of a `for_each` before it applies, and the keys of
+`aws_iam_role_policy_attachment.this` are the ARNs. Passing the `arn` of a
+policy that is created in the same run fails with "for_each set includes
+values derived from resource attributes that cannot be determined until
+apply". Build the ARN from values that are known instead:
+
+```hcl
+managed_policy_arns = [
+  "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.extra_policy_name}",
+]
+```
+
+Inline policies do not have this limit. Only their keys must be known, and
+their documents may reference values that are unknown until apply.
+
 ## Tags
 
 The module sets `Component = <component>`. All other tags come from the

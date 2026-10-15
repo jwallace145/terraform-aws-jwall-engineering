@@ -353,6 +353,59 @@ run "rejects_state_key_with_leading_slash" {
   expect_failures = [var.state_key]
 }
 
+run "rejects_wildcard_inside_state_key" {
+  command = plan
+
+  variables {
+    state_key = "project=*/env=prod/infra-prod.tfstate"
+  }
+
+  expect_failures = [var.state_key]
+}
+
+run "rejects_question_mark_inside_state_key" {
+  command = plan
+
+  variables {
+    state_key = "project=infra/env=?rod/infra-prod.tfstate"
+  }
+
+  expect_failures = [var.state_key]
+}
+
+run "rejects_attachable_policy_that_is_a_bare_wildcard" {
+  command = plan
+
+  variables {
+    attachable_policy_arns = ["arn:aws:iam::aws:policy/*"]
+  }
+
+  expect_failures = [var.attachable_policy_arns]
+}
+
+run "rejects_attachable_policy_with_leading_wildcard_in_account" {
+  command = plan
+
+  variables {
+    attachable_policy_arns = ["arn:aws:iam::123456789012:policy/*"]
+  }
+
+  expect_failures = [var.attachable_policy_arns]
+}
+
+run "accepts_attachable_policy_with_trailing_wildcard" {
+  command = plan
+
+  variables {
+    attachable_policy_arns = ["arn:aws:iam::123456789012:policy/jwall-engineering-*"]
+  }
+
+  assert {
+    condition     = tolist(local.attachable_policy_arns) == tolist(["arn:aws:iam::123456789012:policy/jwall-engineering-*"])
+    error_message = "a pattern with a literal prefix must still be accepted"
+  }
+}
+
 run "rejects_bad_hosted_zone_arn" {
   command = plan
 

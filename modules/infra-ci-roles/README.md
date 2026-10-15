@@ -17,7 +17,8 @@ immutable subject form `repo:<owner>@<owner_id>/<name>@<repository_id>:...`.
 
 The apply role is the highest-privilege identity in the setup because it
 creates IAM roles. It is constrained so that a compromised apply environment
-cannot escalate:
+cannot reach beyond the `<name_root>-*` namespace or attach powerful managed
+policies. It is not a complete escalation barrier, see the limitation below.
 
 - IAM actions are limited to roles and policies named `<name_root>-*`. It
   cannot touch any other principal. It has no permissions on the GitHub OIDC
@@ -38,6 +39,23 @@ cannot escalate:
 
 Both roles trust only `repository`, through the OIDC provider, with the
 audience pinned to `sts.amazonaws.com`.
+
+### Known limitation: the apply role can edit itself
+
+The `ArnLike` allow-list bounds which **managed** policies can be attached. It
+does not bound **inline** policies or trust policies. `ManageOrganisationRoles`
+grants `iam:PutRolePolicy` and `iam:UpdateAssumeRolePolicy` on every
+`<name_root>-*` role, and that includes the apply role itself and every role
+from `site-ci-roles`. A compromised apply environment could therefore write a
+broader inline policy onto one of them. The scoping above limits where the
+apply role can act, but a compromise of the apply environment should be treated
+as a compromise of the account. Protect the GitHub environment accordingly:
+required reviewers, and deployment branches restricted to `main`.
+
+This permission set matches the roles this module was lifted from, so it is
+kept as it is to make adopting the module a no-change plan. Tightening it, for
+example with an explicit `Deny` on these actions against the apply role or a
+permissions boundary, is a separate change.
 
 ## Adopting existing roles
 

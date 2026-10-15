@@ -78,8 +78,8 @@ variable "state_key" {
   type        = string
 
   validation {
-    condition     = can(regex("^[^/*].*\\.tfstate$", var.state_key))
-    error_message = "state_key must be a relative S3 key ending in `.tfstate`, without a leading slash or wildcard (e.g. `project=infra/env=prod/infra-prod.tfstate`)."
+    condition     = can(regex("^[^/*?][^*?]*\\.tfstate$", var.state_key))
+    error_message = "state_key must be a relative S3 key ending in `.tfstate`, without a leading slash and without `*` or `?` anywhere, because both are IAM wildcards (e.g. `project=infra/env=prod/infra-prod.tfstate`)."
   }
 }
 
@@ -120,7 +120,7 @@ variable "attachable_policy_arns" {
   }
 
   validation {
-    condition     = alltrue([for a in coalesce(var.attachable_policy_arns, ["arn:aws:iam::aws:policy/x"]) : can(regex("^arn:aws:iam::(aws|[0-9]{12}):policy/.+$", a))])
-    error_message = "every attachable policy must be an IAM policy ARN or ARN pattern (`arn:aws:iam::aws:policy/...` or `arn:aws:iam::<account-id>:policy/...`)."
+    condition     = alltrue([for a in coalesce(var.attachable_policy_arns, ["arn:aws:iam::aws:policy/x"]) : can(regex("^arn:aws:iam::(aws|[0-9]{12}):policy/[^*?/][^ ]*$", a))])
+    error_message = "every attachable policy must be an IAM policy ARN or ARN pattern with a literal first character after `policy/` (`arn:aws:iam::aws:policy/ReadOnlyAccess`, `arn:aws:iam::<account-id>:policy/team-*`). A bare `*` would allow attaching any policy, including AdministratorAccess."
   }
 }
