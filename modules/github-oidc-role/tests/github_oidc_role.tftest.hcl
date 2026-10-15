@@ -263,3 +263,36 @@ run "rejects_wrong_oidc_provider" {
 
   expect_failures = [var.oidc_provider_arn]
 }
+
+# terraform test cannot address resources inside a child module, so composing
+# modules (site-ci-roles, infra-ci-roles) test the role through these outputs.
+run "outputs_expose_role_policies_for_composing_modules" {
+  command = plan
+
+  assert {
+    condition     = output.assume_role_policy == aws_iam_role.this.assume_role_policy
+    error_message = "assume_role_policy output must be the role's trust policy JSON"
+  }
+
+  assert {
+    condition     = output.tags == aws_iam_role.this.tags
+    error_message = "tags output must be the tags the module sets on the role"
+  }
+
+  assert {
+    condition = (
+      keys(output.inline_policies) == ["manage", "state"] &&
+      output.inline_policies["state"].name == "jwall-engineering-example-ci-apply-state" &&
+      output.inline_policies["state"].policy == aws_iam_role_policy.this["state"].policy
+    )
+    error_message = "inline_policies output must map each key to the policy's name and JSON document"
+  }
+
+  assert {
+    condition = output.managed_policy_arns == tolist([
+      "arn:aws:iam::123456789012:policy/jwall-engineering-extra",
+      "arn:aws:iam::aws:policy/ReadOnlyAccess",
+    ])
+    error_message = "managed_policy_arns output must list the attached ARNs"
+  }
+}

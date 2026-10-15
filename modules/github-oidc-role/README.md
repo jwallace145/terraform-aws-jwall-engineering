@@ -125,6 +125,10 @@ No modules.
 | Name | Description |
 | ---- | ----------- |
 | arn | ARN of the role, for `role-to-assume` in `aws-actions/configure-aws-credentials`. |
+| assume\_role\_policy | The role's trust policy as a JSON string. Exposed so composing modules can test the trust policy. |
 | id | ID of the role (the same as its name). |
+| inline\_policies | Map of `inline_policies` key to `{ name, policy }`, where `policy` is the JSON document attached to the role. |
+| managed\_policy\_arns | ARNs of the managed policies attached to the role, sorted. |
 | name | Name of the role. |
+| tags | Tags the module sets on the role (`Component`, and `Name` when `name_tag` is set). Excludes provider `default_tags`. |
 <!-- END_TF_DOCS -->
