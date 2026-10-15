@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.6.0...v0.7.0) (2026-10-15)
+
+
+### Features
+
+* **buckets:** harden the state and site bucket policies against unlisted principals ([#18](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/18)) ([c3a1059](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/c3a1059cfc0b6bb978a07f064712c411800f24fa))
+
 ## [0.6.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.5.0...v0.6.0) (2026-10-15)
 
 
