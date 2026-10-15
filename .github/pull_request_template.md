@@ -1,12 +1,12 @@
 <!--
 Pick the template that matches your PR type and start over with it:
 
-  ?template=feat.md      https://github.com/jwallace145/terraform-library/compare/main...YOUR_BRANCH?template=feat.md
-  ?template=fix.md       https://github.com/jwallace145/terraform-library/compare/main...YOUR_BRANCH?template=fix.md
-  ?template=docs.md      https://github.com/jwallace145/terraform-library/compare/main...YOUR_BRANCH?template=docs.md
-  ?template=chore.md     https://github.com/jwallace145/terraform-library/compare/main...YOUR_BRANCH?template=chore.md
-  ?template=refactor.md  https://github.com/jwallace145/terraform-library/compare/main...YOUR_BRANCH?template=refactor.md
-  ?template=ci.md        https://github.com/jwallace145/terraform-library/compare/main...YOUR_BRANCH?template=ci.md
+  ?template=feat.md      https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/main...YOUR_BRANCH?template=feat.md
+  ?template=fix.md       https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/main...YOUR_BRANCH?template=fix.md
+  ?template=docs.md      https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/main...YOUR_BRANCH?template=docs.md
+  ?template=chore.md     https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/main...YOUR_BRANCH?template=chore.md
+  ?template=refactor.md  https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/main...YOUR_BRANCH?template=refactor.md
+  ?template=ci.md        https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/main...YOUR_BRANCH?template=ci.md
 
 From the CLI:
 

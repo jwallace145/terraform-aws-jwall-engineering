@@ -1,6 +1,6 @@
 # Contributing
 
-`terraform-library` is the versioned Terraform module library for the
+`terraform-aws-jwall-engineering` is the versioned Terraform module library for the
 jwall-engineering static sites. It follows the shared jwall-engineering repo
 conventions, which are summarised here. Coding agents should read
 [AGENTS.md](AGENTS.md).
@@ -12,8 +12,8 @@ Requirements: Terraform `>= 1.11`, [tflint](https://github.com/terraform-linters
 and the GitHub CLI (`gh`).
 
 ```sh
-git clone https://github.com/jwallace145/terraform-library.git
-cd terraform-library
+git clone https://github.com/jwallace145/terraform-aws-jwall-engineering.git
+cd terraform-aws-jwall-engineering
 npm ci                                                          # commitlint
 pre-commit install --hook-type commit-msg --hook-type pre-commit # local hooks
 tflint --init --config "$PWD/.tflint.hcl"                       # AWS ruleset
@@ -112,10 +112,19 @@ Releases are managed by [Release Please](https://github.com/googleapis/release-p
   any other PR.
 - **Merging the Release Please PR is the deliberate, human-reviewed act that
   releases a new version.** Nobody creates tags by hand.
-- Consumers pin modules to a tag:
+- Every tag is picked up by the public Terraform Registry, where the repo is
+  published as `jwallace145/jwall-engineering/aws` (the registry requires the
+  `terraform-<provider>-<name>` repo name). Consumers pin a version:
 
   ```hcl
-  source = "git::https://github.com/jwallace145/terraform-library.git//modules/<name>?ref=vX.Y.Z"
+  source  = "jwallace145/jwall-engineering/aws//modules/<name>"
+  version = "X.Y.Z"
+  ```
+
+  or the git source with the same tag:
+
+  ```hcl
+  source = "git::https://github.com/jwallace145/terraform-aws-jwall-engineering.git//modules/<name>?ref=vX.Y.Z"
   ```
 
 ### Semver policy

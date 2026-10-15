@@ -34,7 +34,8 @@ is named `<bucket_name>-preview` so that it matches the
 
 ```hcl
 module "preview" {
-  source = "git::https://github.com/jwallace145/terraform-library.git//modules/preview-site?ref=v0.1.0"
+  source  = "jwallace145/jwall-engineering/aws//modules/preview-site"
+  version = "~> 0.1"
 
   bucket_name                 = module.context.bucket_name
   bucket_regional_domain_name = "${module.context.bucket_name}.s3.us-east-1.amazonaws.com"

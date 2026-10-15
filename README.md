@@ -1,4 +1,4 @@
-# terraform-library
+# terraform-aws-jwall-engineering
 
 Versioned Terraform modules for the jwall-engineering static sites. Public,
 MIT-licensed, and holds **no state**: this repo only publishes modules. The
@@ -16,11 +16,14 @@ MIT-licensed, and holds **no state**: this repo only publishes modules. The
 
 ## Usage
 
-Pin every module to a release tag:
+Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws)
+as `jwallace145/jwall-engineering/aws`; each module is a submodule under `modules/`.
+Pin a version:
 
 ```hcl
 module "context" {
-  source = "git::https://github.com/jwallace145/terraform-library.git//modules/context?ref=v0.1.0"
+  source  = "jwallace145/jwall-engineering/aws//modules/context"
+  version = "~> 0.1"
 
   project     = "guitar"
   environment = "prod"
@@ -34,6 +37,12 @@ provider "aws" {
     tags = module.context.tags
   }
 }
+```
+
+The git source also works and pins to the same release tags:
+
+```hcl
+source = "git::https://github.com/jwallace145/terraform-aws-jwall-engineering.git//modules/context?ref=v0.1.0"
 ```
 
 Every module targets `us-east-1`, requires Terraform `>= 1.11` and the AWS
