@@ -65,3 +65,12 @@ resource "aws_iam_role_policy_attachment" "this" {
   role       = aws_iam_role.this.name
   policy_arn = each.value
 }
+
+# Keyed by a caller-chosen name rather than the ARN, so the ARN of a policy
+# created in the same run may be unknown until apply.
+resource "aws_iam_role_policy_attachment" "keyed" {
+  for_each = var.managed_policies
+
+  role       = aws_iam_role.this.name
+  policy_arn = each.value
+}

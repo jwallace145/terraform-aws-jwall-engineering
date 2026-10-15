@@ -138,7 +138,7 @@ run "origin_access_control_and_function" {
 
   assert {
     condition     = aws_cloudfront_function.viewer_request.name == "jwall-engineering-guitar-guitar-jwall-engineering"
-    error_message = "function name must be prefixed with bucket_name so site-ci-roles can scope it (got ${aws_cloudfront_function.viewer_request.name})"
+    error_message = "function name must be prefixed with bucket_name so the static-site/* CI policies can scope it (got ${aws_cloudfront_function.viewer_request.name})"
   }
 
   assert {

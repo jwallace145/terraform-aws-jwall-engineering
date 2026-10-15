@@ -27,11 +27,12 @@ Run the full CI suite locally before opening a PR:
 
 ```sh
 terraform fmt -check -recursive
-for m in . modules/*; do
+# Every module, including the nested ci-policies leaves.
+for m in . $(find modules -name versions.tf -not -path '*/examples/*' -not -path '*/.terraform/*' -exec dirname {} \; | sort); do
   (cd "$m" && terraform init -backend=false && terraform validate \
     && tflint --config "$OLDPWD/.tflint.hcl" && terraform test)
 done
-for m in . modules/*; do terraform-docs "$m"; done && git diff --exit-code
+for m in . $(find modules -name versions.tf -not -path '*/examples/*' -not -path '*/.terraform/*' -exec dirname {} \; | sort); do terraform-docs "$m"; done && git diff --exit-code
 npm run test:commitlint
 ```
 
@@ -81,15 +82,18 @@ local `only-coauthor-trailers` rule in `commitlint/`). The fixtures in
   - `fmt`, `terraform fmt -check -recursive`
   - `terraform (<module>)` per module: `init -backend=false`, `validate`,
     `tflint` with the AWS ruleset, `terraform test`, and a terraform-docs
-    diff check, for both the module and its `examples/basic`
+    diff check, for both the module and its `examples/basic` (the
+    `ci-policies` leaves have no example)
 - All of these are required status checks on `main`.
 
 ## Module standards
 
 - Layout: `modules/<name>/` with `main.tf`, `variables.tf`, `outputs.tf`,
-  `versions.tf`, `README.md`, `examples/basic/`, `tests/`. The repo root is
-  itself a module (the site stack) with the same layout and is checked the
-  same way; the Terraform Registry publishes it as
+  `versions.tf`, `README.md`, `examples/basic/`, `tests/`. The policy leaves
+  under `modules/ci-policies/<family>/<name>/` are internal and have no
+  `examples/basic/`; `modules/ci-policies/README.md` explains how to add one.
+  The repo root is itself a module (the site stack) with the same layout and
+  is checked the same way; the Terraform Registry publishes it as
   `jwallace145/jwall-engineering/aws` with the others as submodules.
 - `required_version = ">= 1.11"`, AWS provider `~> 6.0`. Modules never
   configure providers.

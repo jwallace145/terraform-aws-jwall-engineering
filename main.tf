@@ -5,7 +5,7 @@
 #   preview  https://pr-<n>.preview.<domain>    <- <bucket>/previews/pr-<n>
 #
 # The bucket and CI roles are created by the infra repo with the
-# `site-bucket` and `site-ci-roles` submodules; this module only consumes the
+# `site-bucket` and `ci-*-role` submodules; this module only consumes the
 # bucket. Every submodule can also be used on its own.
 
 module "prod" {

@@ -123,7 +123,7 @@ run "viewer_request_function" {
 
   assert {
     condition     = aws_cloudfront_function.viewer_request.name == "jwall-engineering-guitar-preview"
-    error_message = "function name must be prefixed with bucket_name so site-ci-roles can scope it"
+    error_message = "function name must be prefixed with bucket_name so the static-site/* CI policies can scope it"
   }
 
   assert {

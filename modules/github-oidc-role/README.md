@@ -1,7 +1,7 @@
 # github-oidc-role
 
 One IAM role that GitHub Actions assumes through OIDC. It is the building
-block that `site-ci-roles` and `infra-ci-roles` compose, so the trust-policy
+block that `ci-plan-role`, `ci-preview-role` and `ci-apply-role` compose, so the trust-policy
 logic, including the immutable subject form, exists in exactly one place.
 
 ## Trust policy
@@ -36,6 +36,8 @@ the Sid an existing role already uses to adopt it without a trust-policy diff.
   document passed through `jsonencode()` so the policy is known at plan time.
 - `managed_policy_arns` lists managed policies. Each becomes
   `aws_iam_role_policy_attachment.this["<arn>"]`.
+- `managed_policies` maps a name to a managed policy ARN. Each becomes
+  `aws_iam_role_policy_attachment.keyed["<key>"]`.
 
 These resource addresses are part of the module's contract. Callers adopting
 existing roles write `moved` blocks against them.
@@ -46,7 +48,16 @@ Terraform needs the keys of a `for_each` before it applies, and the keys of
 `aws_iam_role_policy_attachment.this` are the ARNs. Passing the `arn` of a
 policy that is created in the same run fails with "for_each set includes
 values derived from resource attributes that cannot be determined until
-apply". Build the ARN from values that are known instead:
+apply". Use `managed_policies` instead, whose keys are names you choose and
+whose ARNs may be unknown until apply:
+
+```hcl
+managed_policies = {
+  extra = aws_iam_policy.extra.arn
+}
+```
+
+Or build the ARN from values that are known:
 
 ```hcl
 managed_policy_arns = [
@@ -117,6 +128,7 @@ No modules.
 | ---- | ---- |
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy_attachment.keyed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 
 ## Inputs
@@ -130,6 +142,7 @@ No modules.
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
 | subjects | Subject suffixes the role trusts, appended to `repo:<repository>:` (and to the immutable prefix when the IDs are set). For example `["pull_request"]` or `["environment:prod"]`. | `list(string)` | n/a | yes |
 | inline\_policies | Inline policies to attach, keyed by suffix. Each value is an IAM policy document object (`{ Version = "2012-10-17", Statement = [...] }`) that becomes `aws_iam_role_policy.this[<key>]` named `<name>-<key>` with `policy = jsonencode(value)`. | `any` | `{}` | no |
+| managed\_policies | Managed policies to attach, keyed by a name that is known at plan time. Each becomes `aws_iam_role_policy_attachment.keyed[<key>]`. Unlike `managed_policy_arns`, the ARNs may be unknown until apply, so policies created in the same run can be attached. | `map(string)` | `{}` | no |
 | managed\_policy\_arns | ARNs of managed policies to attach. Each becomes `aws_iam_role_policy_attachment.this[<arn>]`. | `list(string)` | `[]` | no |
 | max\_session\_duration | Maximum session duration in seconds for the role. | `number` | `3600` | no |
 | name\_tag | Value of the `Name` tag. Left `null`, the module sets no `Name` tag and `Component` is the only tag it adds. | `string` | `null` | no |
@@ -145,6 +158,7 @@ No modules.
 | assume\_role\_policy | The role's trust policy as a JSON string. Exposed so composing modules can test the trust policy. |
 | id | ID of the role (the same as its name). |
 | inline\_policies | Map of `inline_policies` key to `{ name, policy }`, where `policy` is the JSON document attached to the role. |
+| managed\_policies | Map of `managed_policies` key to the ARN attached under it. |
 | managed\_policy\_arns | ARNs of the managed policies attached to the role, sorted. |
 | name | Name of the role. |
 | tags | Tags the module sets on the role (`Component`, and `Name` when `name_tag` is set). Excludes provider `default_tags`. |

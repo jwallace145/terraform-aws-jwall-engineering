@@ -28,7 +28,7 @@ plan in any other region.
 Every resource is tagged `Component = "preview-site"`. All other tags come from
 the caller's provider `default_tags` (see the `context` module). The function
 is named `<bucket_name>-preview` so that it matches the
-`jwall-engineering-<project>-*` name scope in `site-ci-roles`.
+`jwall-engineering-<project>-*` name scope of the `static-site/*` CI policies.
 
 On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site>
 

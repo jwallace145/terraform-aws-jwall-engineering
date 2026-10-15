@@ -15,8 +15,8 @@ locals {
   region_message = "static-site must be deployed in us-east-1 (CloudFront certificates live there); the current region is ${data.aws_region.current.region}."
 
   # CloudFront Function names: 1-64 chars of [A-Za-z0-9_-]. Prefixing with the
-  # bucket name (jwall-engineering-<project>) is what lets site-ci-roles scope
-  # function permissions by name.
+  # bucket name (jwall-engineering-<project>) is what lets the static-site/*
+  # CI policies scope function permissions by name.
   function_name = substr("${var.bucket_name}-${replace(var.domain_name, ".", "-")}", 0, 64)
 
   origin_id = "s3-${var.bucket_name}"

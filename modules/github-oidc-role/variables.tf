@@ -120,6 +120,22 @@ variable "managed_policy_arns" {
   }
 }
 
+variable "managed_policies" {
+  description = "Managed policies to attach, keyed by a name that is known at plan time. Each becomes `aws_iam_role_policy_attachment.keyed[<key>]`. Unlike `managed_policy_arns`, the ARNs may be unknown until apply, so policies created in the same run can be attached."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for k, a in var.managed_policies : length(k) > 0])
+    error_message = "every managed_policies key must be non-empty."
+  }
+
+  validation {
+    condition     = alltrue([for k, a in var.managed_policies : can(regex("^arn:aws:iam::(aws|[0-9]{12}):policy/.+$", a))])
+    error_message = "every managed_policies value must be an IAM policy ARN (`arn:aws:iam::aws:policy/...` or `arn:aws:iam::<account-id>:policy/...`)."
+  }
+}
+
 variable "max_session_duration" {
   description = "Maximum session duration in seconds for the role."
   type        = number
