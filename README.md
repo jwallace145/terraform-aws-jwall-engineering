@@ -47,7 +47,8 @@ The bucket and the CI roles come from the infra repo (`site-bucket`,
 | [`ci-plan-role`](modules/ci-plan-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-plan-role)) | infra repo, one per project | The `<name_root>-<project>-ci-plan` role, trusted by `pull_request`, with the **read** policies it requests from `ci-policies`. |
 | [`ci-preview-role`](modules/ci-preview-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-preview-role)) | infra repo, one per site project | The `<name_root>-<project>-ci-preview` role, trusted by `pull_request`, with the **preview** policies it requests from `ci-policies`. |
 | [`ci-apply-role`](modules/ci-apply-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-apply-role)) | infra repo, one per project | The `<name_root>-<project>-ci-apply` role, trusted by a GitHub environment, with the **read** and **write** policies it requests from `ci-policies`. |
-| [`ci-policies`](modules/ci-policies) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-policies)) | the CI role modules | The catalog of managed policies (`tfstate/*`, `static-site/*`, `foundation/*`) a CI role can request, built per project and role, and the per-role allow-lists. |
+| [`ci-policies`](modules/ci-policies) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-policies)) | the CI role modules | The catalog of managed policies (`tfstate/*`, `static-site/*`, `foundation/*`, `ecr/*`) a CI role can request, built per project and role, and the per-role allow-lists. |
+| [`ecr-repository`](modules/ecr-repository) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ecr-repository)) | infra repo, once per image | A private ECR repository with immutable tags, scan on push, AES256 and a lifecycle policy that keeps the newest release images and expires untagged ones. |
 | [`static-site`](modules/static-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site)) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
 | [`preview-site`](modules/preview-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site)) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
 
@@ -55,7 +56,7 @@ The bucket and the CI roles come from the infra repo (`site-bucket`,
 
 Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
 as `jwallace145/jwall-engineering/aws`. The root module is the site stack; the
-eleven modules under `modules/` are published as
+twelve modules under `modules/` are published as
 [submodules](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules).
 Pin a version:
 

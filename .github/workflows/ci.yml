@@ -103,6 +103,9 @@ jobs:
           - { module: ci-policies/static-site/previews, path: modules/ci-policies/static-site/previews, example: false }
           - { module: ci-policies/foundation/read, path: modules/ci-policies/foundation/read, example: false }
           - { module: ci-policies/foundation/manage, path: modules/ci-policies/foundation/manage, example: false }
+          - { module: ci-policies/ecr/pull, path: modules/ci-policies/ecr/pull, example: false }
+          - { module: ci-policies/ecr/push, path: modules/ci-policies/ecr/push, example: false }
+          - { module: ecr-repository, path: modules/ecr-repository }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:

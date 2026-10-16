@@ -76,6 +76,20 @@ locals {
         Resource = "*"
       },
       {
+        Sid    = "ReadOrganisationRepositories"
+        Effect = "Allow"
+        Action = [
+          "ecr:DescribeRepositories",
+          "ecr:DescribeImages",
+          "ecr:DescribeImageScanFindings",
+          "ecr:ListImages",
+          "ecr:ListTagsForResource",
+          "ecr:GetLifecyclePolicy",
+          "ecr:GetRepositoryPolicy",
+        ]
+        Resource = "arn:aws:ecr:us-east-1:${local.account_id}:repository/${var.name_root}-*"
+      },
+      {
         Sid    = "ReadHostedZone"
         Effect = "Allow"
         Action = [
@@ -98,7 +112,7 @@ locals {
 
 resource "aws_iam_policy" "this" {
   name        = var.name
-  description = "CI policy foundation/read: read the state bucket, managed buckets, <name_root>-* IAM, the GitHub OIDC provider and the hosted zone"
+  description = "CI policy foundation/read: read the state bucket, managed buckets, <name_root>-* IAM and ECR repositories, the GitHub OIDC provider and the hosted zone"
   policy      = jsonencode(local.policy)
 
   tags = {

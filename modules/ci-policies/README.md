@@ -20,7 +20,9 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 | [`static-site/deploy`](static-site/deploy) | write | Create and manage the project's distributions, functions and certificates, change its records, publish `prod/` and `dev/` | `static_site = { bucket_arn, zone_id, record_names }` |
 | [`static-site/previews`](static-site/previews) | preview | List and write `previews/*` in the site bucket | `static_site = { bucket_arn }` |
 | [`foundation/read`](foundation/read) | read | Read the state bucket and managed buckets (not their objects), `<name_root>-*` roles and policies, the GitHub OIDC provider and the hosted zone | `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns? }` |
-| [`foundation/manage`](foundation/manage) | write | Configure the state bucket, manage buckets matching `managed_bucket_patterns` (not their objects), manage `<name_root>-*` roles and policies, change records in the hosted zone | `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns? }` |
+| [`foundation/manage`](foundation/manage) | write | Configure the state bucket, manage buckets matching `managed_bucket_patterns` (not their objects), manage `<name_root>-*` roles, policies and ECR repositories, change records in the hosted zone | `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns? }` |
+| [`ecr/pull`](ecr/pull) | common | Log in to ECR and pull images from one repository | `ecr = { repository_arn }` |
+| [`ecr/push`](ecr/push) | write | Log in to ECR and push images to one repository | `ecr = { repository_arn }` |
 
 `tfstate` takes exactly one of `key` (one stack's state object, for example
 `project=infra/env=prod/infra-prod.tfstate`) or `prefix` (every object under a
@@ -38,9 +40,13 @@ the apply role, which trusts a GitHub environment, may write.
 
 | Role | Accepts |
 |---|---|
-| `plan` | read |
-| `preview` | preview |
-| `apply` | read, write |
+| `plan` | read, common |
+| `preview` | preview, common |
+| `apply` | read, write, common |
+
+`common` policies are ones every role needs in order to run at all, such as
+pulling the CI tool image from ECR. They grant nothing a pull request could
+misuse, which is why the preview role may have them without accepting `read`.
 
 A request outside the allow-list, an unknown policy name, or a policy without
 its `policy_inputs` section fails at plan time with a message that names the
@@ -83,6 +89,7 @@ role, the policy and what is accepted.
 | `cloudfront:*OriginAccessControl`, `cloudfront:*CachePolicy` | `static-site/deploy` | Same reason. The apply role can create, update and delete any OAC or custom cache policy in the account; it cannot touch distributions that are not tagged with the project. |
 | `cloudfront:CreateDistribution`, `cloudfront:CreateFunction`, `acm:RequestCertificate` | `static-site/deploy` | Create actions take no resource ARN; they are conditioned on `aws:RequestTag/Project` instead. |
 | `iam:ListOpenIDConnectProviders` | `foundation/read` | No resource-level support. Looking the provider up by URL lists them first. |
+| `ecr:GetAuthorizationToken` | `ecr/pull`, `ecr/push` | No resource-level support. It only issues the Docker login token; what the token may pull or push is decided by the repository-scoped statements. |
 | `route53:GetChange` on `change/*` | `static-site/read`, `foundation/*` | Change IDs are random; this is read-only status polling. |
 
 `foundation/read` and `foundation/manage` also grant `s3:ListBucket` on the
@@ -134,6 +141,8 @@ No providers.
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
+| ecr\_pull | ./ecr/pull | n/a |
+| ecr\_push | ./ecr/push | n/a |
 | foundation\_manage | ./foundation/manage | n/a |
 | foundation\_read | ./foundation/read | n/a |
 | static\_site\_deploy | ./static-site/deploy | n/a |
@@ -151,11 +160,11 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider, which `foundation/read` may read. | `string` | n/a | yes |
-| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
+| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. Used in policy names and as the `Project` tag value static-site policies are scoped to. | `string` | n/a | yes |
 | role | The CI role the policies are for: `plan`, `preview` or `apply`. It decides which policies may be requested. | `string` | n/a | yes |
 | name\_root | Prefix of every policy name, in kebab-case. Policies are named `<name_root>-<project>-ci-<role>-<family>-<name>`. | `string` | `"jwall-engineering"` | no |
-| policy\_inputs | Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. | <pre>object({<br/>    tfstate = optional(object({<br/>      bucket_arn = string<br/>      key        = optional(string)<br/>      prefix     = optional(string)<br/>    }))<br/>    static_site = optional(object({<br/>      bucket_arn   = string<br/>      zone_id      = optional(string)<br/>      record_names = optional(list(string))<br/>    }))<br/>    foundation = optional(object({<br/>      state_bucket_arn        = string<br/>      hosted_zone_arn         = string<br/>      managed_bucket_patterns = optional(list(string))<br/>      attachable_policy_arns  = optional(list(string))<br/>    }))<br/>  })</pre> | `{}` | no |
+| policy\_inputs | Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. | <pre>object({<br/>    tfstate = optional(object({<br/>      bucket_arn = string<br/>      key        = optional(string)<br/>      prefix     = optional(string)<br/>    }))<br/>    static_site = optional(object({<br/>      bucket_arn   = string<br/>      zone_id      = optional(string)<br/>      record_names = optional(list(string))<br/>    }))<br/>    foundation = optional(object({<br/>      state_bucket_arn        = string<br/>      hosted_zone_arn         = string<br/>      managed_bucket_patterns = optional(list(string))<br/>      attachable_policy_arns  = optional(list(string))<br/>    }))<br/>    ecr = optional(object({<br/>      repository_arn = string<br/>    }))<br/>  })</pre> | `{}` | no |
 
 ## Outputs
 

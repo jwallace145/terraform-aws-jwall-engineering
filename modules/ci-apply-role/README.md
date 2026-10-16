@@ -26,9 +26,9 @@ section per policy family; only the sections the requested policies need are
 required. The catalog README lists every policy, what it grants and the inputs
 it needs.
 
-This role accepts only read and write policies: `tfstate/read`,
+This role accepts only read, write and common policies: `tfstate/read`,
 `tfstate/write`, `static-site/read`, `static-site/deploy`, `foundation/read`,
-`foundation/manage`. Anything else fails at plan time.
+`foundation/manage`, `ecr/pull`, `ecr/push`. Anything else fails at plan time.
 
 `policy_inputs` is passed through as `any` and typed by `ci-policies`. A
 section or attribute it does not know is dropped silently, so a misspelt
@@ -122,7 +122,7 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider (`token.actions.githubusercontent.com`). | `string` | n/a | yes |
-| policies | Managed policies to create and attach, by catalog name. This role accepts only read and write policies: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `foundation/read`, `foundation/manage`. | `set(string)` | n/a | yes |
+| policies | Managed policies to create and attach, by catalog name. This role accepts only read, write and common policies: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. The role is named `<name_root>-<project>-ci-apply`, and static-site policies are scoped to resources tagged `Project = <project>`. | `string` | n/a | yes |
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
 | environment | GitHub environment whose jobs may assume the role. The role trusts `environment:<environment>`. | `string` | `"prod"` | no |

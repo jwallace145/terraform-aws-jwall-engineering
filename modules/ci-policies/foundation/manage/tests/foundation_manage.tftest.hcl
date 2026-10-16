@@ -76,3 +76,20 @@ run "rejects_wildcard_attachable_policy" {
 
   expect_failures = [var.attachable_policy_arns]
 }
+
+run "ecr_manages_repositories_not_images" {
+  command = plan
+
+  assert {
+    condition     = [for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Resource if s.Sid == "ManageOrganisationRepositories"][0] == "arn:aws:ecr:us-east-1:123456789012:repository/jwall-engineering-*"
+    error_message = "ECR management must be limited to <name_root>-* repositories"
+  }
+
+  assert {
+    condition = alltrue([
+      for a in [for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Action if s.Sid == "ManageOrganisationRepositories"][0] :
+      !contains(["ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchDeleteImage"], a)
+    ])
+    error_message = "foundation/manage must not push or delete images; that is ecr/push"
+  }
+}

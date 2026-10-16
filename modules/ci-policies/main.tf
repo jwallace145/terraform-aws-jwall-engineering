@@ -11,14 +11,18 @@ locals {
     "static-site/previews" = "preview"
     "foundation/read"      = "read"
     "foundation/manage"    = "write"
+    "ecr/pull"             = "common"
+    "ecr/push"             = "write"
   }
 
   # plan and preview trust `pull_request`, so unreviewed code can assume them.
-  # Only the apply role, behind a GitHub environment, may write.
+  # Only the apply role, behind a GitHub environment, may write. `common`
+  # policies are ones every role needs to run at all, such as pulling the CI
+  # tool image; they grant nothing a pull request could misuse.
   allowed_classes = {
-    plan    = ["read"]
-    preview = ["preview"]
-    apply   = ["read", "write"]
+    plan    = ["read", "common"]
+    preview = ["preview", "common"]
+    apply   = ["read", "write", "common"]
   }
 
   # <name_root>-<project>-ci-<role>-<family>-<name>
@@ -28,6 +32,7 @@ locals {
   tfstate     = var.policy_inputs.tfstate
   static_site = var.policy_inputs.static_site
   foundation  = var.policy_inputs.foundation
+  ecr         = var.policy_inputs.ecr
 }
 
 module "tfstate_read" {
@@ -103,4 +108,20 @@ module "foundation_manage" {
   hosted_zone_arn         = local.foundation.hosted_zone_arn
   managed_bucket_patterns = local.foundation.managed_bucket_patterns
   attachable_policy_arns  = local.foundation.attachable_policy_arns
+}
+
+module "ecr_pull" {
+  source = "./ecr/pull"
+  count  = contains(var.policies, "ecr/pull") ? 1 : 0
+
+  name           = local.names["ecr/pull"]
+  repository_arn = local.ecr.repository_arn
+}
+
+module "ecr_push" {
+  source = "./ecr/push"
+  count  = contains(var.policies, "ecr/push") ? 1 : 0
+
+  name           = local.names["ecr/push"]
+  repository_arn = local.ecr.repository_arn
 }
