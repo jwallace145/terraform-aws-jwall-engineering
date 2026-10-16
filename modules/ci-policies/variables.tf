@@ -35,7 +35,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "policies" {
-  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`. Each role accepts only some of them; see the README."
+  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`. Each role accepts only some of them; see the README."
   type        = set(string)
 
   validation {
@@ -77,10 +77,15 @@ variable "policies" {
     condition     = !anytrue([for p in var.policies : startswith(p, "foundation/")]) || var.policy_inputs.foundation != null
     error_message = "foundation/* policies require policy_inputs.foundation."
   }
+
+  validation {
+    condition     = !anytrue([for p in var.policies : startswith(p, "ecr/")]) || var.policy_inputs.ecr != null
+    error_message = "ecr/* policies require policy_inputs.ecr."
+  }
 }
 
 variable "policy_inputs" {
-  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`."
+  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`."
   type = object({
     tfstate = optional(object({
       bucket_arn = string
@@ -97,6 +102,9 @@ variable "policy_inputs" {
       hosted_zone_arn         = string
       managed_bucket_patterns = optional(list(string))
       attachable_policy_arns  = optional(list(string))
+    }))
+    ecr = optional(object({
+      repository_arn = string
     }))
   })
   default = {}

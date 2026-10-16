@@ -21,10 +21,10 @@ run "read_only" {
   assert {
     condition = alltrue(flatten([
       for s in jsondecode(aws_iam_policy.this.policy).Statement : [
-        for a in flatten([s.Action]) : can(regex("^[a-z0-9]+:(Get|List)", a))
+        for a in flatten([s.Action]) : can(regex("^[a-z0-9]+:(Get|List|Describe)", a))
       ]
     ]))
-    error_message = "foundation/read must grant only Get* and List* actions"
+    error_message = "foundation/read must grant only Get*, List* and Describe* actions"
   }
 }
 
@@ -61,5 +61,14 @@ run "iam_is_limited_to_the_namespace" {
       [for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Resource if s.Sid == "ReadGitHubOidcProvider"][0] == var.oidc_provider_arn
     )
     error_message = "IAM reads must be limited to <name_root>-* and the GitHub OIDC provider"
+  }
+}
+
+run "ecr_is_limited_to_the_namespace" {
+  command = plan
+
+  assert {
+    condition     = [for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Resource if s.Sid == "ReadOrganisationRepositories"][0] == "arn:aws:ecr:us-east-1:123456789012:repository/jwall-engineering-*"
+    error_message = "ECR reads must be limited to <name_root>-* repositories"
   }
 }

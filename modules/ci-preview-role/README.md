@@ -20,9 +20,9 @@ section per policy family; only the sections the requested policies need are
 required. The catalog README lists every policy, what it grants and the inputs
 it needs.
 
-This role accepts only preview policies: `static-site/previews`. Anything else
-fails at plan time. Any pull request branch in the repository can assume the
-role, so it must reach nothing but `previews/`.
+This role accepts only preview and common policies: `static-site/previews`,
+`ecr/pull`. Anything else fails at plan time. Any pull request branch in the
+repository can assume the role, so it must reach nothing but `previews/`.
 
 `policy_inputs` is passed through as `any` and typed by `ci-policies`. A
 section or attribute it does not know is dropped silently, so a misspelt
@@ -84,7 +84,7 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider (`token.actions.githubusercontent.com`). | `string` | n/a | yes |
-| policies | Managed policies to create and attach, by catalog name. This role accepts only preview policies: `static-site/previews`. | `set(string)` | n/a | yes |
+| policies | Managed policies to create and attach, by catalog name. This role accepts only preview and common policies: `static-site/previews`, `ecr/pull`. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. The role is named `<name_root>-<project>-ci-preview`, and static-site policies are scoped to resources tagged `Project = <project>`. | `string` | n/a | yes |
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
 | name\_root | Prefix of the role and policy names, in kebab-case. The role is named `<name_root>-<project>-ci-preview`. | `string` | `"jwall-engineering"` | no |

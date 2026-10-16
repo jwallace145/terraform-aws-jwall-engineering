@@ -9,6 +9,8 @@ locals {
     { for m in module.static_site_previews : "static-site/previews" => m },
     { for m in module.foundation_read : "foundation/read" => m },
     { for m in module.foundation_manage : "foundation/manage" => m },
+    { for m in module.ecr_pull : "ecr/pull" => m },
+    { for m in module.ecr_push : "ecr/push" => m },
   )
 }
 

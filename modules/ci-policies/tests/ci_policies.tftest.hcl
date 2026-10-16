@@ -38,6 +38,9 @@ variables {
       state_bucket_arn = "arn:aws:s3:::jwall-engineering-tfstate"
       hosted_zone_arn  = "arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ"
     }
+    ecr = {
+      repository_arn = "arn:aws:ecr:us-east-1:123456789012:repository/jwall-engineering-sites"
+    }
   }
 }
 
@@ -83,6 +86,8 @@ run "every_policy_fits_the_managed_policy_size_limit" {
       "static-site/deploy",
       "foundation/read",
       "foundation/manage",
+      "ecr/pull",
+      "ecr/push",
     ]
   }
 
@@ -93,7 +98,7 @@ run "every_policy_fits_the_managed_policy_size_limit" {
   }
 
   assert {
-    condition     = length(output.documents) == 6
+    condition     = length(output.documents) == 8
     error_message = "every requested policy must produce a document"
   }
 }
@@ -283,4 +288,81 @@ run "rejects_role_outside_the_catalog" {
   }
 
   expect_failures = [var.role]
+}
+
+# --- common class: every role may pull the CI tool image ---------------------
+
+run "every_role_accepts_ecr_pull" {
+  command = plan
+
+  variables {
+    role     = "preview"
+    policies = ["static-site/previews", "ecr/pull"]
+  }
+
+  assert {
+    condition     = output.names["ecr/pull"] == "jwall-engineering-guitar-ci-preview-ecr-pull"
+    error_message = "the preview role must accept the common policy ecr/pull"
+  }
+}
+
+run "plan_role_accepts_ecr_pull" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    policies = ["tfstate/read", "ecr/pull"]
+  }
+
+  assert {
+    condition     = length(output.arns) == 2
+    error_message = "the plan role must accept the common policy ecr/pull"
+  }
+}
+
+run "apply_role_accepts_ecr_push" {
+  command = plan
+
+  variables {
+    policies = ["foundation/manage", "ecr/push"]
+  }
+
+  assert {
+    condition     = output.names["ecr/push"] == "jwall-engineering-guitar-ci-apply-ecr-push"
+    error_message = "the apply role must accept the write policy ecr/push"
+  }
+}
+
+run "plan_role_rejects_ecr_push" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    policies = ["ecr/push"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "preview_role_rejects_ecr_push" {
+  command = plan
+
+  variables {
+    role     = "preview"
+    policies = ["ecr/push"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "rejects_ecr_without_inputs" {
+  command = plan
+
+  variables {
+    role          = "preview"
+    policies      = ["ecr/pull"]
+    policy_inputs = {}
+  }
+
+  expect_failures = [var.policies]
 }

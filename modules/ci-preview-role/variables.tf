@@ -52,7 +52,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "policies" {
-  description = "Managed policies to create and attach, by catalog name. This role accepts only preview policies: `static-site/previews`."
+  description = "Managed policies to create and attach, by catalog name. This role accepts only preview and common policies: `static-site/previews`, `ecr/pull`."
   type        = set(string)
 }
 

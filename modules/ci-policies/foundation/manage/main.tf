@@ -109,6 +109,28 @@ locals {
         Resource = local.managed_policy_arn
       },
 
+      # --- ECR: only <name_root>-* repositories ---------------------------------
+      # Repository management only. Pushing images is ecr/push, requested
+      # separately for the one repository a role publishes to.
+      {
+        Sid    = "ManageOrganisationRepositories"
+        Effect = "Allow"
+        Action = [
+          "ecr:CreateRepository",
+          "ecr:DeleteRepository",
+          "ecr:PutImageTagMutability",
+          "ecr:PutImageScanningConfiguration",
+          "ecr:PutEncryptionConfiguration",
+          "ecr:PutLifecyclePolicy",
+          "ecr:DeleteLifecyclePolicy",
+          "ecr:SetRepositoryPolicy",
+          "ecr:DeleteRepositoryPolicy",
+          "ecr:TagResource",
+          "ecr:UntagResource",
+        ]
+        Resource = "arn:aws:ecr:us-east-1:${local.account_id}:repository/${var.name_root}-*"
+      },
+
       # --- Route 53: the caller's zone only -------------------------------------
       {
         Sid    = "ManageHostedZone"
@@ -136,7 +158,7 @@ locals {
 
 resource "aws_iam_policy" "this" {
   name        = var.name
-  description = "CI policy foundation/manage: manage the state bucket configuration, managed buckets, <name_root>-* IAM and the hosted zone"
+  description = "CI policy foundation/manage: manage the state bucket configuration, managed buckets, <name_root>-* IAM and ECR repositories, and the hosted zone"
   policy      = jsonencode(local.policy)
 
   tags = {
