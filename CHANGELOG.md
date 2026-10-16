@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.8.0...v0.8.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ci-policies:** keep the foundation policy descriptions unchanged ([#22](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/22)) ([a53d077](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/a53d077a40f959d5278479c21b793c6c3ae78620))
+
 ## [0.8.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.7.0...v0.8.0) (2026-10-16)
 
 
