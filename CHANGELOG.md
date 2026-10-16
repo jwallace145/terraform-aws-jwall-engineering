@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.7.0...v0.8.0) (2026-10-16)
+
+
+### Features
+
+* **ci-policies:** add ecr-repository and the ecr/pull and ecr/push policies ([#20](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/20)) ([3321248](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/3321248ce2938fad38ca789839e4d5339b6d1e3e))
+
 ## [0.7.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.6.0...v0.7.0) (2026-10-15)
 
 
