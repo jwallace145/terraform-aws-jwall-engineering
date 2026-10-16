@@ -43,3 +43,14 @@ run "rejects_non_repository_arn" {
 
   expect_failures = [var.repository_arn]
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy ecr/pull: log in to ECR and pull images from one repository"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

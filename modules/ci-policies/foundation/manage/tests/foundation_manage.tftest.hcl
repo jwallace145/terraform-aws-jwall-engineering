@@ -93,3 +93,14 @@ run "ecr_manages_repositories_not_images" {
     error_message = "foundation/manage must not push or delete images; that is ecr/push"
   }
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy foundation/manage: manage the state bucket configuration, managed buckets, <name_root>-* IAM and the hosted zone"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

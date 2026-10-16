@@ -111,8 +111,10 @@ locals {
 }
 
 resource "aws_iam_policy" "this" {
+  # Frozen: `description` forces replacement of the policy, which detaches it
+  # from every role mid-apply. Document what a policy grants in the README.
   name        = var.name
-  description = "CI policy foundation/read: read the state bucket, managed buckets, <name_root>-* IAM and ECR repositories, the GitHub OIDC provider and the hosted zone"
+  description = "CI policy foundation/read: read the state bucket, managed buckets, <name_root>-* IAM, the GitHub OIDC provider and the hosted zone"
   policy      = jsonencode(local.policy)
 
   tags = {

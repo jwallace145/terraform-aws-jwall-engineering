@@ -33,3 +33,14 @@ run "push_to_one_repository" {
     error_message = "only GetAuthorizationToken may use Resource = *"
   }
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy ecr/push: log in to ECR and push images to one repository"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

@@ -35,3 +35,14 @@ run "limited_to_previews" {
     error_message = "static-site/previews must only list and write previews/"
   }
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy static-site/previews: publish and remove pull request previews under previews/"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

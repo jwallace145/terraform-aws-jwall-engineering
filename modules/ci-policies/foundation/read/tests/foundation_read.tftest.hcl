@@ -72,3 +72,14 @@ run "ecr_is_limited_to_the_namespace" {
     error_message = "ECR reads must be limited to <name_root>-* repositories"
   }
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy foundation/read: read the state bucket, managed buckets, <name_root>-* IAM, the GitHub OIDC provider and the hosted zone"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

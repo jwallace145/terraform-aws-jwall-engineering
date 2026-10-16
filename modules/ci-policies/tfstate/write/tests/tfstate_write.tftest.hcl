@@ -70,3 +70,14 @@ run "rejects_both_key_and_prefix" {
 
   expect_failures = [var.key]
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy tfstate/write: read and write Terraform state and its lock"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}
