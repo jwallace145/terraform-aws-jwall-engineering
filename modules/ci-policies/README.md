@@ -107,6 +107,14 @@ more access. Treat a compromise of the environment that role trusts as a
 compromise of the account: protect it with required reviewers and deployment
 branches restricted to `main`.
 
+## Policy descriptions are frozen
+
+`description` on `aws_iam_policy` forces replacement. Replacing a policy
+detaches it from every role that holds it until the new one is attached, and
+when the role doing the apply holds it, the apply can lose its own
+permissions partway through. Every leaf therefore pins its description in a
+test. Describe what a policy grants in its README, never in the description.
+
 ## Adding a policy
 
 1. Create `<family>/<name>/` with `main.tf` (one `aws_iam_policy.this`),

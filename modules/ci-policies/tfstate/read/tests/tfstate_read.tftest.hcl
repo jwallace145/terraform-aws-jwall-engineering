@@ -97,3 +97,14 @@ run "rejects_wildcard_prefix" {
 
   expect_failures = [var.prefix]
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy tfstate/read: read Terraform state and write its lock"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

@@ -90,3 +90,14 @@ run "rejects_uppercase_record_name" {
 
   expect_failures = [var.record_names]
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy static-site/deploy: manage the project's distributions, functions, certificates and records, and publish prod/ and dev/"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}

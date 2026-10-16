@@ -52,3 +52,14 @@ run "read_only_and_project_scoped" {
     error_message = "only the documented gaps may use Resource = *"
   }
 }
+
+# `description` forces replacement of the policy, which would detach it from
+# every role mid-apply. It is frozen; change the README instead.
+run "description_is_frozen" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_policy.this.description == "CI policy static-site/read: read the project's site bucket, distributions, functions, certificates and hosted zone"
+    error_message = "the policy description must never change: it forces replacement"
+  }
+}
