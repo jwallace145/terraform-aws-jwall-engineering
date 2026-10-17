@@ -33,7 +33,16 @@ module "site" {
 ```
 
 The bucket and the CI roles come from the infra repo (`site-bucket`,
-`ci-plan-role`, `ci-preview-role` and `ci-apply-role` submodules). Each submodule can also be used on its own.
+`ci-plan-role`, `ci-preview-role` and `ci-apply-role` submodules).
+
+Site repositories no longer call this root module themselves. The
+`jwall-engineering-sites` CLI in
+[jwall-engineering-infra](https://github.com/jwallace145/jwall-engineering-infra)
+renders it for each site from one `jwall-engineering-sites.yaml`, pins the
+version in its `config.yaml`, and runs it from a versioned image through
+reusable workflows. Bumping this library for every site is therefore one
+`chore(deps)` PR there, followed by an image release. Calling the modules
+directly still works for anything that is not a jwall.engineering site. Each submodule can also be used on its own.
 
 ## Submodules
 
