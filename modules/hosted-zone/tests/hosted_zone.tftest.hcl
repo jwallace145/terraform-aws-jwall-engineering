@@ -177,8 +177,8 @@ run "txt_record_per_label_with_quoted_values" {
 
   variables {
     txt_records = {
-      "_github-pages-challenge-jwallace145" = ["278aa0fd98189307922e6679ba36f1"]
-      "@"                                   = ["v=spf1 -all", "google-site-verification=abc123"]
+      "_github-pages-challenge-octocat" = ["0123456789abcdef0123456789abcd"]
+      "@"                               = ["v=spf1 -all", "google-site-verification=abc123"]
     }
   }
 
@@ -189,16 +189,16 @@ run "txt_record_per_label_with_quoted_values" {
 
   assert {
     condition = (
-      aws_route53_record.txt["_github-pages-challenge-jwallace145"].type == "TXT" &&
-      aws_route53_record.txt["_github-pages-challenge-jwallace145"].name == "_github-pages-challenge-jwallace145.jwall.engineering" &&
-      aws_route53_record.txt["_github-pages-challenge-jwallace145"].ttl == 300 &&
-      aws_route53_record.txt["_github-pages-challenge-jwallace145"].zone_id == "Z0123456789ABCDEFGHIJ"
+      aws_route53_record.txt["_github-pages-challenge-octocat"].type == "TXT" &&
+      aws_route53_record.txt["_github-pages-challenge-octocat"].name == "_github-pages-challenge-octocat.jwall.engineering" &&
+      aws_route53_record.txt["_github-pages-challenge-octocat"].ttl == 300 &&
+      aws_route53_record.txt["_github-pages-challenge-octocat"].zone_id == "Z0123456789ABCDEFGHIJ"
     )
     error_message = "a label key becomes <label>.<zone> with the default TTL"
   }
 
   assert {
-    condition     = aws_route53_record.txt["_github-pages-challenge-jwallace145"].records == toset(["\"278aa0fd98189307922e6679ba36f1\""])
+    condition     = aws_route53_record.txt["_github-pages-challenge-octocat"].records == toset(["\"0123456789abcdef0123456789abcd\""])
     error_message = "each TXT string must be wrapped in double quotes for Route 53"
   }
 
@@ -217,12 +217,12 @@ run "txt_ttl_is_configurable" {
   command = plan
 
   variables {
-    txt_records = { "_github-pages-challenge-jwallace145" = ["278aa0fd98189307922e6679ba36f1"] }
+    txt_records = { "_github-pages-challenge-octocat" = ["0123456789abcdef0123456789abcd"] }
     txt_ttl     = 60
   }
 
   assert {
-    condition     = aws_route53_record.txt["_github-pages-challenge-jwallace145"].ttl == 60
+    condition     = aws_route53_record.txt["_github-pages-challenge-octocat"].ttl == 60
     error_message = "txt_ttl must set the TXT record TTL"
   }
 }
@@ -231,7 +231,7 @@ run "rejects_txt_record_with_no_values" {
   command = plan
 
   variables {
-    txt_records = { "_github-pages-challenge-jwallace145" = [] }
+    txt_records = { "_github-pages-challenge-octocat" = [] }
   }
 
   expect_failures = [var.txt_records]
@@ -241,7 +241,7 @@ run "rejects_txt_value_with_a_quote" {
   command = plan
 
   variables {
-    txt_records = { "_github-pages-challenge-jwallace145" = ["\"278aa0fd\""] }
+    txt_records = { "_github-pages-challenge-octocat" = ["\"0123abcd\""] }
   }
 
   expect_failures = [var.txt_records]
@@ -251,7 +251,7 @@ run "rejects_fqdn_txt_key" {
   command = plan
 
   variables {
-    txt_records = { "_github-pages-challenge-jwallace145.jwall.engineering" = ["278aa0fd98189307922e6679ba36f1"] }
+    txt_records = { "_github-pages-challenge-octocat.jwall.engineering" = ["0123456789abcdef0123456789abcd"] }
   }
 
   expect_failures = [var.txt_records]

@@ -53,7 +53,7 @@ variable "txt_records" {
         && k != var.name && !endswith(k, ".${var.name}")
       )
     ])
-    error_message = "every txt_records key must be `@` or a lowercase record name relative to the zone (e.g. `_github-pages-challenge-jwallace145`), not a FQDN."
+    error_message = "every txt_records key must be `@` or a lowercase record name relative to the zone (e.g. `_github-pages-challenge-octocat`), not a FQDN."
   }
 
   validation {

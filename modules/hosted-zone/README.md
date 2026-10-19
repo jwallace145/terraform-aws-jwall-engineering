@@ -60,7 +60,7 @@ module "zone" {
   comment = "jwall-engineering: zone owned by jwallace145/jwall-engineering-infra; records owned by project repos"
 
   txt_records = {
-    "_github-pages-challenge-jwallace145" = ["278aa0fd98189307922e6679ba36f1"]
+    "_github-pages-challenge-octocat" = ["0123456789abcdef0123456789abcd"]
   }
 }
 ```
