@@ -15,7 +15,8 @@ resource "aws_route53_zone" "this" {
   }
 }
 
-# Zone-level CAA record. Project repos own every other record in the zone.
+# Zone-level CAA record. Project repos own every record in the zone except
+# this one and the TXT records below.
 resource "aws_route53_record" "caa" {
   count = length(var.caa_issuers) > 0 ? 1 : 0
 
@@ -25,4 +26,18 @@ resource "aws_route53_record" "caa" {
   ttl     = var.caa_ttl
 
   records = [for issuer in var.caa_issuers : "0 issue \"${issuer}\""]
+}
+
+# Zone-level TXT records: domain-verification tokens and the like that belong
+# to the zone owner, not to a project. Route 53 wants each string in double
+# quotes, which the module adds so callers pass bare strings.
+resource "aws_route53_record" "txt" {
+  for_each = var.txt_records
+
+  zone_id = aws_route53_zone.this.zone_id
+  name    = each.key == "@" ? var.name : "${each.key}.${var.name}"
+  type    = "TXT"
+  ttl     = var.txt_ttl
+
+  records = [for s in each.value : "\"${s}\""]
 }
