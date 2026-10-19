@@ -29,8 +29,10 @@ resource "aws_route53_record" "caa" {
 }
 
 # Zone-level TXT records: domain-verification tokens and the like that belong
-# to the zone owner, not to a project. Route 53 wants each string in double
-# quotes, which the module adds so callers pass bare strings.
+# to the zone owner, not to a project. Values are passed bare: the AWS
+# provider wraps each TXT string in the double quotes Route 53 wants and
+# strips them again on read, so quoting here would double them and Route 53
+# would reject the change.
 resource "aws_route53_record" "txt" {
   for_each = var.txt_records
 
@@ -39,5 +41,5 @@ resource "aws_route53_record" "txt" {
   type    = "TXT"
   ttl     = var.txt_ttl
 
-  records = [for s in each.value : "\"${s}\""]
+  records = each.value
 }

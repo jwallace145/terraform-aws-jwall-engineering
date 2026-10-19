@@ -13,10 +13,11 @@ is what someone sees first in the console.
 - `txt_records` creates one TXT record per entry for the tokens that belong
   to the zone owner rather than to a project: GitHub Pages domain
   verification (`_github-pages-challenge-<user>`), SPF, site verification.
-  Keys are record names relative to the zone, `@` for the apex. Route 53
-  wants each TXT string in double quotes; the module adds them, so pass bare
-  strings. Verification tokens stay valid only while the record exists, so
-  keep them here rather than adding them by hand.
+  Keys are record names relative to the zone, `@` for the apex. Pass bare
+  strings: the AWS provider wraps each TXT string in the double quotes Route
+  53 wants (and strips them on read), so quoting them yourself doubles the
+  quotes and Route 53 rejects the record. Verification tokens stay valid only
+  while the record exists, so keep them here rather than adding them by hand.
 
 ## `prevent_destroy` is hard-coded
 
@@ -101,7 +102,7 @@ No modules.
 | caa\_ttl | TTL in seconds of the CAA record. | `number` | `300` | no |
 | component | Value of the `Component` tag on the zone. | `string` | `"dns"` | no |
 | name\_tag | Value of the zone's `Name` tag. Left `null`, it falls back to `name`. Set it to an existing zone's current `Name` tag to adopt the zone without a tag change. | `string` | `null` | no |
-| txt\_records | Zone-level TXT records that belong to the zone owner rather than to a project, such as domain-verification tokens (`_github-pages-challenge-<user>`) or SPF. Keyed by the record name relative to the zone (`@` for the apex); each value is the list of strings for that record. Strings are quoted for Route 53 by the module, so pass them bare. | `map(list(string))` | `{}` | no |
+| txt\_records | Zone-level TXT records that belong to the zone owner rather than to a project, such as domain-verification tokens (`_github-pages-challenge-<user>`) or SPF. Keyed by the record name relative to the zone (`@` for the apex); each value is the list of strings for that record. Pass bare strings; the AWS provider adds the quotes Route 53 wants. | `map(list(string))` | `{}` | no |
 | txt\_ttl | TTL in seconds of the TXT records. | `number` | `300` | no |
 
 ## Outputs
