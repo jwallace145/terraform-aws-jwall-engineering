@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.8.1...v0.9.0) (2026-10-19)
+
+
+### Features
+
+* **hosted-zone:** add txt_records for zone-owner TXT records such as domain verification ([#25](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/25)) ([aed86ee](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/aed86eee367ed43d838a9eea4920f43c3baa548c))
+
 ## [0.8.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.8.0...v0.8.1) (2026-10-16)
 
 
