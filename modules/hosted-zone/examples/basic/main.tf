@@ -26,6 +26,12 @@ module "zone" {
 
   # Keep the Name tag the zone already carries.
   name_tag = "jwall-engineering-infra-dns-zone"
+
+  # GitHub Pages domain verification for the jwallace145 account. The token
+  # comes from https://github.com/settings/pages; the module adds the quotes.
+  txt_records = {
+    "_github-pages-challenge-jwallace145" = ["278aa0fd98189307922e6679ba36f1"]
+  }
 }
 
 output "zone_id" {

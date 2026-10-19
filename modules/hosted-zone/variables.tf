@@ -40,6 +40,44 @@ variable "caa_ttl" {
   }
 }
 
+variable "txt_records" {
+  description = "Zone-level TXT records that belong to the zone owner rather than to a project, such as domain-verification tokens (`_github-pages-challenge-<user>`) or SPF. Keyed by the record name relative to the zone (`@` for the apex); each value is the list of strings for that record. Strings are quoted for Route 53 by the module, so pass them bare."
+  type        = map(list(string))
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for k, _ in var.txt_records :
+      k == "@" || (
+        can(regex("^[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?(\\.[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?)*$", k))
+        && k != var.name && !endswith(k, ".${var.name}")
+      )
+    ])
+    error_message = "every txt_records key must be `@` or a lowercase record name relative to the zone (e.g. `_github-pages-challenge-jwallace145`), not a FQDN."
+  }
+
+  validation {
+    condition     = alltrue([for _, values in var.txt_records : length(values) > 0])
+    error_message = "every txt_records entry needs at least one string."
+  }
+
+  validation {
+    condition     = alltrue([for _, values in var.txt_records : alltrue([for s in values : length(s) > 0 && length(s) <= 255 && !strcontains(s, "\"")])])
+    error_message = "every TXT string must be 1 to 255 characters and contain no double quotes; the module adds the quotes Route 53 needs."
+  }
+}
+
+variable "txt_ttl" {
+  description = "TTL in seconds of the TXT records."
+  type        = number
+  default     = 300
+
+  validation {
+    condition     = var.txt_ttl >= 0 && floor(var.txt_ttl) == var.txt_ttl
+    error_message = "txt_ttl must be a non-negative whole number of seconds."
+  }
+}
+
 variable "name_tag" {
   description = "Value of the zone's `Name` tag. Left `null`, it falls back to `name`. Set it to an existing zone's current `Name` tag to adopt the zone without a tag change."
   type        = string

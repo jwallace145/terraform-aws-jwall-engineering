@@ -162,3 +162,97 @@ run "rejects_quoted_issuer" {
 
   expect_failures = [var.caa_issuers]
 }
+
+run "no_txt_records_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_route53_record.txt) == 0
+    error_message = "without txt_records the module creates no TXT record"
+  }
+}
+
+run "txt_record_per_label_with_quoted_values" {
+  command = plan
+
+  variables {
+    txt_records = {
+      "_github-pages-challenge-jwallace145" = ["278aa0fd98189307922e6679ba36f1"]
+      "@"                                   = ["v=spf1 -all", "google-site-verification=abc123"]
+    }
+  }
+
+  assert {
+    condition     = length(aws_route53_record.txt) == 2
+    error_message = "each txt_records key creates one TXT record"
+  }
+
+  assert {
+    condition = (
+      aws_route53_record.txt["_github-pages-challenge-jwallace145"].type == "TXT" &&
+      aws_route53_record.txt["_github-pages-challenge-jwallace145"].name == "_github-pages-challenge-jwallace145.jwall.engineering" &&
+      aws_route53_record.txt["_github-pages-challenge-jwallace145"].ttl == 300 &&
+      aws_route53_record.txt["_github-pages-challenge-jwallace145"].zone_id == "Z0123456789ABCDEFGHIJ"
+    )
+    error_message = "a label key becomes <label>.<zone> with the default TTL"
+  }
+
+  assert {
+    condition     = aws_route53_record.txt["_github-pages-challenge-jwallace145"].records == toset(["\"278aa0fd98189307922e6679ba36f1\""])
+    error_message = "each TXT string must be wrapped in double quotes for Route 53"
+  }
+
+  assert {
+    condition     = aws_route53_record.txt["@"].name == "jwall.engineering"
+    error_message = "the @ key is the zone apex"
+  }
+
+  assert {
+    condition     = aws_route53_record.txt["@"].records == toset(["\"v=spf1 -all\"", "\"google-site-verification=abc123\""])
+    error_message = "every string of a record is quoted"
+  }
+}
+
+run "txt_ttl_is_configurable" {
+  command = plan
+
+  variables {
+    txt_records = { "_github-pages-challenge-jwallace145" = ["278aa0fd98189307922e6679ba36f1"] }
+    txt_ttl     = 60
+  }
+
+  assert {
+    condition     = aws_route53_record.txt["_github-pages-challenge-jwallace145"].ttl == 60
+    error_message = "txt_ttl must set the TXT record TTL"
+  }
+}
+
+run "rejects_txt_record_with_no_values" {
+  command = plan
+
+  variables {
+    txt_records = { "_github-pages-challenge-jwallace145" = [] }
+  }
+
+  expect_failures = [var.txt_records]
+}
+
+run "rejects_txt_value_with_a_quote" {
+  command = plan
+
+  variables {
+    txt_records = { "_github-pages-challenge-jwallace145" = ["\"278aa0fd\""] }
+  }
+
+  expect_failures = [var.txt_records]
+}
+
+run "rejects_fqdn_txt_key" {
+  command = plan
+
+  variables {
+    txt_records = { "_github-pages-challenge-jwallace145.jwall.engineering" = ["278aa0fd98189307922e6679ba36f1"] }
+  }
+
+  expect_failures = [var.txt_records]
+}
