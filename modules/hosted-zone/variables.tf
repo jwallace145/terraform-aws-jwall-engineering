@@ -41,7 +41,7 @@ variable "caa_ttl" {
 }
 
 variable "txt_records" {
-  description = "Zone-level TXT records that belong to the zone owner rather than to a project, such as domain-verification tokens (`_github-pages-challenge-<user>`) or SPF. Keyed by the record name relative to the zone (`@` for the apex); each value is the list of strings for that record. Strings are quoted for Route 53 by the module, so pass them bare."
+  description = "Zone-level TXT records that belong to the zone owner rather than to a project, such as domain-verification tokens (`_github-pages-challenge-<user>`) or SPF. Keyed by the record name relative to the zone (`@` for the apex); each value is the list of strings for that record. Pass bare strings; the AWS provider adds the quotes Route 53 wants."
   type        = map(list(string))
   default     = {}
 
@@ -63,7 +63,7 @@ variable "txt_records" {
 
   validation {
     condition     = alltrue([for _, values in var.txt_records : alltrue([for s in values : length(s) > 0 && length(s) <= 255 && !strcontains(s, "\"")])])
-    error_message = "every TXT string must be 1 to 255 characters and contain no double quotes; the module adds the quotes Route 53 needs."
+    error_message = "every TXT string must be 1 to 255 characters and contain no double quotes; the AWS provider adds the quotes Route 53 needs."
   }
 }
 

@@ -29,7 +29,8 @@ module "zone" {
 
   # GitHub Pages domain verification for the GitHub account that owns the
   # domain. The record name carries the account's username and the token
-  # comes from https://github.com/settings/pages; the module adds the quotes.
+  # comes from https://github.com/settings/pages; pass it bare, the provider
+  # adds the quotes.
   txt_records = {
     "_github-pages-challenge-octocat" = ["0123456789abcdef0123456789abcd"]
   }
