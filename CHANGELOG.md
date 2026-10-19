@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.9.0...v0.9.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **hosted-zone:** pass TXT values bare so the provider's quoting is not doubled ([#27](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/27)) ([a34a4fd](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/a34a4fdef9a5b65abaa6dcb25e4e40d325122a08))
+
 ## [0.9.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.8.1...v0.9.0) (2026-10-19)
 
 
