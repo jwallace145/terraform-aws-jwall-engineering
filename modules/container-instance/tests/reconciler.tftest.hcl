@@ -73,12 +73,12 @@ run "reconciler_contract" {
   }
 
   assert {
-    condition     = strcontains(output.reconciler_script, "flock -n 9")
-    error_message = "one reconcile at a time"
+    condition     = strcontains(output.reconciler_script, "\n  flock 9\n") && !strcontains(output.reconciler_script, "flock -n")
+    error_message = "one reconcile at a time, and a second one waits instead of dropping a newer deploy"
   }
 
   assert {
-    condition     = alltrue([for s in ["status \"waiting:", "status ok", "status \"rolling-back:", "status \"failed:"] : strcontains(output.reconciler_script, s)])
+    condition     = alltrue([for s in ["status_soft \"waiting:", "status ok", "status_soft \"rolling-back:", "status \"failed:"] : strcontains(output.reconciler_script, s)])
     error_message = "every documented status value is written"
   }
 
@@ -98,12 +98,17 @@ run "reconciler_contract" {
   }
 
   assert {
+    condition     = strcontains(output.reconciler_script, "trap 'on_error $LINENO' ERR")
+    error_message = "an unexpected failure still ends in a terminal failed: status"
+  }
+
+  assert {
     condition     = !strcontains(lower(output.reconciler_script), "lichess")
     error_message = "the reconciler is generic"
   }
 
   assert {
-    condition     = strcontains(output.reconciler_script, "\"$RECORDS_ROOT/$tag\"")
+    condition     = strcontains(output.reconciler_script, "$RECORDS_ROOT/$tag")
     error_message = "each version writes records into its own directory"
   }
 }
