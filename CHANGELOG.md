@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.9.1...v0.10.0) (2026-10-28)
+
+
+### Features
+
+* add vpc, private-bucket, container-instance and container CI policies ([#29](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/29)) ([61490a0](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/61490a0f4a05ec3caf102bf978395be768b3c935))
+
 ## [0.9.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.9.0...v0.9.1) (2026-10-19)
 
 
