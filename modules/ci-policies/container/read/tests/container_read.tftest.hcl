@@ -86,9 +86,9 @@ run "no_writes" {
   assert {
     condition = alltrue([
       for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) :
-      can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:ListBucket$)", a))
+      can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:GetReplicationConfiguration|s3:ListBucket$|logs:FilterLogEvents|logs:GetLogEvents)", a))
     ])
-    error_message = "container/read must grant read-only actions: ${join(", ", [for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : a if !can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:ListBucket$)", a))])}"
+    error_message = "container/read must grant read-only actions: ${join(", ", [for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : a if !can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:GetReplicationConfiguration|s3:ListBucket$|logs:FilterLogEvents|logs:GetLogEvents)", a))])}"
   }
 }
 
@@ -118,5 +118,40 @@ run "fits_policy_size_limit" {
   assert {
     condition     = length(aws_iam_policy.this.policy) <= 6144
     error_message = "managed policies are limited to 6144 characters"
+  }
+}
+
+# aws_s3_bucket refresh reads the replication configuration and fails on
+# AccessDenied; s3:GetReplicationConfiguration is not matched by s3:GetBucket*.
+run "records_bucket_refresh" {
+  command = plan
+
+  assert {
+    condition = contains(
+      flatten([[for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadRecordsBucket"][0].Action]),
+      "s3:GetReplicationConfiguration"
+    )
+    error_message = "the plan and apply roles must be able to refresh the records bucket"
+  }
+}
+
+# `bot logs` runs with the plan role.
+run "reads_the_bot_logs" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for a in ["logs:FilterLogEvents", "logs:GetLogEvents", "logs:DescribeLogStreams"] :
+      contains(flatten([[for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadProjectLogGroups"][0].Action]), a)
+    ])
+    error_message = "the plan role must be able to read the bot's log events"
+  }
+
+  assert {
+    condition = alltrue([
+      for r in flatten([[for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadProjectLogGroups"][0].Resource]) :
+      startswith(r, "arn:aws:logs:us-east-1:123456789012:log-group:/jwall-engineering/rusty-chess/")
+    ])
+    error_message = "log reads stay limited to the project's log groups"
   }
 }

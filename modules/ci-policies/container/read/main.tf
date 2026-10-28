@@ -105,6 +105,9 @@ locals {
           "logs:ListTagsForResource",
           "logs:DescribeSubscriptionFilters",
           "logs:DescribeMetricFilters",
+          "logs:DescribeLogStreams",
+          "logs:FilterLogEvents",
+          "logs:GetLogEvents",
         ]
         Resource = local.log_group_arns
       },
@@ -118,6 +121,7 @@ locals {
           "s3:GetEncryptionConfiguration",
           "s3:GetLifecycleConfiguration",
           "s3:GetAccelerateConfiguration",
+          "s3:GetReplicationConfiguration",
           "s3:ListBucket",
         ]
         Resource = local.records_bucket

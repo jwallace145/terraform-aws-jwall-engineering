@@ -23,7 +23,7 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 | [`foundation/manage`](foundation/manage) | write | Configure the state bucket, manage buckets matching `managed_bucket_patterns` (not their objects), manage `<name_root>-*` roles, policies and ECR repositories, change records in the hosted zone | `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns? }` |
 | [`ecr/pull`](ecr/pull) | common | Log in to ECR and pull images from one repository | `ecr = { repository_arn }` |
 | [`ecr/push`](ecr/push) | write | Log in to ECR and push images to one repository | `ecr = { repository_arn }` |
-| [`container/read`](container/read) | read | Describe EC2, read the project's instance role and policies, image repository, parameters, log groups and records bucket configuration | none |
+| [`container/read`](container/read) | read | Describe EC2, read the project's instance role and policies, image repository, parameters, log groups and their events, and records bucket configuration | none |
 | [`container/manage`](container/manage) | write | Create and manage the project's VPC, instance, instance role, image repository, log groups and records bucket configuration; never their objects, never parameter values | `container = { attachable_policy_arns? }` (optional) |
 | [`container/release`](container/release) | release | Push images to the project's repository, write `/<name_root>/<project>/bot/*` parameters, run `AWS-RunShellScript` on instances tagged with the project and follow it | none |
 
