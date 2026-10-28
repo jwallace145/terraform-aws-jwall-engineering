@@ -4,7 +4,9 @@ Read everything a bot project's stack needs for `terraform plan` and
 refresh: describe EC2 (VPC, subnets, security groups, instances), read the
 project's instance role and policies, its image repository, its parameters
 under `/<name_root>/<project>/`, its log groups under the same path and the
-configuration of its records bucket. Class: **read**.
+configuration of its records bucket (enough to refresh it, including its
+replication configuration), and the events of its log groups, which `bot
+logs` prints. Class: **read**.
 
 It never reads objects in the records bucket, never decrypts a parameter
 value outside the project's path, and manages nothing; pair it with
