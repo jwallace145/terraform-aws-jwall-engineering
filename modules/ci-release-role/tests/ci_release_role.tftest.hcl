@@ -58,7 +58,7 @@ run "trusts_release_tags_only" {
   command = plan
 
   assert {
-    condition = jsonencode(jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]) == jsonencode([
+    condition = jsonencode(jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringLike["token.actions.githubusercontent.com:sub"]) == jsonencode([
       "repo:jwallace145/rusty-chess-v2:ref:refs/tags/v*",
       "repo:jwallace145@35950238/rusty-chess-v2@100:ref:refs/tags/v*",
     ])
@@ -75,10 +75,15 @@ run "trusts_release_tags_only" {
 
   assert {
     condition = !anytrue([
-      for s in jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] :
+      for s in jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringLike["token.actions.githubusercontent.com:sub"] :
       can(regex("pull_request|environment|refs/heads", s))
     ])
     error_message = "no branch, pull request or environment subject may assume the release role"
+  }
+
+  assert {
+    condition     = !contains(keys(jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringEquals), "token.actions.githubusercontent.com:sub")
+    error_message = "a tag glob under StringEquals is a literal and can never match; the subjects must be under StringLike only"
   }
 }
 
@@ -91,7 +96,7 @@ run "custom_tag_pattern" {
 
   assert {
     condition = alltrue([
-      for s in jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] :
+      for s in jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringLike["token.actions.githubusercontent.com:sub"] :
       endswith(s, ":ref:refs/tags/release-*")
     ])
     error_message = "tag_pattern sets the trusted tag glob"

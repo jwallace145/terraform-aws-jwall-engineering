@@ -61,7 +61,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "subjects" {
-  description = "Subject suffixes the role trusts, appended to `repo:<repository>:` (and to the immutable prefix when the IDs are set). For example `[\"pull_request\"]` or `[\"environment:prod\"]`."
+  description = "Subject suffixes the role trusts, appended to `repo:<repository>:` (and to the immutable prefix when the IDs are set). For example `[\"pull_request\"]`, `[\"environment:prod\"]` or `[\"ref:refs/tags/v*\"]`. Subjects containing `*` or `?` are matched with `StringLike`; the others with `StringEquals`."
   type        = list(string)
 
   validation {

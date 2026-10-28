@@ -340,3 +340,53 @@ run "outputs_expose_role_policies_for_composing_modules" {
     error_message = "managed_policy_arns output must list the attached ARNs"
   }
 }
+
+# IAM treats `*` and `?` as wildcards only under StringLike. Glob subjects
+# (for example release tags `ref:refs/tags/v*`) must go there; exact subjects
+# stay under StringEquals so existing roles' trust policies do not change.
+run "glob_subjects_use_string_like" {
+  command = plan
+
+  variables {
+    subjects = ["ref:refs/tags/v*", "environment:prod"]
+  }
+
+  assert {
+    condition = jsonencode(jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringLike["token.actions.githubusercontent.com:sub"]) == jsonencode([
+      "repo:jwallace145/example:ref:refs/tags/v*",
+    ])
+    error_message = "glob subjects must be matched with StringLike"
+  }
+
+  assert {
+    condition = jsonencode(jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]) == jsonencode([
+      "repo:jwallace145/example:environment:prod",
+    ])
+    error_message = "exact subjects stay under StringEquals"
+  }
+}
+
+run "only_glob_subjects" {
+  command = plan
+
+  variables {
+    subjects = ["ref:refs/tags/v*"]
+  }
+
+  assert {
+    condition = (
+      !contains(keys(jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals), "token.actions.githubusercontent.com:sub") &&
+      jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
+    )
+    error_message = "with only glob subjects, StringEquals keeps the audience and no subject list"
+  }
+}
+
+run "exact_subjects_have_no_string_like" {
+  command = plan
+
+  assert {
+    condition     = !contains(keys(jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition), "StringLike")
+    error_message = "a role with exact subjects only keeps its trust policy byte for byte"
+  }
+}
