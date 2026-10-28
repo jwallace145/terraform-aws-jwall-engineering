@@ -9,7 +9,7 @@ write_files:
     permissions: "0600"
     owner: root:root
     content: |
-${indent(6, config_env)}
+      ${indent(6, config_env)}
   - path: /usr/local/bin/container-reconcile
     permissions: "0755"
     owner: root:root

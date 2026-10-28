@@ -227,6 +227,19 @@ run "user_data_carries_the_config" {
   }
 
   assert {
+    condition     = can(yamldecode(aws_instance.this.user_data))
+    error_message = "user data must be valid YAML, or cloud-init skips all of it"
+  }
+
+  assert {
+    condition = (
+      length(yamldecode(aws_instance.this.user_data).write_files) == 8 &&
+      startswith([for f in yamldecode(aws_instance.this.user_data).write_files : f.content if f.path == "/etc/container-instance/config.env"][0], "AWS_REGION='us-east-1'\nBOT_NAME=")
+    )
+    error_message = "cloud-init must see all eight files, and config.env must start with its first setting"
+  }
+
+  assert {
     condition = alltrue([for line in [
       "PARAMETER_PREFIX='/jwall-engineering/rusty-chess/bot'",
       "IMAGE_REPOSITORY='123456789012.dkr.ecr.us-east-1.amazonaws.com/jwall-engineering-rusty-chess'",
