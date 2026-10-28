@@ -13,16 +13,24 @@ locals {
     "foundation/manage"    = "write"
     "ecr/pull"             = "common"
     "ecr/push"             = "write"
+    "container/read"       = "read"
+    "container/manage"     = "write"
+    "container/release"    = "release"
   }
 
   # plan and preview trust `pull_request`, so unreviewed code can assume them.
   # Only the apply role, behind a GitHub environment, may write. `common`
   # policies are ones every role needs to run at all, such as pulling the CI
   # tool image; they grant nothing a pull request could misuse.
+  #
+  # release trusts a consumer repository's release tags: it may ship an image
+  # and roll it out (`container/release`), nothing that reads or changes the
+  # stack.
   allowed_classes = {
     plan    = ["read", "common"]
     preview = ["preview", "common"]
     apply   = ["read", "write", "common"]
+    release = ["release", "common"]
   }
 
   # <name_root>-<project>-ci-<role>-<family>-<name>
@@ -33,6 +41,7 @@ locals {
   static_site = var.policy_inputs.static_site
   foundation  = var.policy_inputs.foundation
   ecr         = var.policy_inputs.ecr
+  container   = var.policy_inputs.container
 }
 
 module "tfstate_read" {
@@ -124,4 +133,32 @@ module "ecr_push" {
 
   name           = local.names["ecr/push"]
   repository_arn = local.ecr.repository_arn
+}
+
+module "container_read" {
+  source = "./container/read"
+  count  = contains(var.policies, "container/read") ? 1 : 0
+
+  name      = local.names["container/read"]
+  name_root = var.name_root
+  project   = var.project
+}
+
+module "container_manage" {
+  source = "./container/manage"
+  count  = contains(var.policies, "container/manage") ? 1 : 0
+
+  name                   = local.names["container/manage"]
+  name_root              = var.name_root
+  project                = var.project
+  attachable_policy_arns = try(local.container.attachable_policy_arns, null) == null ? [] : local.container.attachable_policy_arns
+}
+
+module "container_release" {
+  source = "./container/release"
+  count  = contains(var.policies, "container/release") ? 1 : 0
+
+  name      = local.names["container/release"]
+  name_root = var.name_root
+  project   = var.project
 }

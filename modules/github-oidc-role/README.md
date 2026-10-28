@@ -140,7 +140,7 @@ No modules.
 | name | IAM role name. Inline policies are named `<name>-<key>`. | `string` | n/a | yes |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider (`token.actions.githubusercontent.com`). | `string` | n/a | yes |
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
-| subjects | Subject suffixes the role trusts, appended to `repo:<repository>:` (and to the immutable prefix when the IDs are set). For example `["pull_request"]` or `["environment:prod"]`. | `list(string)` | n/a | yes |
+| subjects | Subject suffixes the role trusts, appended to `repo:<repository>:` (and to the immutable prefix when the IDs are set). For example `["pull_request"]`, `["environment:prod"]` or `["ref:refs/tags/v*"]`. Subjects containing `*` or `?` are matched with `StringLike`; the others with `StringEquals`. | `list(string)` | n/a | yes |
 | inline\_policies | Inline policies to attach, keyed by suffix. Each value is an IAM policy document object (`{ Version = "2012-10-17", Statement = [...] }`) that becomes `aws_iam_role_policy.this[<key>]` named `<name>-<key>` with `policy = jsonencode(value)`. | `any` | `{}` | no |
 | managed\_policies | Managed policies to attach, keyed by a name that is known at plan time. Each becomes `aws_iam_role_policy_attachment.keyed[<key>]`. Unlike `managed_policy_arns`, the ARNs may be unknown until apply, so policies created in the same run can be attached. | `map(string)` | `{}` | no |
 | managed\_policy\_arns | ARNs of managed policies to attach. Each becomes `aws_iam_role_policy_attachment.this[<arn>]`. | `list(string)` | `[]` | no |

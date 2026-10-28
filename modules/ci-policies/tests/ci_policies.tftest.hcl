@@ -88,6 +88,8 @@ run "every_policy_fits_the_managed_policy_size_limit" {
       "foundation/manage",
       "ecr/pull",
       "ecr/push",
+      "container/read",
+      "container/manage",
     ]
   }
 
@@ -98,7 +100,7 @@ run "every_policy_fits_the_managed_policy_size_limit" {
   }
 
   assert {
-    condition     = length(output.documents) == 8
+    condition     = length(output.documents) == 10
     error_message = "every requested policy must produce a document"
   }
 }
@@ -362,6 +364,99 @@ run "rejects_ecr_without_inputs" {
     role          = "preview"
     policies      = ["ecr/pull"]
     policy_inputs = {}
+  }
+
+  expect_failures = [var.policies]
+}
+
+# -- container/* and the release role ------------------------------------------
+
+run "release_role_accepts_only_release_and_common" {
+  command = plan
+
+  variables {
+    role     = "release"
+    project  = "rusty-chess"
+    policies = ["container/release", "ecr/pull"]
+  }
+
+  assert {
+    condition     = jsonencode(sort(keys(output.names))) == jsonencode(["container/release", "ecr/pull"])
+    error_message = "the release role must get exactly the requested policies"
+  }
+
+  assert {
+    condition     = output.names["container/release"] == "jwall-engineering-rusty-chess-ci-release-container-release"
+    error_message = "release policies are named <name_root>-<project>-ci-release-<family>-<name>"
+  }
+}
+
+run "release_role_rejects_write" {
+  command = plan
+
+  variables {
+    role     = "release"
+    policies = ["container/manage"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "release_role_rejects_read" {
+  command = plan
+
+  variables {
+    role     = "release"
+    policies = ["container/read"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "apply_role_accepts_container_manage" {
+  command = plan
+
+  variables {
+    project  = "rusty-chess"
+    policies = ["container/read", "container/manage"]
+    policy_inputs = {
+      container = {
+        attachable_policy_arns = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.container_read) == 1 && length(module.container_manage) == 1 && length(module.container_release) == 0
+    error_message = "the apply role gets container/read and container/manage"
+  }
+
+  assert {
+    condition     = strcontains(output.documents["container/manage"], "CloudWatchAgentServerPolicy")
+    error_message = "policy_inputs.container.attachable_policy_arns must reach container/manage"
+  }
+}
+
+run "plan_role_accepts_container_read" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    project  = "rusty-chess"
+    policies = ["container/read"]
+  }
+
+  assert {
+    condition     = output.names["container/read"] == "jwall-engineering-rusty-chess-ci-plan-container-read"
+    error_message = "the plan role gets container/read"
+  }
+}
+
+run "apply_role_rejects_container_release" {
+  command = plan
+
+  variables {
+    policies = ["container/release"]
   }
 
   expect_failures = [var.policies]

@@ -94,6 +94,7 @@ jobs:
           - { module: ci-plan-role, path: modules/ci-plan-role }
           - { module: ci-preview-role, path: modules/ci-preview-role }
           - { module: ci-apply-role, path: modules/ci-apply-role }
+          - { module: ci-release-role, path: modules/ci-release-role }
           - { module: ci-policies, path: modules/ci-policies }
           # Policy leaves are internal to ci-policies and have no example.
           - { module: ci-policies/tfstate/read, path: modules/ci-policies/tfstate/read, example: false }
@@ -105,7 +106,13 @@ jobs:
           - { module: ci-policies/foundation/manage, path: modules/ci-policies/foundation/manage, example: false }
           - { module: ci-policies/ecr/pull, path: modules/ci-policies/ecr/pull, example: false }
           - { module: ci-policies/ecr/push, path: modules/ci-policies/ecr/push, example: false }
+          - { module: ci-policies/container/read, path: modules/ci-policies/container/read, example: false }
+          - { module: ci-policies/container/manage, path: modules/ci-policies/container/manage, example: false }
+          - { module: ci-policies/container/release, path: modules/ci-policies/container/release, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
+          - { module: private-bucket, path: modules/private-bucket }
+          - { module: vpc, path: modules/vpc }
+          - { module: container-instance, path: modules/container-instance }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:
@@ -144,6 +151,12 @@ jobs:
         working-directory: ${{ matrix.path }}/examples/basic
       - name: terraform test (mock provider, no AWS credentials)
         run: terraform test
+      - name: Script unit tests (modules that ship files/test_*.py)
+        if: hashFiles(format('{0}/files/test_*.py', matrix.path)) != ''
+        run: python3 -m unittest discover -s files -p 'test_*.py' -v
+      - name: shellcheck (modules that ship files/*.sh)
+        if: hashFiles(format('{0}/files/*.sh', matrix.path)) != ''
+        run: shellcheck files/*.sh
       - name: Install terraform-docs
         run: |
           curl -fsSL "https://terraform-docs.io/dl/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz" \

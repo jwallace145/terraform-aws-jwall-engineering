@@ -56,8 +56,12 @@ directly still works for anything that is not a jwall.engineering site. Each sub
 | [`ci-plan-role`](modules/ci-plan-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-plan-role)) | infra repo, one per project | The `<name_root>-<project>-ci-plan` role, trusted by `pull_request`, with the **read** policies it requests from `ci-policies`. |
 | [`ci-preview-role`](modules/ci-preview-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-preview-role)) | infra repo, one per site project | The `<name_root>-<project>-ci-preview` role, trusted by `pull_request`, with the **preview** policies it requests from `ci-policies`. |
 | [`ci-apply-role`](modules/ci-apply-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-apply-role)) | infra repo, one per project | The `<name_root>-<project>-ci-apply` role, trusted by a GitHub environment, with the **read** and **write** policies it requests from `ci-policies`. |
-| [`ci-policies`](modules/ci-policies) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-policies)) | the CI role modules | The catalog of managed policies (`tfstate/*`, `static-site/*`, `foundation/*`, `ecr/*`) a CI role can request, built per project and role, and the per-role allow-lists. |
+| [`ci-release-role`](modules/ci-release-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-release-role)) | infra repo, one per bot project | The `<name_root>-<project>-ci-release` role, trusted only by the repository's release tags, with the **release** policies it requests from `ci-policies`. |
+| [`ci-policies`](modules/ci-policies) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-policies)) | the CI role modules | The catalog of managed policies (`tfstate/*`, `static-site/*`, `foundation/*`, `ecr/*`, `container/*`) a CI role can request, built per project and role, and the per-role allow-lists. |
 | [`ecr-repository`](modules/ecr-repository) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ecr-repository)) | infra repo, once per image | A private ECR repository with immutable tags, scan on push, AES256 and a lifecycle policy that keeps the newest release images and expires untagged ones. |
+| [`private-bucket`](modules/private-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/private-bucket)) | infra repo bot stacks, one per project | A versioned, encrypted, TLS-only, never-destroyed S3 bucket for durable project data such as game records. |
+| [`vpc`](modules/vpc) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/vpc)) | infra repo bot stacks, one per project | A VPC with DNS on, public subnets in the given AZs, an internet gateway and one public route table. No NAT, no private subnets. |
+| [`container-instance`](modules/container-instance) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/container-instance)) | infra repo bot stacks, one per project | One EC2 instance (latest AL2023 by public SSM parameter) that runs one image tag from ECR with a graceful on-box reconciler driven by SSM parameters and Run Command, an instance role, a no-ingress security group, a CloudWatch log group and versioned S3 game-record shipping. |
 | [`static-site`](modules/static-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site)) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
 | [`preview-site`](modules/preview-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site)) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
 
@@ -65,7 +69,7 @@ directly still works for anything that is not a jwall.engineering site. Each sub
 
 Published on the [Terraform Registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest)
 as `jwallace145/jwall-engineering/aws`. The root module is the site stack; the
-twelve modules under `modules/` are published as
+sixteen modules under `modules/` are published as
 [submodules](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules).
 Pin a version:
 
@@ -98,6 +102,35 @@ Every module targets `us-east-1`, requires Terraform `>= 1.11` and the AWS
 provider `~> 6.0`, never configures a provider, and tags its resources with
 `Component = "<module-name>"`. Each module's README has the full input and
 output reference generated by terraform-docs.
+
+### Tagging
+
+Every resource in every stack built from these modules carries the same tag
+set, which is what makes per-project and per-component cost reports possible:
+
+| Tag | Set by | Example |
+|---|---|---|
+| `Organization` | the caller's `default_tags`, from [`context`](modules/context) | `jwall-engineering` |
+| `Project` | the caller's `default_tags`, from `context` | `rusty-chess` |
+| `Environment` | the caller's `default_tags`, from `context` | `prod` |
+| `Repository` | the caller's `default_tags`, from `context` | `jwallace145/rusty-chess-v2` |
+| `ManagedBy` | the caller's `default_tags`, from `context` | `terraform` |
+| `Owner` | the caller's `default_tags`, from `context` | `jwallace145` |
+| `Component` | the module | `container-instance` |
+| `Name` | the module, where the resource has a name | `jwall-engineering-rusty-chess-bot` |
+
+Modules take no tag maps: the six organisation tags come only from the
+provider's `default_tags`, so a stack cannot forget one. Resources that do
+not inherit `default_tags` on their own are tagged explicitly by the module
+and pinned by a test; today that is the EC2 root volume in
+[`container-instance`](modules/container-instance). Several CI policies rely
+on the tags too: EC2, CloudFront and ACM permissions are scoped by
+`Project`.
+
+To report on cost by these tags, activate `Organization`, `Project`,
+`Environment`, `Component` and `Owner` as
+[cost allocation tags](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/activating-tags.html)
+in the Billing console once, after the first resources carrying them exist.
 
 ## Migrating CI roles from 0.5.x
 

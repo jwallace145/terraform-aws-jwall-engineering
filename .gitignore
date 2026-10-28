@@ -22,3 +22,7 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# Python bytecode from the module script tests
+__pycache__/
+*.pyc

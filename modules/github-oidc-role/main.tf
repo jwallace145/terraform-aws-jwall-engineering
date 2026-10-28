@@ -17,6 +17,24 @@ locals {
     for p in local.subject_prefixes : [for s in var.subjects : "${p}:${s}"]
   ])
 
+  # IAM treats `*` and `?` as wildcards only under StringLike. Glob subjects
+  # (release tags `ref:refs/tags/v*`) are matched there; exact ones stay under
+  # StringEquals, so roles without globs keep their trust policy unchanged.
+  exact_subjects = [for s in local.subjects : s if length(regexall("[*?]", s)) == 0]
+  glob_subjects  = [for s in local.subjects : s if length(regexall("[*?]", s)) > 0]
+
+  trust_condition = merge(
+    {
+      StringEquals = merge(
+        { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" },
+        length(local.exact_subjects) == 0 ? {} : { "token.actions.githubusercontent.com:sub" = local.exact_subjects },
+      )
+    },
+    length(local.glob_subjects) == 0 ? {} : {
+      StringLike = { "token.actions.githubusercontent.com:sub" = local.glob_subjects }
+    },
+  )
+
   tags = merge(
     var.name_tag == null ? {} : { Name = var.name_tag },
     { Component = var.component },
@@ -37,13 +55,8 @@ resource "aws_iam_role" "this" {
         Principal = {
           Federated = var.oidc_provider_arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = local.subjects
-          }
-        }
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = local.trust_condition
       },
     ]
   })
