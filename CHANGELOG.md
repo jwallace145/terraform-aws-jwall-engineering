@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.10.0...v0.10.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ci-policies:** let container/read refresh the records bucket and read bot logs ([#31](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/31)) ([e54216b](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/e54216b6119f66aed6bb216a175de05d8895fee8))
+
 ## [0.10.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.9.1...v0.10.0) (2026-10-28)
 
 
