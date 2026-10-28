@@ -11,6 +11,9 @@ locals {
     { for m in module.foundation_manage : "foundation/manage" => m },
     { for m in module.ecr_pull : "ecr/pull" => m },
     { for m in module.ecr_push : "ecr/push" => m },
+    { for m in module.container_read : "container/read" => m },
+    { for m in module.container_manage : "container/manage" => m },
+    { for m in module.container_release : "container/release" => m },
   )
 }
 
