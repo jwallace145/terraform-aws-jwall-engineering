@@ -1,0 +1,94 @@
+#cloud-config
+# container-instance: Docker, the reconciler and the records sync.
+# Changing anything here replaces the instance (user_data_replace_on_change).
+package_update: true
+packages:
+  - docker
+write_files:
+  - path: /etc/container-instance/config.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+${indent(6, config_env)}
+  - path: /usr/local/bin/container-reconcile
+    permissions: "0755"
+    owner: root:root
+    encoding: gz+b64
+    content: ${reconcile_script}
+  - path: /usr/local/bin/container-records-sync
+    permissions: "0755"
+    owner: root:root
+    encoding: gz+b64
+    content: ${records_sync_script}
+  - path: /usr/local/bin/container-reconcile-async
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      # What Run Command calls: start the reconciler as its own transient unit so
+      # a command timeout can never kill it halfway through a swap.
+      set -euo pipefail
+      exec systemd-run --no-block --collect --unit "container-reconcile-$(date +%s)" /usr/local/bin/container-reconcile "$@"
+  - path: /etc/systemd/system/container-reconcile.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Converge the app container to the desired image tag
+      Requires=docker.service
+      Wants=network-online.target
+      After=docker.service network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/container-reconcile
+      TimeoutStartSec=infinity
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/container-records-sync.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Ship finished game records to S3
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/container-records-sync
+  - path: /etc/systemd/system/container-records-sync.timer
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Ship finished game records to S3 every 10 minutes
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=10min
+
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/systemd/system/container-records-final.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Ship game records one last time at shutdown
+      Wants=network-online.target
+      After=network-online.target docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/bin/true
+      ExecStop=/usr/local/bin/container-records-sync
+      TimeoutStopSec=120
+
+      [Install]
+      WantedBy=multi-user.target
+runcmd:
+  - systemctl enable --now docker
+  - install -d -o 1000 -g 1000 /var/lib/container-instance/records
+  - systemctl daemon-reload
+  - systemctl enable --now container-records-sync.timer
+  - systemctl enable --now container-records-final.service
+  - systemctl enable --now container-reconcile.service

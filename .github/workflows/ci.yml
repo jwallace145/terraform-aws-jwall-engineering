@@ -112,6 +112,7 @@ jobs:
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: vpc, path: modules/vpc }
+          - { module: container-instance, path: modules/container-instance }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:
@@ -150,6 +151,12 @@ jobs:
         working-directory: ${{ matrix.path }}/examples/basic
       - name: terraform test (mock provider, no AWS credentials)
         run: terraform test
+      - name: Script unit tests (modules that ship files/test_*.py)
+        if: hashFiles(format('{0}/files/test_*.py', matrix.path)) != ''
+        run: python3 -m unittest discover -s files -p 'test_*.py' -v
+      - name: shellcheck (modules that ship files/*.sh)
+        if: hashFiles(format('{0}/files/*.sh', matrix.path)) != ''
+        run: shellcheck files/*.sh
       - name: Install terraform-docs
         run: |
           curl -fsSL "https://terraform-docs.io/dl/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz" \
