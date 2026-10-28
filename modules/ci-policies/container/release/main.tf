@@ -48,13 +48,19 @@ locals {
         Resource = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/${var.name_root}/${var.project}/bot/*"
       },
       {
-        Sid    = "SendReconcileCommand"
-        Effect = "Allow"
-        Action = "ssm:SendCommand"
-        Resource = [
-          "arn:aws:ssm:${local.region}::document/AWS-RunShellScript",
-          "arn:aws:ec2:${local.region}:${local.account_id}:instance/*",
-        ]
+        # SendCommand is authorised against the document and against every
+        # target instance. The AWS-owned document carries no tags, so it gets
+        # its own statement without a tag condition.
+        Sid      = "UseRunShellScript"
+        Effect   = "Allow"
+        Action   = "ssm:SendCommand"
+        Resource = "arn:aws:ssm:${local.region}::document/AWS-RunShellScript"
+      },
+      {
+        Sid      = "SendCommandToProjectInstances"
+        Effect   = "Allow"
+        Action   = "ssm:SendCommand"
+        Resource = "arn:aws:ec2:${local.region}:${local.account_id}:instance/*"
         Condition = {
           StringEquals = {
             "ssm:resourceTag/Project" = var.project

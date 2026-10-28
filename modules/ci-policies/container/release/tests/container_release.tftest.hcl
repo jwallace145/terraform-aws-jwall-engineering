@@ -69,13 +69,25 @@ run "writes_only_bot_parameters" {
 run "runs_commands_on_project_instances_only" {
   command = plan
 
+  # SendCommand is authorised against the document and every instance. The
+  # AWS-owned document has no tags, so a resource-tag condition on it always
+  # fails: the document and the instances need separate statements.
   assert {
     condition = (
-      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "SendReconcileCommand"][0].Action == "ssm:SendCommand" &&
-      jsonencode([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "SendReconcileCommand"][0].Resource) == jsonencode(["arn:aws:ssm:us-east-1::document/AWS-RunShellScript", "arn:aws:ec2:us-east-1:123456789012:instance/*"]) &&
-      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "SendReconcileCommand"][0].Condition.StringEquals["ssm:resourceTag/Project"] == "rusty-chess"
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "UseRunShellScript"][0].Action == "ssm:SendCommand" &&
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "UseRunShellScript"][0].Resource == "arn:aws:ssm:us-east-1::document/AWS-RunShellScript" &&
+      !contains(keys([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "UseRunShellScript"][0]), "Condition")
     )
-    error_message = "SendCommand must be limited to AWS-RunShellScript on instances tagged with the project"
+    error_message = "the run-shell document is allowed without a tag condition"
+  }
+
+  assert {
+    condition = (
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "SendCommandToProjectInstances"][0].Action == "ssm:SendCommand" &&
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "SendCommandToProjectInstances"][0].Resource == "arn:aws:ec2:us-east-1:123456789012:instance/*" &&
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "SendCommandToProjectInstances"][0].Condition.StringEquals["ssm:resourceTag/Project"] == "rusty-chess"
+    )
+    error_message = "commands may only reach instances tagged with the project"
   }
 }
 
