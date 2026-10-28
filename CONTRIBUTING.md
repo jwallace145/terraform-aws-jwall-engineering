@@ -102,8 +102,16 @@ local `only-coauthor-trailers` rule in `commitlint/`). The fixtures in
 - Every input has a `description` and a `type`, with `validation` blocks for
   values with a known shape.
 - Every resource-creating module tags its resources with
-  `Component = "<module-name>"`. All other tags come from the caller's
-  provider `default_tags` (fed by the `context` module).
+  `Component = "<module-name>"` and, where the resource has a name, `Name`.
+  All other tags come from the caller's provider `default_tags` (fed by the
+  `context` module); modules never take a tag map.
+- Sub-resources that do not inherit `default_tags` (for example an EC2
+  instance's root volume) are tagged explicitly, and a test pins it. The
+  tag standard is in the README's Tagging section; cost reports depend on
+  it.
+- Scripts a module installs live in `files/`. Python scripts ship
+  `files/test_*.py` (stdlib `unittest`) and shell scripts must pass
+  `shellcheck`; CI runs both.
 - `README.md` is generated with terraform-docs (`terraform-docs modules/<name>`).
   CI fails if the committed docs differ from the generated ones.
 - Tests use `terraform test` with `mock_provider "aws"`.
