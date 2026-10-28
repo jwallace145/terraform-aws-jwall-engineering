@@ -73,14 +73,17 @@ write_files:
     content: |
       [Unit]
       Description=Ship game records one last time at shutdown
+      # Stop order is the reverse of start order: this unit stops after Docker
+      # (so the container has exited) and before the network goes down.
       Wants=network-online.target
-      After=network-online.target docker.service
+      After=network-online.target
+      Before=docker.service
 
       [Service]
       Type=oneshot
       RemainAfterExit=yes
       ExecStart=/bin/true
-      ExecStop=/usr/local/bin/container-records-sync
+      ExecStop=/usr/local/bin/container-records-sync --final
       TimeoutStopSec=120
 
       [Install]

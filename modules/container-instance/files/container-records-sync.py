@@ -13,6 +13,9 @@ untouched for MIN_AGE_SECONDS) are staged and uploaded as
   <prefix>pgn/schema=1/engine=<tag>/date=<YYYY-MM-DD>/<game_id>.pgn   the file, byte for byte
   <prefix>meta/schema=1/engine=<tag>/date=<YYYY-MM-DD>/<game_id>.json the sidecar below
 
+At shutdown (--final) the age threshold is dropped, because the container
+has already stopped.
+
 Objects are only ever added: no overwrite of a shipped game, no deletes. A
 change to the layout or the sidecar keys is a new schema number.
 """
@@ -116,7 +119,8 @@ def _relative(engine: str, date: str, game_id: str, ext: str) -> Path:
     return Path(f"schema={SCHEMA}") / f"engine={engine}" / f"date={date}" / f"{game_id}.{ext}"
 
 
-def stage_all(records_root: Path, state_root: Path, context: Context, now: float) -> Dict[str, int]:
+def stage_all(records_root: Path, state_root: Path, context: Context, now: float,
+              min_age_seconds: int = MIN_AGE_SECONDS) -> Dict[str, int]:
     """Stage every finished, not yet shipped game into state_root/outbox."""
     counts = {"staged": 0, "incomplete": 0, "recent": 0, "unparseable": 0, "already": 0}
     outbox, shipped = state_root / "outbox", state_root / "shipped"
@@ -128,7 +132,7 @@ def stage_all(records_root: Path, state_root: Path, context: Context, now: float
             log(f"ignoring {engine_dir}: not a safe version name")
             continue
         for source in sorted(engine_dir.glob("*.pgn")):
-            if now - source.stat().st_mtime < MIN_AGE_SECONDS:
+            if now - source.stat().st_mtime < min_age_seconds:
                 counts["recent"] += 1
                 continue
             data = source.read_bytes()
@@ -233,6 +237,9 @@ def upload(state_root: Path, bucket: str, prefix: str) -> None:
 
 
 def main() -> int:
+    # --final: run at shutdown after the container has stopped, so no file can
+    # still be being written and every finished game is shipped.
+    final = "--final" in sys.argv[1:]
     config = load_config(CONFIG_PATH)
     bucket = config.get("RECORDS_BUCKET", "")
     if not bucket:
@@ -245,7 +252,8 @@ def main() -> int:
             bot=config.get("BOT_NAME", ""),
             instance_id=instance_id(),
         )
-        counts = stage_all(RECORDS_ROOT, STATE_ROOT, context, now=time.time())
+        counts = stage_all(RECORDS_ROOT, STATE_ROOT, context, now=time.time(),
+                           min_age_seconds=0 if final else MIN_AGE_SECONDS)
         upload(STATE_ROOT, bucket, prefix)
         mark_shipped(STATE_ROOT)
         _aws("ssm", "put-parameter", "--name", f"{config['PARAMETER_PREFIX']}/last-sync",

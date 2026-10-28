@@ -267,6 +267,8 @@ run "user_data_carries_the_config" {
       "OnUnitActiveSec=10min",
       "TimeoutStartSec=infinity",
       "encoding: gz+b64",
+      "ExecStop=/usr/local/bin/container-records-sync --final",
+      "Before=docker.service",
     ] : strcontains(aws_instance.this.user_data, unit)])
     error_message = "user data installs the units and the compressed scripts"
   }

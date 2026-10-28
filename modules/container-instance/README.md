@@ -33,21 +33,29 @@ through Run Command, which starts the reconciler as its own systemd unit,
 so a command timeout can never cut a swap in half. Then it follows the
 parameters. The reconciler, `/usr/local/bin/container-reconcile`:
 
-1. takes a lock, so only one reconcile runs at a time;
+1. takes a lock, so only one reconcile runs at a time; a second one waits
+   for the first and then converges to the newest desired tag;
 2. does nothing if the desired tag is already running (`--restart` forces a
    swap anyway, for example after rotating a secret);
-3. pulls the new tag;
+3. pulls the new tag and reads the secrets. Both happen before the running
+   container is touched: if either fails, the old version keeps playing and
+   the status says why;
 4. ships finished records, clears the old container's restart policy and
    sends it **one** stop signal (`SIGINT`); then **waits as long as it
    takes** for it to exit on its own, writing `waiting:<tag>` every minute.
    It never kills the container: lichess-bot finishes the game in progress
    first, so a game is never resigned or aborted by a rollout;
-5. ships the records again, starts the new tag with secrets read from SSM
-   at start time, and gives it `health_seconds` to stay up and log
-   `health_log_pattern`;
-6. on success writes `running-version` and `ok`; on failure removes the new
-   container, writes `rolling-back:<reason>`, starts the previous tag again
-   and ends with `failed:<reason>`.
+5. ships the records again; if a newer tag was deployed while it waited,
+   switches to that one; then starts the new tag and gives it
+   `health_seconds` to stay up and log `health_log_pattern`;
+6. on success writes `running-version` and `ok`; if the new tag does not
+   start or does not become healthy, removes it, writes
+   `rolling-back:<reason>`, starts the previous tag again and ends with
+   `failed:<reason>`.
+
+Every run ends with `ok` or `failed:<reason>`, including on an unexpected
+error, so the release tooling never waits on a run that has died. A failed
+progress write (`waiting:<tag>`) never interrupts a swap.
 
 The same reconciler runs once at boot, so a rebooted or replaced instance
 converges to `desired-version` on its own.
@@ -64,7 +72,9 @@ aws ssm send-command --document-name AWS-RunShellScript \
 release, picked up at the next apply), the instance type or anything in the
 user data (any input of this module except tags) replaces the instance and
 ends the container's current work. Plan before applying and apply while the
-bot is idle. Game records not yet shipped are uploaded at shutdown.
+bot is idle. At a clean shutdown (an instance replacement, a stop or a
+reboot) the records are shipped one last time after the container has
+exited, including games that ended seconds before.
 
 ## Game records
 
@@ -112,7 +122,9 @@ overwritten, bucket versioning keeps the old version (30 days by default in
 `private-bucket`). Unfinished games and files it cannot place (no game id or
 no date) are skipped and counted in the journal. Games that finished in the
 last few minutes before an instance is lost without a clean shutdown are
-not shipped. Any change to the layout or
+not shipped. A game in progress when an instance is replaced is lost; if
+lichess-bot resumes it in a new container, the finished game is filed
+under the new container's tag, which played its last moves. Any change to the layout or
 the sidecar keys is a new `schema=` value, never an edit of `schema=1`.
 
 ## Access

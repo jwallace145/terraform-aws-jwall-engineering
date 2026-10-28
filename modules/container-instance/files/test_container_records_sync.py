@@ -139,6 +139,14 @@ class StagingTests(unittest.TestCase):
         counts = sync.stage_all(self.records, self.state, self.context, now=time.time())
         self.assertEqual(counts, {"staged": 0, "incomplete": 1, "recent": 1, "unparseable": 0, "already": 0})
 
+    def test_final_sync_ships_games_that_just_finished(self) -> None:
+        # At shutdown the container has stopped, so nothing is still being
+        # written: a game that ended seconds ago must not be left behind.
+        self._write(f"a vs b - {GAME_ID}.pgn", PGN, age_seconds=5)
+        counts = sync.stage_all(self.records, self.state, self.context, now=time.time(), min_age_seconds=0)
+        self.assertEqual(counts["staged"], 1)
+        self.assertEqual(counts["recent"], 0)
+
     def test_staging_is_idempotent_across_shipping(self) -> None:
         self._write(f"a vs b - {GAME_ID}.pgn", PGN)
         sync.stage_all(self.records, self.state, self.context, now=time.time())
