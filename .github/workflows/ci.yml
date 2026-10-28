@@ -94,6 +94,7 @@ jobs:
           - { module: ci-plan-role, path: modules/ci-plan-role }
           - { module: ci-preview-role, path: modules/ci-preview-role }
           - { module: ci-apply-role, path: modules/ci-apply-role }
+          - { module: ci-release-role, path: modules/ci-release-role }
           - { module: ci-policies, path: modules/ci-policies }
           # Policy leaves are internal to ci-policies and have no example.
           - { module: ci-policies/tfstate/read, path: modules/ci-policies/tfstate/read, example: false }
