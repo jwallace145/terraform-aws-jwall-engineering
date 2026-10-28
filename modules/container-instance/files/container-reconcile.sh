@@ -59,7 +59,7 @@ status_soft() {
   status "$1" || log "could not write status $1; continuing"
 }
 
-# shellcheck disable=SC2329 # invoked by the ERR trap
+# shellcheck disable=SC2317,SC2329 # invoked by the ERR trap (code differs by shellcheck version)
 on_error() {
   status_soft "failed:unexpected error at line $1 of container-reconcile; see the journal"
 }
