@@ -165,3 +165,29 @@ run "fits_policy_size_limit" {
     error_message = "managed policies are limited to 6144 characters"
   }
 }
+
+# The egress rule resource (aws_vpc_security_group_egress_rule) is created
+# with tags: AuthorizeSecurityGroupEgress authorises the new
+# security-group-rule with aws:RequestTag and needs ec2:CreateTags for that
+# create action.
+run "security_group_rules_can_be_created_with_tags" {
+  command = plan
+
+  assert {
+    condition = (
+      contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "CreateProjectSecurityGroupRules"][0].Action, "ec2:AuthorizeSecurityGroupEgress") &&
+      contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "CreateProjectSecurityGroupRules"][0].Action, "ec2:AuthorizeSecurityGroupIngress") &&
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "CreateProjectSecurityGroupRules"][0].Resource == "arn:aws:ec2:us-east-1:123456789012:security-group-rule/*" &&
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "CreateProjectSecurityGroupRules"][0].Condition.StringEquals["aws:RequestTag/Project"] == "rusty-chess"
+    )
+    error_message = "new security group rules are authorised by their request tags"
+  }
+
+  assert {
+    condition = (
+      contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "CreateTagsOnCreate"][0].Condition.StringEquals["ec2:CreateAction"], "AuthorizeSecurityGroupEgress") &&
+      contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "CreateTagsOnCreate"][0].Condition.StringEquals["ec2:CreateAction"], "AuthorizeSecurityGroupIngress")
+    )
+    error_message = "tagging a rule on creation is allowed for the Authorize actions"
+  }
+}

@@ -18,6 +18,8 @@ locals {
     "CreateInternetGateway",
     "CreateRouteTable",
     "CreateSecurityGroup",
+    "AuthorizeSecurityGroupEgress",
+    "AuthorizeSecurityGroupIngress",
     "RunInstances",
   ]
 
@@ -37,6 +39,19 @@ locals {
           "ec2:CreateSecurityGroup",
         ]
         Resource  = [for t in local.network_types : "${local.ec2}:${t}/*"]
+        Condition = local.request_tag
+      },
+      {
+        # A rule created with tags is a new security-group-rule resource,
+        # authorised by its request tags. The parent security group is
+        # covered by ManageProjectNetwork.
+        Sid    = "CreateProjectSecurityGroupRules"
+        Effect = "Allow"
+        Action = [
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:AuthorizeSecurityGroupIngress",
+        ]
+        Resource  = "${local.ec2}:security-group-rule/*"
         Condition = local.request_tag
       },
       {
@@ -203,8 +218,6 @@ locals {
           "ecr:PutImageScanningConfiguration",
           "ecr:PutLifecyclePolicy",
           "ecr:DeleteLifecyclePolicy",
-          "ecr:SetRepositoryPolicy",
-          "ecr:DeleteRepositoryPolicy",
           "ecr:TagResource",
           "ecr:UntagResource",
         ]
@@ -220,8 +233,6 @@ locals {
           "logs:DeleteRetentionPolicy",
           "logs:TagResource",
           "logs:UntagResource",
-          "logs:TagLogGroup",
-          "logs:UntagLogGroup",
         ]
         Resource = [
           "arn:aws:logs:${local.region}:${local.account_id}:log-group:/${var.name_root}/${var.project}/*",
@@ -253,7 +264,6 @@ locals {
           "s3:PutBucketPublicAccessBlock",
           "s3:PutBucketOwnershipControls",
           "s3:PutBucketTagging",
-          "s3:PutBucketAcl",
         ]
         Resource = "arn:aws:s3:::${local.prefix}-records"
       },

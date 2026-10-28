@@ -3,9 +3,9 @@
 A VPC for workloads that need to reach the internet and must never be
 reached from it: DNS support and hostnames on, one public subnet per
 availability zone (consecutive `/24`s carved from the VPC CIDR, public IPs
-on launch), an internet gateway and one public route table. The default
-security group is managed with no rules so it grants nothing; workloads
-bring their own.
+on launch), an internet gateway and one public route table. The VPC's
+default security group is left as AWS creates it and nothing is launched
+into it; workloads bring their own security group.
 
 There is no NAT gateway, no private subnet and no VPC endpoint. A NAT
 gateway alone costs more than a small instance; an instance with a public
@@ -52,7 +52,6 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [aws_default_security_group.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/default_security_group) | resource |
 | [aws_internet_gateway.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/internet_gateway) | resource |
 | [aws_route.internet](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_route_table.public](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table) | resource |

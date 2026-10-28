@@ -18,7 +18,8 @@ directly.
 - **EC2 by tag.** Create calls require `aws:RequestTag/Project = <project>`
   and every change or delete requires `aws:ResourceTag/Project = <project>`.
   This only works because the caller's provider sets `default_tags` from
-  the `context` module. Creating a subnet, security group or route table
+  the `context` module. Security group rules created with tags are new
+  `security-group-rule` resources and are authorised by their request tags. Creating a subnet, security group or route table
   also authorizes against the parent VPC, which must carry the same tag.
 - **IAM by name.** Roles, instance profiles and policies are limited to
   `<name_root>-<project>-*`. `iam:AttachRolePolicy` only accepts the

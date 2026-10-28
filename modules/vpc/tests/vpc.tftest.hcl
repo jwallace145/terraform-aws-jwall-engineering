@@ -87,17 +87,6 @@ run "internet_route" {
   }
 }
 
-run "default_security_group_is_empty" {
-  command = plan
-
-  # ingress/egress are computed and unknown at plan time; CI greps main.tf for
-  # the absence of rule blocks instead.
-  assert {
-    condition     = aws_default_security_group.this.tags == tomap({ Name = "jwall-engineering-rusty-chess-default", Component = "vpc" })
-    error_message = "the default security group is named <name>-default"
-  }
-}
-
 run "outputs" {
   command = plan
 

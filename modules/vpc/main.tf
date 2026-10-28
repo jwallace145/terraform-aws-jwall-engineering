@@ -3,6 +3,12 @@
 # private subnets and no VPC endpoints: the only recurring cost is the public
 # IPv4 address on each instance. Private subnets or a NAT gateway would be
 # additive if a later workload needs them.
+#
+# The VPC's default security group is left as AWS creates it (members may
+# talk to each other, all egress). Nothing is launched into it: workloads
+# bring their own group. Adopting it would need IAM rights on a group that
+# carries no Project tag yet, which the container/manage policy does not
+# grant.
 
 locals {
   tags = {
@@ -67,14 +73,3 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# The default security group AWS creates with every VPC allows all traffic
-# between its members. Managing it with no rules makes it inert; workloads
-# bring their own security group.
-resource "aws_default_security_group" "this" {
-  vpc_id = aws_vpc.this.id
-
-  tags = {
-    Name      = "${var.name}-default"
-    Component = var.component
-  }
-}
