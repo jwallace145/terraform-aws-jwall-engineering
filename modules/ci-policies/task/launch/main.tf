@@ -44,6 +44,14 @@ locals {
         }
       },
       {
+        # A spot launch also authorizes a spot request. It carries no tags;
+        # the instance it creates must still pass RunTaskInstances.
+        Sid      = "RunAsSpot"
+        Effect   = "Allow"
+        Action   = "ec2:RunInstances"
+        Resource = "${local.ec2}:spot-instances-request/*"
+      },
+      {
         Sid       = "RunTaskVolumes"
         Effect    = "Allow"
         Action    = "ec2:RunInstances"
@@ -157,6 +165,19 @@ locals {
           "ec2:DescribeSubnets",
           "ec2:DescribeLaunchTemplates",
           "ssm:DescribeInstanceInformation",
+        ]
+        Resource = "*"
+      },
+      {
+        # Gap: no resource-level support. Read-only: the on-demand price the
+        # spot cap is a fraction of, the current spot price, and the zones'
+        # spot placement scores.
+        Sid    = "PriceTasks"
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeSpotPriceHistory",
+          "ec2:GetSpotPlacementScores",
+          "pricing:GetProducts",
         ]
         Resource = "*"
       },
