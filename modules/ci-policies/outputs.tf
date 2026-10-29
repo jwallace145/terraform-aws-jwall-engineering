@@ -14,6 +14,9 @@ locals {
     { for m in module.container_read : "container/read" => m },
     { for m in module.container_manage : "container/manage" => m },
     { for m in module.container_release : "container/release" => m },
+    { for m in module.task_read : "task/read" => m },
+    { for m in module.task_manage : "task/manage" => m },
+    { for m in module.task_launch : "task/launch" => m },
   )
 }
 

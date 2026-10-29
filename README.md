@@ -57,11 +57,13 @@ directly still works for anything that is not a jwall.engineering site. Each sub
 | [`ci-preview-role`](modules/ci-preview-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-preview-role)) | infra repo, one per site project | The `<name_root>-<project>-ci-preview` role, trusted by `pull_request`, with the **preview** policies it requests from `ci-policies`. |
 | [`ci-apply-role`](modules/ci-apply-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-apply-role)) | infra repo, one per project | The `<name_root>-<project>-ci-apply` role, trusted by a GitHub environment, with the **read** and **write** policies it requests from `ci-policies`. |
 | [`ci-release-role`](modules/ci-release-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-release-role)) | infra repo, one per bot project | The `<name_root>-<project>-ci-release` role, trusted only by the repository's release tags, with the **release** policies it requests from `ci-policies`. |
+| [`ci-task-role`](modules/ci-task-role) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-task-role)) | infra repo, one per project that runs remote tasks | The `<name_root>-<project>-ci-task` role, trusted only by the repository's pull requests and `main`, with the **task** policies it requests from `ci-policies`. |
 | [`ci-policies`](modules/ci-policies) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-policies)) | the CI role modules | The catalog of managed policies (`tfstate/*`, `static-site/*`, `foundation/*`, `ecr/*`, `container/*`) a CI role can request, built per project and role, and the per-role allow-lists. |
 | [`ecr-repository`](modules/ecr-repository) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ecr-repository)) | infra repo, once per image | A private ECR repository with immutable tags, scan on push, AES256 and a lifecycle policy that keeps the newest release images and expires untagged ones. |
 | [`private-bucket`](modules/private-bucket) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/private-bucket)) | infra repo bot stacks, one per project | A versioned, encrypted, TLS-only, never-destroyed S3 bucket for durable project data such as game records. |
 | [`vpc`](modules/vpc) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/vpc)) | infra repo bot stacks, one per project | A VPC with DNS on, public subnets in the given AZs, an internet gateway and one public route table. No NAT, no private subnets. |
 | [`container-instance`](modules/container-instance) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/container-instance)) | infra repo bot stacks, one per project | One EC2 instance (a pinned AL2023 image, or the latest by public SSM parameter) that runs one image tag from ECR with a graceful on-box reconciler driven by SSM parameters and Run Command, an instance role, a no-ingress security group, a CloudWatch log group and versioned S3 game-record shipping. |
+| [`task-runner`](modules/task-runner) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/task-runner)) | infra repo bot stacks, one per project that runs remote tasks | A launch template for ephemeral on-demand CI task instances (lifetime guard, shutdown terminates, IMDSv2, rustup setup), a write-only instance role, a no-ingress security group and a CloudWatch log group. Launches nothing: the CLI does. |
 | [`static-site`](modules/static-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/static-site)) | project repos, one per environment | ACM cert, OAC, CloudFront distribution, index-rewrite function and Route 53 aliases for `<domain>` served from `<bucket>/<origin_path>`. |
 | [`preview-site`](modules/preview-site) ([registry](https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/preview-site)) | project repos, one per project | Wildcard cert and distribution for `pr-<n>.preview.<domain>` served from `<bucket>/previews/pr-<n>/`. |
 
@@ -123,12 +125,20 @@ Modules take no tag maps: the six organisation tags come only from the
 provider's `default_tags`, so a stack cannot forget one. Resources that do
 not inherit `default_tags` on their own are tagged explicitly by the module
 and pinned by a test; today that is the EC2 root volume in
-[`container-instance`](modules/container-instance). Several CI policies rely
+[`container-instance`](modules/container-instance) and the task instances
+and volumes in [`task-runner`](modules/task-runner). Several CI policies rely
 on the tags too: EC2, CloudFront and ACM permissions are scoped by
 `Project`.
 
+Ephemeral CI task instances and their volumes carry one more tag,
+`Purpose = ci-task`, set by the [`task-runner`](modules/task-runner)
+launch template and by the CLI at launch. The `task/launch` CI policy
+requires it on every launch and can terminate or run commands only on
+instances that carry it, so long-lived instances such as a bot are out of
+reach. It also separates task spend from the rest of a project's spend.
+
 To report on cost by these tags, activate `Organization`, `Project`,
-`Environment`, `Component` and `Owner` as
+`Environment`, `Component`, `Purpose` and `Owner` as
 [cost allocation tags](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/activating-tags.html)
 in the Billing console once, after the first resources carrying them exist.
 

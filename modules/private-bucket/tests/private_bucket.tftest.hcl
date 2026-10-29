@@ -136,3 +136,39 @@ run "rejects_zero_days" {
 
   expect_failures = [var.noncurrent_version_expiration_days]
 }
+
+# Short-lived data (task results) expires on its own.
+run "expires_current_objects" {
+  command = plan
+
+  variables {
+    current_object_expiration_days = 7
+  }
+
+  assert {
+    condition = length([
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule : r
+      if r.id == "expire-current-objects" && r.status == "Enabled" && r.expiration[0].days == 7 && r.filter[0].prefix == ""
+    ]) == 1
+    error_message = "current objects expire after current_object_expiration_days"
+  }
+}
+
+run "keeps_current_objects_by_default" {
+  command = plan
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if r.id == "expire-current-objects"]) == 0
+    error_message = "current objects are kept unless an expiry is set"
+  }
+}
+
+run "rejects_zero_current_expiry" {
+  command = plan
+
+  variables {
+    current_object_expiration_days = 0
+  }
+
+  expect_failures = [var.current_object_expiration_days]
+}

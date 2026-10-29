@@ -95,6 +95,7 @@ jobs:
           - { module: ci-preview-role, path: modules/ci-preview-role }
           - { module: ci-apply-role, path: modules/ci-apply-role }
           - { module: ci-release-role, path: modules/ci-release-role }
+          - { module: ci-task-role, path: modules/ci-task-role }
           - { module: ci-policies, path: modules/ci-policies }
           # Policy leaves are internal to ci-policies and have no example.
           - { module: ci-policies/tfstate/read, path: modules/ci-policies/tfstate/read, example: false }
@@ -109,10 +110,14 @@ jobs:
           - { module: ci-policies/container/read, path: modules/ci-policies/container/read, example: false }
           - { module: ci-policies/container/manage, path: modules/ci-policies/container/manage, example: false }
           - { module: ci-policies/container/release, path: modules/ci-policies/container/release, example: false }
+          - { module: ci-policies/task/read, path: modules/ci-policies/task/read, example: false }
+          - { module: ci-policies/task/manage, path: modules/ci-policies/task/manage, example: false }
+          - { module: ci-policies/task/launch, path: modules/ci-policies/task/launch, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: vpc, path: modules/vpc }
           - { module: container-instance, path: modules/container-instance }
+          - { module: task-runner, path: modules/task-runner }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:

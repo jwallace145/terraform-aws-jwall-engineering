@@ -16,6 +16,9 @@ locals {
     "container/read"       = "read"
     "container/manage"     = "write"
     "container/release"    = "release"
+    "task/read"            = "read"
+    "task/manage"          = "write"
+    "task/launch"          = "task"
   }
 
   # plan and preview trust `pull_request`, so unreviewed code can assume them.
@@ -31,6 +34,7 @@ locals {
     preview = ["preview", "common"]
     apply   = ["read", "write", "common"]
     release = ["release", "common"]
+    task    = ["task", "common"]
   }
 
   # <name_root>-<project>-ci-<role>-<family>-<name>
@@ -42,6 +46,7 @@ locals {
   foundation  = var.policy_inputs.foundation
   ecr         = var.policy_inputs.ecr
   container   = var.policy_inputs.container
+  task        = var.policy_inputs.task
 }
 
 module "tfstate_read" {
@@ -161,4 +166,32 @@ module "container_release" {
   name      = local.names["container/release"]
   name_root = var.name_root
   project   = var.project
+}
+
+module "task_read" {
+  source = "./task/read"
+  count  = contains(var.policies, "task/read") ? 1 : 0
+
+  name      = local.names["task/read"]
+  name_root = var.name_root
+  project   = var.project
+}
+
+module "task_manage" {
+  source = "./task/manage"
+  count  = contains(var.policies, "task/manage") ? 1 : 0
+
+  name      = local.names["task/manage"]
+  name_root = var.name_root
+  project   = var.project
+}
+
+module "task_launch" {
+  source = "./task/launch"
+  count  = contains(var.policies, "task/launch") ? 1 : 0
+
+  name           = local.names["task/launch"]
+  name_root      = var.name_root
+  project        = var.project
+  instance_types = try(local.task.instance_types, [])
 }

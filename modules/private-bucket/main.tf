@@ -68,6 +68,25 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     }
   }
 
+  # Short-lived data (for example the results of ephemeral tasks) can expire
+  # on its own; the bucket itself is still never destroyed.
+  dynamic "rule" {
+    for_each = var.current_object_expiration_days == null ? [] : [var.current_object_expiration_days]
+
+    content {
+      id     = "expire-current-objects"
+      status = "Enabled"
+
+      filter {
+        prefix = ""
+      }
+
+      expiration {
+        days = rule.value
+      }
+    }
+  }
+
   rule {
     id     = "abort-incomplete-multipart-uploads"
     status = "Enabled"

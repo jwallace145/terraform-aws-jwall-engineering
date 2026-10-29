@@ -23,6 +23,17 @@ variable "noncurrent_version_expiration_days" {
   }
 }
 
+variable "current_object_expiration_days" {
+  description = "Expire current objects this many days after they are written, for short-lived data such as task results. `null` keeps them forever."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.current_object_expiration_days == null || (try(var.current_object_expiration_days >= 1, false) && try(floor(var.current_object_expiration_days) == var.current_object_expiration_days, false))
+    error_message = "current_object_expiration_days must be a positive integer or null."
+  }
+}
+
 variable "component" {
   description = "Value of the `Component` tag on the bucket."
   type        = string

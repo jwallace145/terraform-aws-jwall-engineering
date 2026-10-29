@@ -52,7 +52,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "policies" {
-  description = "Managed policies to create and attach, by catalog name. This role accepts only read and common policies: `tfstate/read`, `static-site/read`, `foundation/read`, `container/read`, `ecr/pull`."
+  description = "Managed policies to create and attach, by catalog name. This role accepts only read and common policies: `tfstate/read`, `static-site/read`, `foundation/read`, `container/read`, `task/read`, `ecr/pull`."
   type        = set(string)
 }
 
