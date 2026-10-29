@@ -461,3 +461,76 @@ run "apply_role_rejects_container_release" {
 
   expect_failures = [var.policies]
 }
+
+
+# -- task/* and the task role --------------------------------------------------------
+
+run "task_role_accepts_only_task_and_common" {
+  command = plan
+
+  variables {
+    role     = "task"
+    project  = "rusty-chess"
+    policies = ["task/launch"]
+    policy_inputs = {
+      task = { instance_types = ["c8a.xlarge"] }
+    }
+  }
+
+  assert {
+    condition     = output.names["task/launch"] == "jwall-engineering-rusty-chess-ci-task-task-launch"
+    error_message = "task policies are named <name_root>-<project>-ci-task-<family>-<name>"
+  }
+
+  assert {
+    condition     = strcontains(output.documents["task/launch"], "c8a.xlarge")
+    error_message = "policy_inputs.task.instance_types must reach task/launch"
+  }
+}
+
+run "task_role_rejects_write" {
+  command = plan
+
+  variables {
+    role     = "task"
+    policies = ["container/manage"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "task_launch_requires_instance_types" {
+  command = plan
+
+  variables {
+    role     = "task"
+    policies = ["task/launch"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "apply_role_accepts_task_read_and_manage" {
+  command = plan
+
+  variables {
+    project  = "rusty-chess"
+    policies = ["task/read", "task/manage"]
+  }
+
+  assert {
+    condition     = length(module.task_read) == 1 && length(module.task_manage) == 1 && length(module.task_launch) == 0
+    error_message = "the apply role gets task/read and task/manage"
+  }
+}
+
+run "apply_role_rejects_task_launch" {
+  command = plan
+
+  variables {
+    policies      = ["task/launch"]
+    policy_inputs = { task = { instance_types = ["c8a.xlarge"] } }
+  }
+
+  expect_failures = [var.policies]
+}

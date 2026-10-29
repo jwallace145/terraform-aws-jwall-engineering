@@ -20,12 +20,12 @@ variable "project" {
 }
 
 variable "role" {
-  description = "The CI role the policies are for: `plan`, `preview`, `apply` or `release`. It decides which policies may be requested."
+  description = "The CI role the policies are for: `plan`, `preview`, `apply`, `release` or `task`. It decides which policies may be requested."
   type        = string
 
   validation {
-    condition     = contains(["plan", "preview", "apply", "release"], var.role)
-    error_message = "role must be one of: plan, preview, apply, release."
+    condition     = contains(["plan", "preview", "apply", "release", "task"], var.role)
+    error_message = "role must be one of: plan, preview, apply, release, task."
   }
 }
 
@@ -35,7 +35,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "policies" {
-  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`. Each role accepts only some of them; see the README."
+  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `task/read`, `task/manage`, `task/launch`. Each role accepts only some of them; see the README."
   type        = set(string)
 
   validation {
@@ -79,13 +79,18 @@ variable "policies" {
   }
 
   validation {
+    condition     = !contains(var.policies, "task/launch") || try(length(var.policy_inputs.task.instance_types) > 0, false)
+    error_message = "task/launch requires policy_inputs.task.instance_types."
+  }
+
+  validation {
     condition     = !anytrue([for p in var.policies : startswith(p, "ecr/")]) || var.policy_inputs.ecr != null
     error_message = "ecr/* policies require policy_inputs.ecr."
   }
 }
 
 variable "policy_inputs" {
-  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; the `container/*` policies are otherwise built from `project` alone."
+  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` for `task/launch`; the `container/*` policies are otherwise built from `project` alone."
   type = object({
     tfstate = optional(object({
       bucket_arn = string
@@ -108,6 +113,9 @@ variable "policy_inputs" {
     }))
     container = optional(object({
       attachable_policy_arns = optional(list(string))
+    }))
+    task = optional(object({
+      instance_types = list(string)
     }))
   })
   default = {}
