@@ -46,6 +46,15 @@ It can terminate and send commands only to instances tagged with the
 project and `Purpose = ci-task`, so long-lived instances such as the bot
 are out of reach. It can read no secret and change no infrastructure.
 
+## Session length
+
+`task run` holds one role session for the whole task, so the role allows
+sessions of `max_session_duration`, 7 hours by default. That covers the
+default 6-hour task cap plus launch and setup. The workflow requests a
+session sized to the task with `role-duration-seconds`. A one-hour session
+would expire mid-task and leave the CLI unable to stream output, copy
+results or terminate the instance.
+
 On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/ci-task-role>
 
 ## Usage
@@ -99,6 +108,7 @@ No resources.
 | policies | Managed policies to create and attach, by catalog name. This role accepts only task and common policies: `task/launch`, `ecr/pull`. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `rusty-chess`. The role is named `<name_root>-<project>-ci-task`, and `task/launch` is scoped to the project's launch templates, network, task role and instances tagged `Project = <project>` and `Purpose = ci-task`. | `string` | n/a | yes |
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
+| max\_session\_duration | Maximum session duration in seconds. `task run` holds one session for the whole task, so it must outlast the project's longest task (task-runner.max\_hours) plus launch and setup. The default, 7 hours, covers the default 6-hour cap; raise it, to at most 12 hours, for longer tasks. | `number` | `25200` | no |
 | name\_root | Prefix of the role and policy names, in kebab-case. The role is named `<name_root>-<project>-ci-task`. | `string` | `"jwall-engineering"` | no |
 | owner\_id | Numeric GitHub ID of the repository owner (`gh api users/<owner> --jq .id`). When set together with `repository_id`, the role also trusts GitHub's immutable subject form `repo:<owner>@<owner_id>/<name>@<repository_id>:...`. | `string` | `null` | no |
 | policy\_inputs | Values the requested policies are built from, one optional section per policy family. `task/launch` needs `task = { instance_types }`; `ecr/pull` needs `ecr = { repository_arn }`. The `ci-policies` module checks the shape. | `any` | `{}` | no |
@@ -109,6 +119,7 @@ No resources.
 
 | Name | Description |
 | ---- | ----------- |
+| max\_session\_duration | Maximum session duration of the role, in seconds; the workflow's `role-duration-seconds` must not exceed it. |
 | policy\_arns | Map of requested policy (for example `task/launch`) to the ARN of the managed policy created for it and attached to the role. |
 | role\_arn | ARN of the role, for `role-to-assume` in `aws-actions/configure-aws-credentials`. |
 | role\_name | Name of the role. |

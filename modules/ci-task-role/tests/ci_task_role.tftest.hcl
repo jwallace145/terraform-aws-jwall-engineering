@@ -118,3 +118,38 @@ run "rejects_write_policies" {
 
   expect_failures = [var.policies]
 }
+
+# `task run` holds the role for the whole task: up to task-runner.max_hours
+# (at most 24) plus launch and setup. A one-hour session would expire mid-task
+# and leave the CLI unable to stream, collect or terminate.
+run "sessions_outlast_the_longest_task" {
+  command = plan
+
+  assert {
+    condition     = module.role.max_session_duration == 25200
+    error_message = "the default session must cover a 6-hour task plus setup: 7 hours"
+  }
+}
+
+run "session_duration_follows_input" {
+  command = plan
+
+  variables {
+    max_session_duration = 43200
+  }
+
+  assert {
+    condition     = module.role.max_session_duration == 43200
+    error_message = "max_session_duration is passed to the role"
+  }
+}
+
+run "rejects_a_session_longer_than_iam_allows" {
+  command = plan
+
+  variables {
+    max_session_duration = 43201
+  }
+
+  expect_failures = [var.max_session_duration]
+}
