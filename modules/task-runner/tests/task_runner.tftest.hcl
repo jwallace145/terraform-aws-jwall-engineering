@@ -1,6 +1,18 @@
 mock_provider "aws" {
   override_during = plan
 
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_region" {
+    defaults = {
+      region = "us-east-1"
+    }
+  }
+
   mock_data "aws_ssm_parameter" {
     defaults = {
       value = "ami-0123456789abcdef0"
@@ -110,9 +122,9 @@ run "launch_template" {
   assert {
     condition = (
       toset([for t in aws_launch_template.this.tag_specifications : t.resource_type]) == toset(["instance", "volume"]) &&
-      alltrue([for t in aws_launch_template.this.tag_specifications : t.tags["Component"] == "task-runner" && t.tags["Purpose"] == "ci-task"])
+      alltrue([for t in aws_launch_template.this.tag_specifications : t.tags == tomap({ Project = "rusty-chess", Component = "task-runner", Purpose = "ci-task" })])
     )
-    error_message = "instances and volumes are tagged Component = task-runner and Purpose = ci-task"
+    error_message = "instances and volumes carry Project, Component = task-runner and Purpose = ci-task, which task/launch requires as request tags"
   }
 
   assert {
@@ -199,13 +211,47 @@ run "instance_role" {
     error_message = "the role is <name_root>-<project>-task, the name task/launch may pass, trusted by EC2"
   }
 
+  # AmazonSSMManagedInstanceCore grants ssm:GetParameter on *, which would
+  # let pull request code read every parameter in the account, the bot's
+  # Lichess token among them. The agent gets an inline minimum instead.
   assert {
-    condition     = aws_iam_role_policy_attachment.ssm.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-    error_message = "Run Command needs the SSM core policy"
+    condition = jsonencode(jsondecode(aws_iam_role_policy.this.policy).Statement[3]) == jsonencode({
+      Sid    = "RunCommandAgent"
+      Effect = "Allow"
+      Action = [
+        "ec2messages:AcknowledgeMessage",
+        "ec2messages:DeleteMessage",
+        "ec2messages:FailMessage",
+        "ec2messages:GetEndpoint",
+        "ec2messages:GetMessages",
+        "ec2messages:SendReply",
+        "ssm:DescribeAssociation",
+        "ssm:ListAssociations",
+        "ssm:ListInstanceAssociations",
+        "ssm:UpdateAssociationStatus",
+        "ssm:UpdateInstanceAssociationStatus",
+        "ssm:UpdateInstanceInformation",
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      Resource = "*"
+    })
+    error_message = "the agent gets only Run Command's channel and registration actions"
   }
 
   assert {
-    condition     = jsonencode([for s in jsondecode(aws_iam_role_policy.this.policy).Statement : s.Sid]) == jsonencode(["WriteTaskLogs", "WriteTaskResults"])
+    condition = !anytrue(flatten([
+      for s in jsondecode(aws_iam_role_policy.this.policy).Statement : [
+        for a in flatten([s.Action]) : startswith(a, "ssm:GetParameter") || startswith(a, "kms:") || startswith(a, "secretsmanager:") || a == "ssm:*" || a == "*"
+      ]
+    ]))
+    error_message = "the task instance must read no parameter and no secret"
+  }
+
+  assert {
+    condition     = jsonencode([for s in jsondecode(aws_iam_role_policy.this.policy).Statement : s.Sid]) == jsonencode(["WriteTaskLogs", "FindTaskLogGroup", "WriteTaskResults", "RunCommandAgent"])
     error_message = "the inline policy has exactly the log and results statements"
   }
 
@@ -213,7 +259,7 @@ run "instance_role" {
     condition = jsonencode(jsondecode(aws_iam_role_policy.this.policy).Statement[0]) == jsonencode({
       Sid      = "WriteTaskLogs"
       Effect   = "Allow"
-      Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
+      Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
       Resource = ["arn:aws:logs:us-east-1:123456789012:log-group:/jwall-engineering/rusty-chess/tasks", "arn:aws:logs:us-east-1:123456789012:log-group:/jwall-engineering/rusty-chess/tasks:*"]
     })
     error_message = "logs: write to the task log group only"
@@ -221,6 +267,16 @@ run "instance_role" {
 
   assert {
     condition = jsonencode(jsondecode(aws_iam_role_policy.this.policy).Statement[1]) == jsonencode({
+      Sid      = "FindTaskLogGroup"
+      Effect   = "Allow"
+      Action   = "logs:DescribeLogGroups"
+      Resource = "arn:aws:logs:us-east-1:123456789012:log-group:*"
+    })
+    error_message = "Run Command's CloudWatch output checks that the group exists first"
+  }
+
+  assert {
+    condition = jsonencode(jsondecode(aws_iam_role_policy.this.policy).Statement[2]) == jsonencode({
       Sid      = "WriteTaskResults"
       Effect   = "Allow"
       Action   = "s3:PutObject"

@@ -21,6 +21,13 @@ tags, environments and wildcards fail at plan time.
   only.
 - **Anyone who can push a branch can open a pull request** and so launch
   task instances. The role bounds what they can launch, not whether.
+- **`ref:refs/heads/main` is shared by other events.** GitHub gives the same
+  subject to `pull_request_target`, `issue_comment`, `workflow_run` and
+  `schedule` runs on `main`, and IAM cannot tell them apart. A workflow on
+  `main` that runs one of those events and checks out pull request code
+  would hand a fork the role. Keep such workflows from assuming it, protect
+  `.github/workflows` with CODEOWNERS, and have the task workflow refuse
+  any event other than `pull_request`, `push` and `workflow_dispatch`.
 
 With `owner_id` and `repository_id` set (from `gh api users/<owner> --jq .id`
 and `gh api repos/<owner>/<repo> --jq .id`), the role also trusts GitHub's

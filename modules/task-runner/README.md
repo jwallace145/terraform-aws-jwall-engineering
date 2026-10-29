@@ -54,10 +54,24 @@ Four things do:
 
 ## Permissions
 
-The instance role can write to the task log group and put objects under
-the results prefix, and has `AmazonSSMManagedInstanceCore` for Run Command.
-It cannot read earlier results, pull images, or read parameters or secrets:
-tasks run pull request code.
+Tasks run pull request code, so the instance role can only write. It can
+write to the task log group and put objects under the results prefix, and
+it has the SSM agent's registration and message channels for Run Command
+and Session Manager. It cannot read earlier results, pull images, or read
+parameters or secrets. `AmazonSSMManagedInstanceCore` is deliberately not
+attached: it grants `ssm:GetParameter` on every parameter in the account,
+which would expose secrets such as a bot's token to a pull request.
+
+The launch template and the instance's own guards bound accidents, not
+abuse: task code runs as root and could cancel the scheduled shutdown. The
+CLI's termination and the workflow's `always()` step remain the primary
+cleanup.
+
+## Launch contract
+
+`task/launch` requires `Project` and `Purpose = ci-task` as request tags on
+both the instance and its volume. The template tags both, and the CLI must
+also send `instance` and `volume` tag specifications carrying them.
 
 ## Cost and tags
 
@@ -117,10 +131,11 @@ No modules.
 | [aws_iam_instance_profile.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
-| [aws_iam_role_policy_attachment.ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_launch_template.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
 | [aws_security_group.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_vpc_security_group_egress_rule.all_ipv4](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_egress_rule) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_ssm_parameter.ami](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ssm_parameter) | data source |
 
 ## Inputs

@@ -6,7 +6,12 @@
 # may pass only `<name_root>-<project>-task`, write results only under
 # `<name_root>-<project>-tasks/tasks/` and read only `/<name_root>/<project>/tasks`.
 
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 locals {
+  account_id     = data.aws_caller_identity.current.account_id
+  region         = data.aws_region.current.region
   name           = "${var.name_root}-${var.project}-task"
   log_group_name = "/${var.name_root}/${var.project}/tasks"
   results_bucket = "${var.name_root}-${var.project}-tasks"
@@ -20,10 +25,12 @@ locals {
     Component = "task-runner"
   }
 
-  # Launched instances and volumes. The CLI adds the organisation tags,
-  # `Name` and the run's tags at launch: RunInstances does not apply the
-  # provider's default tags.
+  # Launched instances and volumes. `task/launch` requires Project and
+  # Purpose as request tags on both; the CLI sends them too, with the other
+  # organisation tags, `Name` and the run's tags, because RunInstances does
+  # not apply the provider's default tags.
   launch_tags = {
+    Project   = var.project
     Component = "task-runner"
     Purpose   = "ci-task"
   }
