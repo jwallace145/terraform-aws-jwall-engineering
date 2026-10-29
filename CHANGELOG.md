@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.10.1...v0.11.0) (2026-10-29)
+
+
+### Features
+
+* **container-instance:** pin the instance image with ami_id ([#33](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/33)) ([1043e67](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/1043e67e40ee37d962769a02a30896436b77bdb7))
+
 ## [0.10.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.10.0...v0.10.1) (2026-10-28)
 
 
