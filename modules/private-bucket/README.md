@@ -7,6 +7,11 @@ SSE-S3 encrypted with a bucket key, Block Public Access on,
 versions expire after `noncurrent_version_expiration_days` (30 by default)
 and incomplete multipart uploads are aborted after 7 days.
 
+**Short-lived data.** Set `current_object_expiration_days` to expire current
+objects too, for data that is copied elsewhere at once, such as the outputs of
+ephemeral tasks. Old versions still expire after
+`noncurrent_version_expiration_days`.
+
 `prevent_destroy` is hard-coded: a `terraform destroy` of the stack keeps
 the bucket and its objects, by design. Who may read and write the objects is
 decided by the callers' IAM policies; the bucket policy grants nothing.
@@ -63,6 +68,7 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the bucket, for example `jwall-engineering-rusty-chess-records`. Also the value of its `Name` tag. | `string` | n/a | yes |
 | component | Value of the `Component` tag on the bucket. | `string` | `"private-bucket"` | no |
+| current\_object\_expiration\_days | Expire current objects this many days after they are written, for short-lived data such as task results. `null` keeps them forever. | `number` | `null` | no |
 | noncurrent\_version\_expiration\_days | Overwritten and deleted object versions are kept this many days before they expire. | `number` | `30` | no |
 
 ## Outputs
