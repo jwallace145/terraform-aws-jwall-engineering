@@ -29,6 +29,6 @@ output "log_group_name" {
 }
 
 output "results_uri" {
-  description = "S3 prefix under which each task's outputs land, as `<results_uri><run>/<task>/`. The bucket is the caller's."
+  description = "S3 prefix under which each task's outputs land, as `<results_uri><role-id>:<instance-id>/`: an instance can write only its own. The bucket is the caller's."
   value       = "s3://${local.results_bucket}/${local.results_prefix}"
 }

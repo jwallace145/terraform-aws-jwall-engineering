@@ -53,10 +53,12 @@ resource "aws_iam_role_policy" "this" {
         Resource = "arn:aws:logs:${local.region}:${local.account_id}:log-group:*"
       },
       {
-        Sid      = "WriteTaskResults"
-        Effect   = "Allow"
-        Action   = "s3:PutObject"
-        Resource = "arn:aws:s3:::${local.results_bucket}/${local.results_prefix}*"
+        Sid    = "WriteTaskResults"
+        Effect = "Allow"
+        Action = "s3:PutObject"
+        # aws:userid of an EC2 role session is <role-id>:<instance-id>, so each
+        # instance writes only its own prefix and cannot touch another task's.
+        Resource = "arn:aws:s3:::${local.results_bucket}/${local.results_prefix}$${aws:userid}/*"
       },
       {
         # The SSM agent's registration and message channels, the part of

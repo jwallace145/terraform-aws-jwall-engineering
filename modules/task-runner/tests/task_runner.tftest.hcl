@@ -280,9 +280,11 @@ run "instance_role" {
       Sid      = "WriteTaskResults"
       Effect   = "Allow"
       Action   = "s3:PutObject"
-      Resource = "arn:aws:s3:::jwall-engineering-rusty-chess-tasks/tasks/*"
+      Resource = "arn:aws:s3:::jwall-engineering-rusty-chess-tasks/tasks/$${aws:userid}/*"
     })
-    error_message = "results: put objects under tasks/ only, never read or delete"
+    # An EC2 role session's aws:userid is <role-id>:<instance-id>: each instance
+    # can write only its own prefix, never another task's results.
+    error_message = "results: put objects under the instance's own tasks/<role-id>:<instance-id>/ prefix only"
   }
 }
 
