@@ -117,6 +117,7 @@ jobs:
           - { module: private-bucket, path: modules/private-bucket }
           - { module: vpc, path: modules/vpc }
           - { module: container-instance, path: modules/container-instance }
+          - { module: task-runner, path: modules/task-runner }
           - { module: static-site, path: modules/static-site }
           - { module: preview-site, path: modules/preview-site }
     defaults:
