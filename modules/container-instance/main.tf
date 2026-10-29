@@ -16,13 +16,21 @@ locals {
   parameter_prefix = "/${var.name_root}/${var.project}/bot"
   log_group_name   = "/${var.name_root}/${var.project}/bot"
 
+  # A public image ID; the SSM parameter value is only marked sensitive by type.
+  ami_id = var.ami_id != null ? var.ami_id : nonsensitive(data.aws_ssm_parameter.ami[0].value)
+
   tags = {
     Name      = var.name
     Component = var.component
   }
 }
 
+# The latest Amazon Linux 2023 image, only when no image is pinned. Following
+# it replaces the instance whenever Amazon publishes a new image; pin
+# `ami_id` to upgrade the OS deliberately instead.
 data "aws_ssm_parameter" "ami" {
+  count = var.ami_id == null ? 1 : 0
+
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-${var.architecture}"
 }
 
@@ -55,7 +63,7 @@ resource "aws_vpc_security_group_egress_rule" "all_ipv4" {
 }
 
 resource "aws_instance" "this" {
-  ami                         = data.aws_ssm_parameter.ami.value
+  ami                         = local.ami_id
   instance_type               = var.instance_type
   subnet_id                   = var.subnet_id
   vpc_security_group_ids      = [aws_security_group.this.id]
