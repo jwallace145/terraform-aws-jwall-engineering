@@ -3,6 +3,11 @@ output "instance_id" {
   value       = aws_instance.this.id
 }
 
+output "ami_id" {
+  description = "Image the instance runs: the pinned `ami_id`, or the latest Amazon Linux 2023 image when nothing is pinned."
+  value       = local.ami_id
+}
+
 output "instance_arn" {
   description = "ARN of the instance."
   value       = aws_instance.this.arn

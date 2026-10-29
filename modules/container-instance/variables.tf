@@ -60,6 +60,17 @@ variable "instance_type" {
   }
 }
 
+variable "ami_id" {
+  description = "Image of the instance. Pin it (for example to the current value of `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-<architecture>`) so the instance is replaced only when you change the pin. `null` follows the latest Amazon Linux 2023 image, which replaces the instance whenever Amazon publishes one. The image must match `architecture`."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.ami_id == null || can(regex("^ami-[0-9a-f]{8,17}$", var.ami_id))
+    error_message = "ami_id must be an AMI ID like ami-0123456789abcdef0, or null."
+  }
+}
+
 variable "architecture" {
   description = "CPU architecture of the AMI: `x86_64` or `arm64`. The image must be built for the same one."
   type        = string

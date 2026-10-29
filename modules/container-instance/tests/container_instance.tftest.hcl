@@ -58,7 +58,7 @@ run "ami_from_public_parameter" {
   command = plan
 
   assert {
-    condition     = data.aws_ssm_parameter.ami.name == "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    condition     = data.aws_ssm_parameter.ami[0].name == "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
     error_message = "x86_64 uses the latest Amazon Linux 2023 x86_64 AMI"
   }
 }
@@ -72,7 +72,7 @@ run "ami_for_arm64" {
   }
 
   assert {
-    condition     = data.aws_ssm_parameter.ami.name == "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
+    condition     = data.aws_ssm_parameter.ami[0].name == "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
     error_message = "arm64 uses the latest Amazon Linux 2023 arm64 AMI"
   }
 }
@@ -368,4 +368,54 @@ run "rejects_bad_retention" {
   }
 
   expect_failures = [var.log_retention_days]
+}
+
+
+# A pinned image: the instance only changes OS when the pin changes, instead
+# of being replaced whenever Amazon publishes a new AL2023 image.
+run "pinned_ami" {
+  command = plan
+
+  variables {
+    ami_id = "ami-0fedcba9876543210"
+  }
+
+  assert {
+    condition     = aws_instance.this.ami == "ami-0fedcba9876543210"
+    error_message = "the instance must use the pinned image"
+  }
+
+  assert {
+    condition     = length(data.aws_ssm_parameter.ami) == 0
+    error_message = "no latest-image lookup when the image is pinned"
+  }
+
+  assert {
+    condition     = output.ami_id == "ami-0fedcba9876543210"
+    error_message = "ami_id reports the image in use"
+  }
+}
+
+run "unpinned_ami_follows_the_latest" {
+  command = plan
+
+  assert {
+    condition     = length(data.aws_ssm_parameter.ami) == 1 && aws_instance.this.ami == "ami-0123456789abcdef0"
+    error_message = "without a pin the latest AL2023 image is used, as before"
+  }
+
+  assert {
+    condition     = output.ami_id == "ami-0123456789abcdef0"
+    error_message = "ami_id reports the image in use"
+  }
+}
+
+run "rejects_a_malformed_ami_id" {
+  command = plan
+
+  variables {
+    ami_id = "al2023-latest"
+  }
+
+  expect_failures = [var.ami_id]
 }

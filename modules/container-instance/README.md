@@ -6,8 +6,8 @@ for a Lichess bot (a game must finish before the engine is swapped), but
 nothing in it is specific to chess: the image, the secrets, the environment,
 the health check and the stop signal are inputs.
 
-What it creates: the instance (latest Amazon Linux 2023 by public SSM
-parameter, IMDSv2 only, an encrypted gp3 root volume, a public IPv4 address,
+What it creates: the instance (a pinned `ami_id`, or the latest Amazon
+Linux 2023 by public SSM parameter, IMDSv2 only, an encrypted gp3 root volume, a public IPv4 address,
 standard CPU credits), a security group with **no ingress rules**, an
 instance role, a CloudWatch log group `/<name_root>/<project>/bot` and the
 user data that installs Docker, the reconciler and the records sync.
@@ -68,11 +68,24 @@ aws ssm send-command --document-name AWS-RunShellScript \
   --parameters 'commands=["container-reconcile-async"]'
 ```
 
-**What replaces the instance.** Changing the AMI (a new Amazon Linux
-release, picked up at the next apply), the instance type or anything in the
-user data (any input of this module except tags) replaces the instance and
-ends the container's current work. Plan before applying and apply while the
-bot is idle. At a clean shutdown (an instance replacement, a stop or a
+**What replaces the instance.** Changing the image, the instance type or
+anything in the user data (any input of this module except tags) replaces
+the instance and ends the container's current work. Plan before applying and
+apply while the bot is idle.
+
+**Pin the image.** Set `ami_id` to a specific Amazon Linux 2023 image. Then
+the instance changes OS only when you change the pin, in a change whose plan
+shows the replacement. Without a pin, the module follows
+`/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-<architecture>`,
+and every new Amazon release shows up in plans as a replacement. To find the
+current latest image for a new pin:
+
+```sh
+aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
+  --query Parameter.Value --output text
+```
+
+The `ami_id` output reports the image in use. At a clean shutdown (an instance replacement, a stop or a
 reboot) the records are shipped one last time after the container has
 exited, including games that ended seconds before.
 
@@ -155,6 +168,7 @@ module "bot" {
   image_repository_arn = module.image.arn
   vpc_id               = module.network.vpc_id
   subnet_id            = module.network.public_subnet_ids[0]
+  ami_id               = "ami-0123456789abcdef0" # pinned AL2023; change deliberately
 
   secret_parameters      = { LICHESS_TOKEN = "/jwall-engineering/rusty-chess/lichess-token" }
   container_environment  = { ENGINE_HASH_MB = "128" }
@@ -209,6 +223,7 @@ No modules.
 | project | Project in kebab-case, for example `rusty-chess`. Parameters live under `/<name_root>/<project>/bot/` and logs in `/<name_root>/<project>/bot`. | `string` | n/a | yes |
 | subnet\_id | Public subnet of the instance (an element of `public_subnet_ids` of `vpc`). The instance gets a public IPv4 address for egress. | `string` | n/a | yes |
 | vpc\_id | VPC of the security group (output `vpc_id` of `vpc`). | `string` | n/a | yes |
+| ami\_id | Image of the instance. Pin it (for example to the current value of `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-<architecture>`) so the instance is replaced only when you change the pin. `null` follows the latest Amazon Linux 2023 image, which replaces the instance whenever Amazon publishes one. The image must match `architecture`. | `string` | `null` | no |
 | architecture | CPU architecture of the AMI: `x86_64` or `arm64`. The image must be built for the same one. | `string` | `"x86_64"` | no |
 | bot\_name | Name of the account the container plays as (for example the Lichess bot user), recorded in every game record's sidecar. | `string` | `""` | no |
 | component | Value of the `Component` tag on every resource. The release CLI finds the instance by `Project` and this tag. | `string` | `"container-instance"` | no |
@@ -230,6 +245,7 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
+| ami\_id | Image the instance runs: the pinned `ami_id`, or the latest Amazon Linux 2023 image when nothing is pinned. |
 | instance\_arn | ARN of the instance. |
 | instance\_id | ID of the instance, for Session Manager (`aws ssm start-session --target`) and Run Command. |
 | log\_group\_arn | ARN of the log group. |
