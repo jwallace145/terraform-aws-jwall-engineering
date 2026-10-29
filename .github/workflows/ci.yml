@@ -109,6 +109,8 @@ jobs:
           - { module: ci-policies/container/read, path: modules/ci-policies/container/read, example: false }
           - { module: ci-policies/container/manage, path: modules/ci-policies/container/manage, example: false }
           - { module: ci-policies/container/release, path: modules/ci-policies/container/release, example: false }
+          - { module: ci-policies/task/read, path: modules/ci-policies/task/read, example: false }
+          - { module: ci-policies/task/manage, path: modules/ci-policies/task/manage, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: vpc, path: modules/vpc }
