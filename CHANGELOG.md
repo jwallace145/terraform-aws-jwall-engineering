@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.11.0...v0.12.0) (2026-10-29)
+
+
+### Features
+
+* add task-runner, ci-task-role and the task CI policies ([#35](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/35)) ([585e569](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/585e569175637a519ca92f320860a4330bddad1a))
+
 ## [0.11.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.10.1...v0.11.0) (2026-10-29)
 
 
