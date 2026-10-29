@@ -125,12 +125,20 @@ Modules take no tag maps: the six organisation tags come only from the
 provider's `default_tags`, so a stack cannot forget one. Resources that do
 not inherit `default_tags` on their own are tagged explicitly by the module
 and pinned by a test; today that is the EC2 root volume in
-[`container-instance`](modules/container-instance). Several CI policies rely
+[`container-instance`](modules/container-instance) and the task instances
+and volumes in [`task-runner`](modules/task-runner). Several CI policies rely
 on the tags too: EC2, CloudFront and ACM permissions are scoped by
 `Project`.
 
+Ephemeral CI task instances and their volumes carry one more tag,
+`Purpose = ci-task`, set by the [`task-runner`](modules/task-runner)
+launch template and by the CLI at launch. The `task/launch` CI policy
+requires it on every launch and can terminate or run commands only on
+instances that carry it, so long-lived instances such as a bot are out of
+reach. It also separates task spend from the rest of a project's spend.
+
 To report on cost by these tags, activate `Organization`, `Project`,
-`Environment`, `Component` and `Owner` as
+`Environment`, `Component`, `Purpose` and `Owner` as
 [cost allocation tags](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/activating-tags.html)
 in the Billing console once, after the first resources carrying them exist.
 
