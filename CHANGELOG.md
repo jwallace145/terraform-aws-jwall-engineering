@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.12.0...v0.12.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **ci-task-role:** allow sessions that outlast the longest task ([#37](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/37)) ([5d36de5](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/5d36de507e1bad036c70ecc356e3aaa357787dba))
+
 ## [0.12.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.11.0...v0.12.0) (2026-10-29)
 
 
