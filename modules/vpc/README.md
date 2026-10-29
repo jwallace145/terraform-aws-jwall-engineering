@@ -64,7 +64,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the VPC in kebab-case, for example `jwall-engineering-rusty-chess`. The subnets, gateway and route table are named after it. | `string` | n/a | yes |
-| availability\_zones | Availability zones that get one public subnet each, in order. One is enough for a single instance; two keep the module reusable for fleets. | `list(string)` | <pre>[<br/>  "us-east-1a",<br/>  "us-east-1b"<br/>]</pre> | no |
+| availability\_zones | Availability zones that get one public subnet each, in order. One is enough for a single instance; spot fleets want every zone that offers their type, since capacity is per zone. Append zones: subnets are numbered by position, so appending leaves existing subnets (and instances in them) alone. | `list(string)` | <pre>[<br/>  "us-east-1a",<br/>  "us-east-1b"<br/>]</pre> | no |
 | cidr\_block | IPv4 CIDR of the VPC, between /16 and /24. Each public subnet is a /24 carved from it. | `string` | `"10.0.0.0/16"` | no |
 | component | Value of the `Component` tag on every resource. | `string` | `"vpc"` | no |
 

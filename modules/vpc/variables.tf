@@ -23,17 +23,17 @@ variable "cidr_block" {
 }
 
 variable "availability_zones" {
-  description = "Availability zones that get one public subnet each, in order. One is enough for a single instance; two keep the module reusable for fleets."
+  description = "Availability zones that get one public subnet each, in order. One is enough for a single instance; spot fleets want every zone that offers their type, since capacity is per zone. Append zones: subnets are numbered by position, so appending leaves existing subnets (and instances in them) alone."
   type        = list(string)
   default     = ["us-east-1a", "us-east-1b"]
 
   validation {
     condition = (
-      length(var.availability_zones) >= 1 && length(var.availability_zones) <= 4 &&
+      length(var.availability_zones) >= 1 && length(var.availability_zones) <= 6 &&
       alltrue([for az in var.availability_zones : can(regex("^us-east-1[a-f]$", az))]) &&
       length(distinct(var.availability_zones)) == length(var.availability_zones)
     )
-    error_message = "availability_zones must list 1 to 4 distinct us-east-1 zones, for example [\"us-east-1a\", \"us-east-1b\"]."
+    error_message = "availability_zones must list 1 to 6 distinct us-east-1 zones, for example [\"us-east-1a\", \"us-east-1b\"]."
   }
 }
 
