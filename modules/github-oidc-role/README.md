@@ -160,6 +160,7 @@ No modules.
 | inline\_policies | Map of `inline_policies` key to `{ name, policy }`, where `policy` is the JSON document attached to the role. |
 | managed\_policies | Map of `managed_policies` key to the ARN attached under it. |
 | managed\_policy\_arns | ARNs of the managed policies attached to the role, sorted. |
+| max\_session\_duration | Maximum session duration of the role, in seconds. |
 | name | Name of the role. |
 | tags | Tags the module sets on the role (`Component`, and `Name` when `name_tag` is set). Excludes provider `default_tags`. |
 <!-- END_TF_DOCS -->

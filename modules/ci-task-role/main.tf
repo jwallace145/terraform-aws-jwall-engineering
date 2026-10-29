@@ -24,8 +24,11 @@ module "role" {
   oidc_provider_arn   = var.oidc_provider_arn
   subjects            = var.subjects
   trust_statement_sid = "GitHubTaskEvents"
-  component           = "ci"
-  name_tag            = local.name
+
+  # `task run` holds one session for the whole task.
+  max_session_duration = var.max_session_duration
+  component            = "ci"
+  name_tag             = local.name
 
   managed_policies = module.policies.arns
 }

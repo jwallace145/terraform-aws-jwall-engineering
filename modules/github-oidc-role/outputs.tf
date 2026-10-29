@@ -42,3 +42,8 @@ output "managed_policies" {
   description = "Map of `managed_policies` key to the ARN attached under it."
   value       = { for k, a in aws_iam_role_policy_attachment.keyed : k => a.policy_arn }
 }
+
+output "max_session_duration" {
+  description = "Maximum session duration of the role, in seconds."
+  value       = aws_iam_role.this.max_session_duration
+}

@@ -82,3 +82,14 @@ variable "subjects" {
     error_message = "subjects must each be `pull_request` or `ref:refs/heads/<branch>` with no wildcards; tags and environments are not trusted."
   }
 }
+
+variable "max_session_duration" {
+  description = "Maximum session duration in seconds. `task run` holds one session for the whole task, so it must outlast the project's longest task (task-runner.max_hours) plus launch and setup. The default, 7 hours, covers the default 6-hour cap; raise it, to at most 12 hours, for longer tasks."
+  type        = number
+  default     = 25200
+
+  validation {
+    condition     = var.max_session_duration >= 3600 && var.max_session_duration <= 43200
+    error_message = "max_session_duration must be between 3600 and 43200 seconds (IAM's limits)."
+  }
+}
