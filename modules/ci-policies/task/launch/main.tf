@@ -8,6 +8,12 @@ locals {
   ec2     = "arn:aws:ec2:${local.region}:${local.account}"
   bucket  = "arn:aws:s3:::${local.prefix}-tasks"
 
+  # The instance role of each profile, the only roles a launch may pass.
+  task_roles = [
+    for p in var.profiles :
+    "arn:aws:iam::${local.account}:role/${local.prefix}-task${p == "cpu" ? "" : "-${p}"}"
+  ]
+
   task_tags = {
     "aws:RequestTag/Project" = var.project
     "aws:RequestTag/Purpose" = "ci-task"
@@ -97,7 +103,7 @@ locals {
         Sid       = "PassTaskRole"
         Effect    = "Allow"
         Action    = "iam:PassRole"
-        Resource  = "arn:aws:iam::${local.account}:role/${local.prefix}-task"
+        Resource  = local.task_roles
         Condition = { StringEquals = { "iam:PassedToService" = "ec2.amazonaws.com" } }
       },
       {

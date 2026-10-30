@@ -74,7 +74,7 @@ run "passes_only_the_task_role_to_ec2" {
 
   assert {
     condition = (
-      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "PassTaskRole"][0].Resource == "arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task" &&
+      [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "PassTaskRole"][0].Resource == ["arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task"] &&
       [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "PassTaskRole"][0].Condition.StringEquals["iam:PassedToService"] == "ec2.amazonaws.com"
     )
     error_message = "only the task instance role, only to EC2"
@@ -84,6 +84,32 @@ run "passes_only_the_task_role_to_ec2" {
     condition     = !anytrue([for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : startswith(a, "iam:") && a != "iam:PassRole"])
     error_message = "no other IAM action"
   }
+}
+
+run "passes_each_profile_role" {
+  command = plan
+
+  variables {
+    profiles = ["cpu", "gpu"]
+  }
+
+  assert {
+    condition = [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "PassTaskRole"][0].Resource == [
+      "arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task",
+      "arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task-gpu",
+    ]
+    error_message = "each profile's instance role, and no other"
+  }
+}
+
+run "rejects_malformed_profile" {
+  command = plan
+
+  variables {
+    profiles = ["GPU"]
+  }
+
+  expect_failures = [var.profiles]
 }
 
 run "touches_only_task_instances" {

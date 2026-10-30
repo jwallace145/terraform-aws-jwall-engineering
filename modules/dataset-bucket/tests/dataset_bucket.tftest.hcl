@@ -196,6 +196,87 @@ run "readers_read_the_prefix" {
   }
 }
 
+run "role_grants_read_and_write_sub_prefixes" {
+  command = plan
+
+  variables {
+    role_grants = {
+      "jwall-engineering-rusty-chess-task-gpu" = { read = ["selfplay/"], write = ["nets/"] }
+    }
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role_policy.grant["jwall-engineering-rusty-chess-task-gpu"].policy).Statement == [
+      {
+        Sid      = "ReadDatasetObjects"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/selfplay/*"]
+      },
+      {
+        Sid      = "AddDatasetObjects"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:AbortMultipartUpload"]
+        Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/nets/*"]
+      },
+      {
+        Sid       = "ListDatasetPrefixes"
+        Effect    = "Allow"
+        Action    = "s3:ListBucket"
+        Resource  = "arn:aws:s3:::jwall-engineering-rusty-chess-nnue"
+        Condition = { StringLike = { "s3:prefix" = ["data/selfplay/*", "data/nets/*"] } }
+      },
+    ]
+    error_message = "a grant reads only its read sub-prefixes, adds only under its write sub-prefixes and lists only those"
+  }
+
+  assert {
+    condition = !anytrue([
+      for s in jsondecode(aws_iam_role_policy.grant["jwall-engineering-rusty-chess-task-gpu"].policy).Statement :
+      anytrue([for a in flatten([s.Action]) : startswith(a, "s3:Delete") || a == "s3:*"])
+    ])
+    error_message = "a grant never deletes"
+  }
+
+  assert {
+    condition     = aws_iam_role_policy.grant["jwall-engineering-rusty-chess-task-gpu"].role == "jwall-engineering-rusty-chess-task-gpu"
+    error_message = "the grant is an inline policy on the named role"
+  }
+}
+
+run "role_grant_read_only" {
+  command = plan
+
+  variables {
+    role_grants = { "some-reader" = { read = ["selfplay/"] } }
+  }
+
+  assert {
+    condition     = [for s in jsondecode(aws_iam_role_policy.grant["some-reader"].policy).Statement : s.Sid] == ["ReadDatasetObjects", "ListDatasetPrefixes"]
+    error_message = "a read-only grant has no write statement"
+  }
+}
+
+run "rejects_empty_role_grant" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = {} }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_role_grant_with_leading_slash" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { read = ["/selfplay/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
 run "rejects_prefix_without_trailing_slash" {
   command = plan
 

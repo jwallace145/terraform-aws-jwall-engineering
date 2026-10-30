@@ -120,6 +120,7 @@ set, which is what makes per-project and per-component cost reports possible:
 | `ManagedBy` | the caller's `default_tags`, from `context` | `jwall-engineering-infra` |
 | `Owner` | the caller's `default_tags`, from `context` | `jwallace145` |
 | `Component` | the module | `container-instance` |
+| `Profile` | [`task-runner`](modules/task-runner), on task templates and instances | `cpu`, `gpu` |
 | `Name` | the module, where the resource has a name | `jwall-engineering-rusty-chess-bot` |
 
 Modules take no tag maps: the six organisation tags come only from the

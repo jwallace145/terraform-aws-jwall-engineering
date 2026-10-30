@@ -1,6 +1,6 @@
 resource "aws_iam_role" "this" {
   name        = local.name
-  description = "Task instances of ${var.project}: run commands, write task logs and results"
+  description = "Task instances of ${var.project}, profile ${var.profile}: run commands, write task logs and results"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -40,8 +40,8 @@ resource "aws_iam_role_policy" "this" {
           "logs:DescribeLogStreams",
         ]
         Resource = [
-          aws_cloudwatch_log_group.this.arn,
-          "${aws_cloudwatch_log_group.this.arn}:*",
+          local.log_group_arn,
+          "${local.log_group_arn}:*",
         ]
       },
       {

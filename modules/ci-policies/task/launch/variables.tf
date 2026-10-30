@@ -38,3 +38,14 @@ variable "instance_types" {
     error_message = "instance_types must list at least one instance type like c8a.xlarge."
   }
 }
+
+variable "profiles" {
+  description = "The project's task profiles (`task-runner` module instances). The role may pass each one's instance role: `<name_root>-<project>-task` for `cpu`, `<name_root>-<project>-task-<profile>` for the others."
+  type        = list(string)
+  default     = ["cpu"]
+
+  validation {
+    condition     = length(var.profiles) > 0 && alltrue([for p in var.profiles : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", p))])
+    error_message = "profiles must list at least one kebab-case profile, e.g. [\"cpu\", \"gpu\"]."
+  }
+}

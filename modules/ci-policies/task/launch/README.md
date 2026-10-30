@@ -75,6 +75,7 @@ No modules.
 | name | Name of the managed policy, for example `jwall-engineering-rusty-chess-ci-task-task-launch`. | `string` | n/a | yes |
 | project | Project name in kebab-case. Every resource ARN in the policy is built from `<name_root>-<project>`. | `string` | n/a | yes |
 | name\_root | Prefix of resource names, in kebab-case. Roles, policies, repositories and buckets are scoped to `<name_root>-<project>-*`; parameters and log groups to `/<name_root>/<project>/*`. | `string` | `"jwall-engineering"` | no |
+| profiles | The project's task profiles (`task-runner` module instances). The role may pass each one's instance role: `<name_root>-<project>-task` for `cpu`, `<name_root>-<project>-task-<profile>` for the others. | `list(string)` | <pre>[<br/>  "cpu"<br/>]</pre> | no |
 
 ## Outputs
 

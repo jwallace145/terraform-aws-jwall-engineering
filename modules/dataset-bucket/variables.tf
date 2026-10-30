@@ -54,3 +54,26 @@ variable "reader_role_arns" {
     error_message = "reader_role_arns must be IAM role ARNs like arn:aws:iam::123456789012:role/name."
   }
 }
+
+variable "role_grants" {
+  description = "Roles in this account granted narrower access than a writer or reader: `read` and `write` are sub-prefixes of `prefix` (each ending in `/`, for example `selfplay/`). An inline policy on each role grants `s3:GetObject` under each `read` sub-prefix, `s3:PutObject` (and `s3:AbortMultipartUpload`) under each `write` sub-prefix, and `s3:ListBucket` limited to all of them. Never delete. Keys are role names."
+  type = map(object({
+    read  = optional(list(string), [])
+    write = optional(list(string), [])
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for g in values(var.role_grants) : alltrue([
+        for p in concat(g.read, g.write) : can(regex("^([a-z0-9][a-z0-9._=-]*/)+$", p))
+      ])
+    ])
+    error_message = "role_grants read and write entries must be sub-prefixes like `selfplay/`: path segments ending in `/`, without a leading `/`."
+  }
+
+  validation {
+    condition     = alltrue([for g in values(var.role_grants) : length(g.read) + length(g.write) > 0])
+    error_message = "each role_grants entry must grant at least one read or write sub-prefix."
+  }
+}
