@@ -1,5 +1,11 @@
 # Prepares a project's ephemeral task instances; it launches none.
 #
+# One instance of this module is one task *profile*: a launch template and
+# an instance role. The `cpu` profile is `<name_root>-<project>-task`; any
+# other is `<name_root>-<project>-task-<profile>`. The log group and the
+# security group belong to the project: the first profile creates them, and
+# every other profile reuses them through `shared`.
+#
 # The jwall-engineering-sites CLI launches each task instance from this
 # template, runs one task on it through SSM Run Command and terminates it.
 # The names below are fixed by the `task/launch` CI policy: the launch role
@@ -12,8 +18,11 @@ data "aws_region" "current" {}
 locals {
   account_id     = data.aws_caller_identity.current.account_id
   region         = data.aws_region.current.region
-  name           = "${var.name_root}-${var.project}-task"
-  log_group_name = "/${var.name_root}/${var.project}/tasks"
+  base_name      = "${var.name_root}-${var.project}-task"
+  name           = var.profile == "cpu" ? local.base_name : "${local.base_name}-${var.profile}"
+  log_group_name = var.shared == null ? "/${var.name_root}/${var.project}/tasks" : var.shared.log_group_name
+  log_group_arn  = "arn:aws:logs:${local.region}:${local.account_id}:log-group:${local.log_group_name}"
+  security_group = var.shared == null ? aws_security_group.this[0].id : var.shared.security_group_id
   results_bucket = "${var.name_root}-${var.project}-tasks"
   results_prefix = "tasks/"
 
@@ -23,6 +32,7 @@ locals {
   tags = {
     Name      = local.name
     Component = "task-runner"
+    Profile   = var.profile
   }
 
   # Launched instances and volumes. `task/launch` requires Project and
@@ -33,6 +43,7 @@ locals {
     Project   = var.project
     Component = "task-runner"
     Purpose   = "ci-task"
+    Profile   = var.profile
   }
 
   # The lifetime guard comes first, before anything that can fail: a
@@ -41,6 +52,7 @@ locals {
     "#!/bin/bash",
     "shutdown -h +${var.max_lifetime_hours * 60}",
     "TASK_RUST_TOOLCHAIN=${var.rust_toolchain}",
+    "TASK_GPU=${var.gpu ? 1 : 0}",
     file("${path.module}/files/task-setup.sh"),
   ])
 }
@@ -54,6 +66,8 @@ data "aws_ssm_parameter" "ami" {
 }
 
 resource "aws_cloudwatch_log_group" "this" {
+  count = var.shared == null ? 1 : 0
+
   name              = local.log_group_name
   retention_in_days = var.log_retention_days
 
@@ -64,6 +78,8 @@ resource "aws_cloudwatch_log_group" "this" {
 }
 
 resource "aws_security_group" "this" {
+  count = var.shared == null ? 1 : 0
+
   name        = local.name
   description = "${local.name}: egress only, no ingress"
   vpc_id      = var.vpc_id
@@ -73,7 +89,9 @@ resource "aws_security_group" "this" {
 
 # No ingress rule exists, by design: tasks run through Run Command.
 resource "aws_vpc_security_group_egress_rule" "all_ipv4" {
-  security_group_id = aws_security_group.this.id
+  count = var.shared == null ? 1 : 0
+
+  security_group_id = aws_security_group.this[0].id
   description       = "GitHub, crates.io, rustup, SSM, CloudWatch and S3 over the internet gateway"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
@@ -83,7 +101,7 @@ resource "aws_vpc_security_group_egress_rule" "all_ipv4" {
 
 resource "aws_launch_template" "this" {
   name        = local.name
-  description = "Ephemeral CI task instances of ${var.project}"
+  description = "Ephemeral CI task instances of ${var.project}, profile ${var.profile}"
 
   image_id      = local.ami_id
   instance_type = var.default_instance_type
@@ -100,7 +118,7 @@ resource "aws_launch_template" "this" {
   # No network_interfaces block: the CLI passes the subnet per launch, so
   # it can try the next availability zone when one has no capacity. The
   # project's public subnets assign public IPs.
-  vpc_security_group_ids = [aws_security_group.this.id]
+  vpc_security_group_ids = [local.security_group]
 
   metadata_options {
     http_endpoint               = "enabled"
@@ -132,4 +150,21 @@ resource "aws_launch_template" "this" {
   user_data = base64encode(local.user_data)
 
   tags = local.tags
+}
+
+# The log group and security group became optional with `shared`; the
+# project's first profile keeps the ones it already has.
+moved {
+  from = aws_cloudwatch_log_group.this
+  to   = aws_cloudwatch_log_group.this[0]
+}
+
+moved {
+  from = aws_security_group.this
+  to   = aws_security_group.this[0]
+}
+
+moved {
+  from = aws_vpc_security_group_egress_rule.all_ipv4
+  to   = aws_vpc_security_group_egress_rule.all_ipv4[0]
 }

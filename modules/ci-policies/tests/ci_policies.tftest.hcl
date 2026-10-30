@@ -488,6 +488,49 @@ run "task_role_accepts_only_task_and_common" {
   }
 }
 
+run "task_launch_passes_only_the_profile_roles" {
+  command = plan
+
+  variables {
+    role     = "task"
+    project  = "rusty-chess"
+    policies = ["task/launch"]
+    policy_inputs = {
+      task = { instance_types = ["c8a.xlarge", "g6.xlarge"], profiles = ["cpu", "gpu"] }
+    }
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(output.documents["task/launch"]).Statement : s.Resource if s.Sid == "PassTaskRole"
+      ]) == [
+      "arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task",
+      "arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task-gpu",
+    ]
+    error_message = "the role passes the cpu profile's -task role and each other profile's -task-<profile> role, nothing else"
+  }
+}
+
+run "task_launch_defaults_to_the_cpu_profile" {
+  command = plan
+
+  variables {
+    role     = "task"
+    project  = "rusty-chess"
+    policies = ["task/launch"]
+    policy_inputs = {
+      task = { instance_types = ["c8a.xlarge"] }
+    }
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(output.documents["task/launch"]).Statement : s.Resource if s.Sid == "PassTaskRole"
+    ]) == ["arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-task"]
+    error_message = "without profiles, only the -task role can be passed, as before"
+  }
+}
+
 run "task_role_rejects_write" {
   command = plan
 

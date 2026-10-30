@@ -24,6 +24,32 @@ variable "project" {
   }
 }
 
+variable "profile" {
+  description = "The task profile, in kebab-case: `cpu` (the default) names everything `<name_root>-<project>-task`; any other profile `<name_root>-<project>-task-<profile>`. Instances carry it as the `Profile` tag."
+  type        = string
+  default     = "cpu"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.profile)) && length(var.profile) <= 16
+    error_message = "profile must be kebab-case and at most 16 characters (e.g. `gpu`)."
+  }
+}
+
+variable "shared" {
+  description = "The project's log group and security group (output `shared` of its first profile), for every profile but the first. `null` creates them: the log group `/<name_root>/<project>/tasks` and an egress-only security group."
+  type = object({
+    log_group_name    = string
+    security_group_id = string
+  })
+  default = null
+}
+
+variable "gpu" {
+  description = "Whether the instances have an NVIDIA GPU. Setup then waits for `nvidia-smi`, fails if the driver does not answer, and records the GPU model and memory, the driver and the CUDA version in the environment block. Use an image with the driver and CUDA installed, such as the AWS Deep Learning Base GPU AMI."
+  type        = bool
+  default     = false
+}
+
 variable "vpc_id" {
   description = "VPC of the task security group. Instances launch into the project's public subnets of this VPC, which the CLI picks per launch."
   type        = string
@@ -41,7 +67,7 @@ variable "architecture" {
 }
 
 variable "ami_id" {
-  description = "Image of the task instances, an Amazon-owned Amazon Linux 2023 image (the launch role may launch no other). `null` follows the latest one through `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-<architecture>`; pin it for reproducible task environments."
+  description = "Image of the task instances, an Amazon-owned Amazon Linux 2023 image (the launch role may launch no other), such as the AWS Deep Learning Base GPU AMI for a GPU profile. `null` follows the latest one through `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-<architecture>`; pin it for reproducible task environments."
   type        = string
   default     = null
 

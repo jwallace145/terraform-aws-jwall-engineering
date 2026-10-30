@@ -20,15 +20,28 @@ output "instance_profile_arn" {
 
 output "security_group_id" {
   description = "ID of the task security group: egress only."
-  value       = aws_security_group.this.id
+  value       = local.security_group
 }
 
 output "log_group_name" {
   description = "CloudWatch log group that Run Command streams task output to."
-  value       = aws_cloudwatch_log_group.this.name
+  value       = local.log_group_name
 }
 
 output "results_uri" {
   description = "S3 prefix under which each task's outputs land, as `<results_uri><role-id>:<instance-id>/`: an instance can write only its own. The bucket is the caller's."
   value       = "s3://${local.results_bucket}/${local.results_prefix}"
+}
+
+output "shared" {
+  description = "The project's log group and security group, for the `shared` input of the project's other profiles."
+  value = {
+    log_group_name    = local.log_group_name
+    security_group_id = local.security_group
+  }
+}
+
+output "profile" {
+  description = "The profile this instance of the module prepares: the `Profile` tag of its template, role and instances."
+  value       = var.profile
 }

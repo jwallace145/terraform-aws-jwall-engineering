@@ -197,6 +197,7 @@ module "task_launch" {
   name_root      = var.name_root
   project        = var.project
   instance_types = try(local.task.instance_types, [])
+  profiles       = try(local.task.profiles, ["cpu"])
 }
 
 module "dataset_read" {

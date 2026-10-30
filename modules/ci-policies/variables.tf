@@ -95,7 +95,7 @@ variable "policies" {
 }
 
 variable "policy_inputs" {
-  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; the `container/*` policies are otherwise built from `project` alone."
+  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `[\"cpu\"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; the `container/*` policies are otherwise built from `project` alone."
   type = object({
     tfstate = optional(object({
       bucket_arn = string
@@ -121,6 +121,7 @@ variable "policy_inputs" {
     }))
     task = optional(object({
       instance_types = list(string)
+      profiles       = optional(list(string), ["cpu"])
     }))
     dataset = optional(object({
       bucket_names = list(string)

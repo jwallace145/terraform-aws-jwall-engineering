@@ -113,7 +113,7 @@ run "launch_template" {
 
   assert {
     condition = (
-      aws_launch_template.this.vpc_security_group_ids == toset([aws_security_group.this.id]) &&
+      aws_launch_template.this.vpc_security_group_ids == toset([aws_security_group.this[0].id]) &&
       length(aws_launch_template.this.network_interfaces) == 0
     )
     error_message = "the template sets the security group only; the CLI picks the subnet per launch"
@@ -122,14 +122,14 @@ run "launch_template" {
   assert {
     condition = (
       toset([for t in aws_launch_template.this.tag_specifications : t.resource_type]) == toset(["instance", "volume"]) &&
-      alltrue([for t in aws_launch_template.this.tag_specifications : t.tags == tomap({ Project = "rusty-chess", Component = "task-runner", Purpose = "ci-task" })])
+      alltrue([for t in aws_launch_template.this.tag_specifications : t.tags == tomap({ Project = "rusty-chess", Component = "task-runner", Purpose = "ci-task", Profile = "cpu" })])
     )
-    error_message = "instances and volumes carry Project, Component = task-runner and Purpose = ci-task, which task/launch requires as request tags"
+    error_message = "instances and volumes carry Project, Component = task-runner, Purpose = ci-task (task/launch requires Project and Purpose as request tags) and Profile"
   }
 
   assert {
-    condition     = aws_launch_template.this.tags == tomap({ Name = "jwall-engineering-rusty-chess-task", Component = "task-runner" })
-    error_message = "the template carries Name and Component = task-runner"
+    condition     = aws_launch_template.this.tags == tomap({ Name = "jwall-engineering-rusty-chess-task", Component = "task-runner", Profile = "cpu" })
+    error_message = "the template carries Name, Component = task-runner and Profile"
   }
 }
 
@@ -148,6 +148,11 @@ run "user_data" {
       strcontains(base64decode(aws_launch_template.this.user_data), "dnf install -y git gcc")
     )
     error_message = "the setup installs git, gcc and rustup with the toolchain"
+  }
+
+  assert {
+    condition     = strcontains(base64decode(aws_launch_template.this.user_data), "TASK_GPU=0\n")
+    error_message = "the cpu profile does not wait for a GPU"
   }
 }
 
@@ -184,17 +189,17 @@ run "security_group" {
   command = plan
 
   assert {
-    condition     = aws_security_group.this.name == "jwall-engineering-rusty-chess-task" && aws_security_group.this.vpc_id == "vpc-0123"
+    condition     = aws_security_group.this[0].name == "jwall-engineering-rusty-chess-task" && aws_security_group.this[0].vpc_id == "vpc-0123"
     error_message = "the task security group lives in the project's VPC"
   }
 
   assert {
-    condition     = length(aws_security_group.this.ingress) == 0
+    condition     = length(aws_security_group.this[0].ingress) == 0
     error_message = "no ingress"
   }
 
   assert {
-    condition     = aws_vpc_security_group_egress_rule.all_ipv4.cidr_ipv4 == "0.0.0.0/0" && aws_vpc_security_group_egress_rule.all_ipv4.ip_protocol == "-1"
+    condition     = aws_vpc_security_group_egress_rule.all_ipv4[0].cidr_ipv4 == "0.0.0.0/0" && aws_vpc_security_group_egress_rule.all_ipv4[0].ip_protocol == "-1"
     error_message = "egress to all IPv4"
   }
 }
@@ -292,7 +297,7 @@ run "log_group" {
   command = plan
 
   assert {
-    condition     = aws_cloudwatch_log_group.this.name == "/jwall-engineering/rusty-chess/tasks" && aws_cloudwatch_log_group.this.retention_in_days == 14
+    condition     = aws_cloudwatch_log_group.this[0].name == "/jwall-engineering/rusty-chess/tasks" && aws_cloudwatch_log_group.this[0].retention_in_days == 14
     error_message = "the task log group is /<name_root>/<project>/tasks with 14 days of retention"
   }
 
@@ -305,6 +310,81 @@ run "log_group" {
     )
     error_message = "outputs expose the names the CLI derives"
   }
+}
+
+# A second profile of the same project: its own template and role, the
+# project's log group and security group.
+run "gpu_profile" {
+  command = plan
+
+  variables {
+    profile               = "gpu"
+    gpu                   = true
+    default_instance_type = "g6.xlarge"
+    root_volume_gb        = 200
+    shared = {
+      log_group_name    = "/jwall-engineering/rusty-chess/tasks"
+      security_group_id = "sg-0aaaaaaaaaaaaaaaa"
+    }
+  }
+
+  assert {
+    condition = (
+      aws_launch_template.this.name == "jwall-engineering-rusty-chess-task-gpu" &&
+      aws_iam_role.this.name == "jwall-engineering-rusty-chess-task-gpu" &&
+      aws_iam_instance_profile.this.name == "jwall-engineering-rusty-chess-task-gpu"
+    )
+    error_message = "a profile other than cpu is <name_root>-<project>-task-<profile>"
+  }
+
+  assert {
+    condition = (
+      length(aws_cloudwatch_log_group.this) == 0 &&
+      length(aws_security_group.this) == 0 &&
+      length(aws_vpc_security_group_egress_rule.all_ipv4) == 0 &&
+      aws_launch_template.this.vpc_security_group_ids == toset(["sg-0aaaaaaaaaaaaaaaa"]) &&
+      output.log_group_name == "/jwall-engineering/rusty-chess/tasks"
+    )
+    error_message = "with shared, the profile reuses the project's log group and security group"
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role_policy.this.policy).Statement[0].Resource == [
+      "arn:aws:logs:us-east-1:123456789012:log-group:/jwall-engineering/rusty-chess/tasks",
+      "arn:aws:logs:us-east-1:123456789012:log-group:/jwall-engineering/rusty-chess/tasks:*",
+    ]
+    error_message = "the profile's instances write to the shared task log group"
+  }
+
+  assert {
+    condition = alltrue([
+      for t in aws_launch_template.this.tag_specifications : t.tags["Profile"] == "gpu"
+    ]) && aws_launch_template.this.tags["Profile"] == "gpu"
+    error_message = "the template and its instances and volumes carry Profile = gpu"
+  }
+
+  assert {
+    condition = (
+      strcontains(base64decode(aws_launch_template.this.user_data), "TASK_GPU=1\n") &&
+      strcontains(base64decode(aws_launch_template.this.user_data), "nvidia-smi")
+    )
+    error_message = "a GPU profile's setup waits for the driver"
+  }
+
+  assert {
+    condition     = aws_launch_template.this.block_device_mappings[0].ebs[0].volume_size == 200
+    error_message = "the root volume follows root_volume_gb"
+  }
+}
+
+run "rejects_malformed_profile" {
+  command = plan
+
+  variables {
+    profile = "GPU"
+  }
+
+  expect_failures = [var.profile]
 }
 
 run "rejects_long_lifetime" {

@@ -160,3 +160,41 @@ resource "aws_iam_role_policy" "writer" {
     ]
   })
 }
+
+# Narrower grants, for a role that reads one part of the dataset and adds to
+# another (a trainer reads positions and writes nets). Never delete.
+resource "aws_iam_role_policy" "grant" {
+  for_each = var.role_grants
+
+  name = "${var.name}-access"
+  role = each.key
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = concat(
+      length(each.value.read) == 0 ? [] : [{
+        Sid      = "ReadDatasetObjects"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = [for p in each.value.read : "${local.arn}/${var.prefix}${p}*"]
+      }],
+      length(each.value.write) == 0 ? [] : [{
+        Sid      = "AddDatasetObjects"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:AbortMultipartUpload"]
+        Resource = [for p in each.value.write : "${local.arn}/${var.prefix}${p}*"]
+      }],
+      [{
+        Sid      = "ListDatasetPrefixes"
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = local.arn
+        Condition = {
+          StringLike = {
+            "s3:prefix" = [for p in distinct(concat(each.value.read, each.value.write)) : "${var.prefix}${p}*"]
+          }
+        }
+      }],
+    )
+  })
+}
