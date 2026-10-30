@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.12.1...v0.13.0) (2026-10-30)
+
+
+### Features
+
+* spot task launches, per-instance task results and six-zone VPCs ([#39](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/39)) ([899d6cc](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/899d6cc70543d972d5fa4fd5c4c268aefb2328d2))
+
 ## [0.12.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.12.0...v0.12.1) (2026-10-29)
 
 
