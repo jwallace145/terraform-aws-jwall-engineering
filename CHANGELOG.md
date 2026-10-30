@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.16.0...v0.16.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **task-runner:** keep the cpu profile's role and template descriptions ([#47](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/47)) ([b24978f](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/b24978fa75b124d96f3ed1c655ede07a4900d448))
+
 ## [0.16.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.15.0...v0.16.0) (2026-10-30)
 
 
