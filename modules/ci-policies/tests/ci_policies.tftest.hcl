@@ -534,3 +534,56 @@ run "apply_role_rejects_task_launch" {
 
   expect_failures = [var.policies]
 }
+
+run "dataset_policies_by_class" {
+  command = plan
+
+  variables {
+    project  = "rusty-chess"
+    policies = ["dataset/read", "dataset/manage"]
+    policy_inputs = {
+      dataset = { bucket_names = ["jwall-engineering-rusty-chess-nnue"] }
+    }
+  }
+
+  assert {
+    condition = jsonencode(output.names) == jsonencode({
+      "dataset/manage" = "jwall-engineering-rusty-chess-ci-apply-dataset-manage"
+      "dataset/read"   = "jwall-engineering-rusty-chess-ci-apply-dataset-read"
+    })
+    error_message = "the apply role gets both dataset policies"
+  }
+
+  assert {
+    condition     = jsondecode(output.documents["dataset/manage"]).Statement[0].Resource == ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue"]
+    error_message = "dataset policies are built from policy_inputs.dataset.bucket_names"
+  }
+}
+
+run "plan_role_rejects_dataset_manage" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    project  = "rusty-chess"
+    policies = ["dataset/manage"]
+    policy_inputs = {
+      dataset = { bucket_names = ["jwall-engineering-rusty-chess-nnue"] }
+    }
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "rejects_dataset_without_inputs" {
+  command = plan
+
+  variables {
+    role          = "plan"
+    project       = "rusty-chess"
+    policies      = ["dataset/read"]
+    policy_inputs = {}
+  }
+
+  expect_failures = [var.policies]
+}
