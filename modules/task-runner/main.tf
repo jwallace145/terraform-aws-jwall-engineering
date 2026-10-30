@@ -23,6 +23,11 @@ locals {
   log_group_name = var.shared == null ? "/${var.name_root}/${var.project}/tasks" : var.shared.log_group_name
   log_group_arn  = "arn:aws:logs:${local.region}:${local.account_id}:log-group:${local.log_group_name}"
   security_group = var.shared == null ? aws_security_group.this[0].id : var.shared.security_group_id
+
+  # Descriptions name the profile only beyond cpu: the cpu profile keeps the
+  # wording it had before profiles, because changing a role's description
+  # needs iam:UpdateRoleDescription, which the stacks' apply roles lack.
+  profile_suffix = var.profile == "cpu" ? "" : ", profile ${var.profile}"
   results_bucket = "${var.name_root}-${var.project}-tasks"
   results_prefix = "tasks/"
 
@@ -101,7 +106,7 @@ resource "aws_vpc_security_group_egress_rule" "all_ipv4" {
 
 resource "aws_launch_template" "this" {
   name        = local.name
-  description = "Ephemeral CI task instances of ${var.project}, profile ${var.profile}"
+  description = "Ephemeral CI task instances of ${var.project}${local.profile_suffix}"
 
   image_id      = local.ami_id
   instance_type = var.default_instance_type

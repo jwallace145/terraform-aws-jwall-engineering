@@ -1,6 +1,6 @@
 resource "aws_iam_role" "this" {
   name        = local.name
-  description = "Task instances of ${var.project}, profile ${var.profile}: run commands, write task logs and results"
+  description = "Task instances of ${var.project}${local.profile_suffix}: run commands, write task logs and results"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
