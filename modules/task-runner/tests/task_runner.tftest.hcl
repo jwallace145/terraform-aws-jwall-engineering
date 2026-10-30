@@ -293,6 +293,22 @@ run "instance_role" {
   }
 }
 
+# Changing a role's description needs iam:UpdateRoleDescription, which the
+# stacks' apply roles lack: the cpu profile must keep its pre-profile wording.
+run "cpu_descriptions_are_unchanged" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_role.this.description == "Task instances of rusty-chess: run commands, write task logs and results"
+    error_message = "the cpu role's description must stay as it was before profiles"
+  }
+
+  assert {
+    condition     = aws_launch_template.this.description == "Ephemeral CI task instances of rusty-chess"
+    error_message = "the cpu template's description must stay as it was before profiles"
+  }
+}
+
 run "log_group" {
   command = plan
 
@@ -335,6 +351,11 @@ run "gpu_profile" {
       aws_iam_instance_profile.this.name == "jwall-engineering-rusty-chess-task-gpu"
     )
     error_message = "a profile other than cpu is <name_root>-<project>-task-<profile>"
+  }
+
+  assert {
+    condition     = aws_iam_role.this.description == "Task instances of rusty-chess, profile gpu: run commands, write task logs and results"
+    error_message = "other profiles name the profile in the role's description, set at creation"
   }
 
   assert {
