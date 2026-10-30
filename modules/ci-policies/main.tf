@@ -19,6 +19,8 @@ locals {
     "task/read"            = "read"
     "task/manage"          = "write"
     "task/launch"          = "task"
+    "dataset/read"         = "read"
+    "dataset/manage"       = "write"
   }
 
   # plan and preview trust `pull_request`, so unreviewed code can assume them.
@@ -47,6 +49,7 @@ locals {
   ecr         = var.policy_inputs.ecr
   container   = var.policy_inputs.container
   task        = var.policy_inputs.task
+  dataset     = var.policy_inputs.dataset
 }
 
 module "tfstate_read" {
@@ -194,4 +197,24 @@ module "task_launch" {
   name_root      = var.name_root
   project        = var.project
   instance_types = try(local.task.instance_types, [])
+}
+
+module "dataset_read" {
+  source = "./dataset/read"
+  count  = contains(var.policies, "dataset/read") ? 1 : 0
+
+  name         = local.names["dataset/read"]
+  name_root    = var.name_root
+  project      = var.project
+  bucket_names = local.dataset.bucket_names
+}
+
+module "dataset_manage" {
+  source = "./dataset/manage"
+  count  = contains(var.policies, "dataset/manage") ? 1 : 0
+
+  name         = local.names["dataset/manage"]
+  name_root    = var.name_root
+  project      = var.project
+  bucket_names = local.dataset.bucket_names
 }

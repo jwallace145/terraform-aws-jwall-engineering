@@ -113,8 +113,11 @@ jobs:
           - { module: ci-policies/task/read, path: modules/ci-policies/task/read, example: false }
           - { module: ci-policies/task/manage, path: modules/ci-policies/task/manage, example: false }
           - { module: ci-policies/task/launch, path: modules/ci-policies/task/launch, example: false }
+          - { module: ci-policies/dataset/read, path: modules/ci-policies/dataset/read, example: false }
+          - { module: ci-policies/dataset/manage, path: modules/ci-policies/dataset/manage, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
+          - { module: dataset-bucket, path: modules/dataset-bucket }
           - { module: vpc, path: modules/vpc }
           - { module: container-instance, path: modules/container-instance }
           - { module: task-runner, path: modules/task-runner }

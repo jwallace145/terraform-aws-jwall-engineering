@@ -21,7 +21,7 @@ required. The catalog README lists every policy, what it grants and the inputs
 it needs.
 
 This role accepts only read and common policies: `tfstate/read`,
-`static-site/read`, `foundation/read`, `container/read`, `task/read`, `ecr/pull`.
+`static-site/read`, `foundation/read`, `container/read`, `task/read`, `dataset/read`, `ecr/pull`.
 Anything
 else fails at plan time. Any pull request branch in the repository can assume the role, so it
 must never be able to write.
@@ -107,7 +107,7 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider (`token.actions.githubusercontent.com`). | `string` | n/a | yes |
-| policies | Managed policies to create and attach, by catalog name. This role accepts only read and common policies: `tfstate/read`, `static-site/read`, `foundation/read`, `container/read`, `task/read`, `ecr/pull`. | `set(string)` | n/a | yes |
+| policies | Managed policies to create and attach, by catalog name. This role accepts only read and common policies: `tfstate/read`, `static-site/read`, `foundation/read`, `container/read`, `task/read`, `dataset/read`, `ecr/pull`. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. The role is named `<name_root>-<project>-ci-plan`, and static-site policies are scoped to resources tagged `Project = <project>`. | `string` | n/a | yes |
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
 | name\_root | Prefix of the role and policy names, in kebab-case. The role is named `<name_root>-<project>-ci-plan`. | `string` | `"jwall-engineering"` | no |

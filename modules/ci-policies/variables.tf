@@ -35,7 +35,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "policies" {
-  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `task/read`, `task/manage`, `task/launch`. Each role accepts only some of them; see the README."
+  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`. Each role accepts only some of them; see the README."
   type        = set(string)
 
   validation {
@@ -84,13 +84,18 @@ variable "policies" {
   }
 
   validation {
+    condition     = !anytrue([for p in var.policies : startswith(p, "dataset/")]) || try(length(var.policy_inputs.dataset.bucket_names) > 0, false)
+    error_message = "dataset/* policies require policy_inputs.dataset.bucket_names."
+  }
+
+  validation {
     condition     = !anytrue([for p in var.policies : startswith(p, "ecr/")]) || var.policy_inputs.ecr != null
     error_message = "ecr/* policies require policy_inputs.ecr."
   }
 }
 
 variable "policy_inputs" {
-  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` for `task/launch`; the `container/*` policies are otherwise built from `project` alone."
+  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; the `container/*` policies are otherwise built from `project` alone."
   type = object({
     tfstate = optional(object({
       bucket_arn = string
@@ -116,6 +121,9 @@ variable "policy_inputs" {
     }))
     task = optional(object({
       instance_types = list(string)
+    }))
+    dataset = optional(object({
+      bucket_names = list(string)
     }))
   })
   default = {}
