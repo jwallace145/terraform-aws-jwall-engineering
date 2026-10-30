@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.14.0...v0.15.0) (2026-10-30)
+
+
+### Features
+
+* **context:** tag resources ManagedBy=jwall-engineering-infra ([#43](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/43)) ([4a8ad2b](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/4a8ad2ba06a0333d4e9d29648851d0f9174b14a8))
+
 ## [0.14.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.13.0...v0.14.0) (2026-10-30)
 
 
