@@ -29,7 +29,7 @@ run "emits_required_tags" {
       Project      = "guitar"
       Environment  = "prod"
       Repository   = "jwallace145/guitar"
-      ManagedBy    = "terraform"
+      ManagedBy    = "jwall-engineering-infra"
       Owner        = "jwallace145"
     }
     error_message = "tags should contain exactly the six required keys with default owner/organization"
@@ -48,7 +48,7 @@ run "required_tags_win_over_extra_tags" {
   }
 
   assert {
-    condition     = output.tags["Project"] == "guitar" && output.tags["ManagedBy"] == "terraform"
+    condition     = output.tags["Project"] == "guitar" && output.tags["ManagedBy"] == "jwall-engineering-infra"
     error_message = "required tags must override conflicting extra_tags"
   }
 

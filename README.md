@@ -117,7 +117,7 @@ set, which is what makes per-project and per-component cost reports possible:
 | `Project` | the caller's `default_tags`, from `context` | `rusty-chess` |
 | `Environment` | the caller's `default_tags`, from `context` | `prod` |
 | `Repository` | the caller's `default_tags`, from `context` | `jwallace145/rusty-chess-v2` |
-| `ManagedBy` | the caller's `default_tags`, from `context` | `terraform` |
+| `ManagedBy` | the caller's `default_tags`, from `context` | `jwall-engineering-infra` |
 | `Owner` | the caller's `default_tags`, from `context` | `jwallace145` |
 | `Component` | the module | `container-instance` |
 | `Name` | the module, where the resource has a name | `jwall-engineering-rusty-chess-bot` |

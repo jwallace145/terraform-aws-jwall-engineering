@@ -1,5 +1,5 @@
 output "tags" {
-  description = "Tag map for the caller's provider `default_tags`: Organization, Project, Environment, Repository, ManagedBy=terraform and Owner, merged over `extra_tags` (required keys win)."
+  description = "Tag map for the caller's provider `default_tags`: Organization, Project, Environment, Repository, ManagedBy=jwall-engineering-infra and Owner, merged over `extra_tags` (required keys win)."
   value       = local.tags
 }
 

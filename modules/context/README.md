@@ -35,7 +35,7 @@ policies in `ci-policies` use to scope CloudFront and ACM permissions, so every 
 
 | Output | Value |
 |---|---|
-| `tags` | `Organization`, `Project`, `Environment`, `Repository`, `ManagedBy = "terraform"`, `Owner`, merged over `extra_tags`. Required keys win any conflict. |
+| `tags` | `Organization`, `Project`, `Environment`, `Repository`, `ManagedBy = "jwall-engineering-infra"`, `Owner`, merged over `extra_tags`. Required keys win any conflict. |
 | `name_prefix` | `jwall-engineering-<project>-<environment>` |
 | `bucket_name` | `jwall-engineering-<project>` |
 
@@ -76,5 +76,5 @@ No resources.
 | ---- | ----------- |
 | bucket\_name | Site bucket name for the project: `jwall-engineering-<project>`. Shared by every environment of the project. |
 | name\_prefix | Resource name prefix: `jwall-engineering-<project>-<environment>`. |
-| tags | Tag map for the caller's provider `default_tags`: Organization, Project, Environment, Repository, ManagedBy=terraform and Owner, merged over `extra_tags` (required keys win). |
+| tags | Tag map for the caller's provider `default_tags`: Organization, Project, Environment, Repository, ManagedBy=jwall-engineering-infra and Owner, merged over `extra_tags` (required keys win). |
 <!-- END_TF_DOCS -->
