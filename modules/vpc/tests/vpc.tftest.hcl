@@ -132,3 +132,33 @@ run "rejects_bad_az" {
 
   expect_failures = [var.availability_zones]
 }
+
+# Spot capacity is per zone: a task fleet spreads over every zone that offers
+# its type. Appending zones adds subnets and leaves the existing ones alone.
+run "five_zones_keep_the_first_subnets" {
+  command = plan
+
+  variables {
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+  }
+
+  assert {
+    condition = (
+      length(aws_subnet.public) == 5 &&
+      aws_subnet.public[0].cidr_block == "10.0.0.0/24" &&
+      aws_subnet.public[1].cidr_block == "10.0.1.0/24" &&
+      aws_subnet.public[4].availability_zone == "us-east-1f"
+    )
+    error_message = "zones append subnets in order without moving the first ones"
+  }
+}
+
+run "rejects_seven_zones" {
+  command = plan
+
+  variables {
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1e", "us-east-1f", "us-east-1a"]
+  }
+
+  expect_failures = [var.availability_zones]
+}

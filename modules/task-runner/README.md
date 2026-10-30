@@ -14,7 +14,7 @@ Names derive from `name_root` and `project`, and the
 |---|---|
 | Launch template, instance role, profile, security group | `<name_root>-<project>-task` |
 | Log group | `/<name_root>/<project>/tasks` |
-| Results | `s3://<name_root>-<project>-tasks/tasks/<run>/<task>/` |
+| Results | `s3://<name_root>-<project>-tasks/tasks/<role-id>:<instance-id>/`, the session's `aws:userid` |
 
 The caller creates the results bucket, for example with
 [`private-bucket`](../private-bucket) and `current_object_expiration_days`.
@@ -55,9 +55,12 @@ Four things do:
 ## Permissions
 
 Tasks run pull request code, so the instance role can only write. It can
-write to the task log group and put objects under the results prefix, and
-it has the SSM agent's registration and message channels for Run Command
-and Session Manager. It cannot read earlier results, pull images, or read
+write to the task log group and put objects under its own results prefix,
+`tasks/${aws:userid}/`, which for an EC2 role session is
+`<role-id>:<instance-id>`, so no task can touch another's results. It
+has the SSM agent's registration and message channels for Run Command and
+Session Manager. The log group is shared by the project's tasks: the
+results, not the streamed log, are what a verdict should rest on. It cannot read earlier results, pull images, or read
 parameters or secrets. `AmazonSSMManagedInstanceCore` is deliberately not
 attached: it grants `ssm:GetParameter` on every parameter in the account,
 which would expose secrets such as a bot's token to a pull request.
@@ -75,8 +78,10 @@ also send `instance` and `volume` tag specifications carrying them.
 
 ## Cost and tags
 
-Instances are on-demand only, never spot, so a task is never interrupted.
-A `c8a.xlarge` costs about $0.2 an hour in us-east-1. When no task runs,
+The template is market-neutral: the CLI launches each task on spot (with a
+price cap) or on demand. In us-east-1 a `c8a.16xlarge` costs about $3.45 an
+hour on demand and about $0.93 to $1.40 on spot; a `c8a.xlarge` about $0.2
+on demand. When no task runs,
 the cost is zero apart from stored logs and results. The template tags
 every instance and volume `Component = task-runner` and `Purpose = ci-task`.
 The CLI adds the organisation tags at launch, so cost reports can group
@@ -162,6 +167,6 @@ No modules.
 | launch\_template\_id | ID of the task launch template. |
 | launch\_template\_name | Name of the task launch template, `<name_root>-<project>-task`. The CLI launches its `$Default` version. |
 | log\_group\_name | CloudWatch log group that Run Command streams task output to. |
-| results\_uri | S3 prefix under which each task's outputs land, as `<results_uri><run>/<task>/`. The bucket is the caller's. |
+| results\_uri | S3 prefix under which each task's outputs land, as `<results_uri><role-id>:<instance-id>/`: an instance can write only its own. The bucket is the caller's. |
 | security\_group\_id | ID of the task security group: egress only. |
 <!-- END_TF_DOCS -->

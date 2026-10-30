@@ -131,7 +131,7 @@ run "wildcards_are_known_gaps" {
   command = plan
 
   assert {
-    condition     = jsonencode(sort([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Sid if s.Resource == "*"])) == jsonencode(["DescribeTasks", "FollowCommands"])
+    condition     = jsonencode(sort([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Sid if s.Resource == "*"])) == jsonencode(["DescribeTasks", "FollowCommands", "PriceTasks"])
     error_message = "only the documented gaps may use Resource = *"
   }
 }
@@ -162,4 +162,37 @@ run "rejects_no_instance_types" {
   }
 
   expect_failures = [var.instance_types]
+}
+
+# Spot through RunInstances also authorizes a spot-instances-request resource.
+# The request carries no tags; the instance it creates still must satisfy
+# RunTaskInstances (template, type, tags).
+run "requests_spot_instances" {
+  command = plan
+
+  assert {
+    condition = jsonencode([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "RunAsSpot"]) == jsonencode([{
+      Sid      = "RunAsSpot"
+      Effect   = "Allow"
+      Action   = "ec2:RunInstances"
+      Resource = "arn:aws:ec2:us-east-1:123456789012:spot-instances-request/*"
+    }])
+    error_message = "the role may request spot only as part of a task launch"
+  }
+}
+
+# The CLI caps the spot price at a fraction of the on-demand price (Pricing
+# API), logs the current spot price and orders zones by placement score.
+run "reads_prices_and_placement_scores" {
+  command = plan
+
+  assert {
+    condition = jsonencode([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "PriceTasks"]) == jsonencode([{
+      Sid      = "PriceTasks"
+      Effect   = "Allow"
+      Action   = ["ec2:DescribeSpotPriceHistory", "ec2:GetSpotPlacementScores", "pricing:GetProducts"]
+      Resource = "*"
+    }])
+    error_message = "price and placement reads are read-only gaps"
+  }
 }

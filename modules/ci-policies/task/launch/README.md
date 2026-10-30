@@ -13,6 +13,10 @@ dedicated instance, and nothing else. Class: **task**, requested by
   - only the project's subnets and security groups;
   - only with the request tags `Project = <project>` and `Purpose = ci-task`;
   - no SSH key.
+- **Spot or on demand.** A spot launch also authorizes a `spot-instances-request`
+  (`RunAsSpot`); the instance it creates must meet every condition above. The
+  CLI caps the spot price at a fraction of the on-demand price, so it reads
+  prices and placement scores (`PriceTasks`).
 - **Pass** only the task instance role, `<name_root>-<project>-task`, and only
   to EC2.
 - **Run and stop.** `ssm:SendCommand` (`AWS-RunShellScript`) and
@@ -35,6 +39,7 @@ with `policies = ["task/launch"]` and
 |---|---|
 | `DescribeTasks` (`ec2:DescribeInstances`, `ec2:DescribeInstanceTypes`, `ec2:DescribeSubnets`, `ec2:DescribeLaunchTemplates`, `ssm:DescribeInstanceInformation`) | No resource-level support. Finds the template, the subnets and the task instances, and checks the agent is online. |
 | `FollowCommands` (`ssm:GetCommandInvocation`, `ssm:ListCommandInvocations`) | No resource-level support. Read-only status and exit code. |
+| `PriceTasks` (`ec2:DescribeSpotPriceHistory`, `ec2:GetSpotPlacementScores`, `pricing:GetProducts`) | No resource-level support. Read-only: the on-demand price the spot cap is a fraction of, the current spot price and the zones' placement scores. |
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
