@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.15.0...v0.16.0) (2026-10-30)
+
+
+### Features
+
+* add task profiles and sub-prefix dataset grants for GPU tasks ([#45](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/45)) ([f4ba3a1](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/f4ba3a1859405f4c9dcae1ae18324d4cb5c957ce))
+
 ## [0.15.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.14.0...v0.15.0) (2026-10-30)
 
 
