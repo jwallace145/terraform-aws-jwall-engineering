@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.13.0...v0.14.0) (2026-10-30)
+
+
+### Features
+
+* add dataset-bucket and the dataset CI policies ([#41](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/41)) ([cb7ef8a](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/cb7ef8a41a7371cefceed5f4b223d6740d387055))
+
 ## [0.13.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.12.1...v0.13.0) (2026-10-30)
 
 
