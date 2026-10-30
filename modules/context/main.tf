@@ -13,7 +13,7 @@ locals {
     Project      = var.project
     Environment  = var.environment
     Repository   = var.repository
-    ManagedBy    = "terraform"
+    ManagedBy    = "jwall-engineering-infra"
     Owner        = var.owner
   }
 
