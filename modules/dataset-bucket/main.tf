@@ -10,6 +10,10 @@ locals {
   arn         = "arn:aws:s3:::${var.name}"
   objects_arn = "${local.arn}/${var.prefix}*"
   list_prefix = { StringLike = { "s3:prefix" = "${var.prefix}*" } }
+
+  write_once_arns = {
+    for role, g in var.role_grants : role => [for p in g.write_once : "${local.arn}/${var.prefix}${p}*"]
+  }
 }
 
 resource "aws_s3_bucket" "this" {
@@ -238,10 +242,36 @@ resource "aws_iam_role_policy" "grant" {
         Resource = local.arn
         Condition = {
           StringLike = {
-            "s3:prefix" = [for p in distinct(concat(each.value.read, each.value.write)) : "${var.prefix}${p}*"]
+            "s3:prefix" = [for p in distinct(concat(each.value.read, each.value.write, each.value.write_once)) : "${var.prefix}${p}*"]
           }
         }
       }],
+      # Add-only. The conditional PutObject creates an object only if the key
+      # is absent; later multipart parts are not creating requests, so they are
+      # allowed unconditionally, but completing the upload is the creating
+      # request and carries the condition. No unconditional PutObject here.
+      [for s in [
+        {
+          Sid       = "AddDatasetObjectsIfAbsent"
+          Effect    = "Allow"
+          Action    = "s3:PutObject"
+          Resource  = local.write_once_arns[each.key]
+          Condition = { StringEquals = { "s3:if-none-match" = "*" } }
+        },
+        {
+          Sid       = "AddDatasetObjectParts"
+          Effect    = "Allow"
+          Action    = "s3:PutObject"
+          Resource  = local.write_once_arns[each.key]
+          Condition = { Bool = { "s3:ObjectCreationOperation" = "false" } }
+        },
+        {
+          Sid      = "AbortDatasetUploads"
+          Effect   = "Allow"
+          Action   = "s3:AbortMultipartUpload"
+          Resource = local.write_once_arns[each.key]
+        },
+      ] : s if length(each.value.write_once) > 0],
     )
   })
 }

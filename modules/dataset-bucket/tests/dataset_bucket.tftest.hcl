@@ -449,3 +449,186 @@ run "rejects_zero_noncurrent_days" {
 
   expect_failures = [var.expire_noncurrent_days]
 }
+
+run "write_once_statements" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { write_once = ["runs/"] } }
+  }
+
+  assert {
+    condition = [for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s.Sid] == [
+      "ListDatasetPrefixes", "AddDatasetObjectsIfAbsent", "AddDatasetObjectParts", "AbortDatasetUploads",
+    ]
+    error_message = "a write_once grant adds the three conditional-write statements after the list statement"
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "AddDatasetObjectsIfAbsent"
+      ]) == {
+      Sid       = "AddDatasetObjectsIfAbsent"
+      Effect    = "Allow"
+      Action    = "s3:PutObject"
+      Resource  = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/runs/*"]
+      Condition = { StringEquals = { "s3:if-none-match" = "*" } }
+    }
+    error_message = "creating a new object requires If-None-Match: * (StringEquals on s3:if-none-match)"
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "AddDatasetObjectParts"
+      ]) == {
+      Sid       = "AddDatasetObjectParts"
+      Effect    = "Allow"
+      Action    = "s3:PutObject"
+      Resource  = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/runs/*"]
+      Condition = { Bool = { "s3:ObjectCreationOperation" = "false" } }
+    }
+    error_message = "multipart parts are allowed only where the request does not itself create the object"
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "AbortDatasetUploads"
+      ]) == {
+      Sid      = "AbortDatasetUploads"
+      Effect   = "Allow"
+      Action   = "s3:AbortMultipartUpload"
+      Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/runs/*"]
+    }
+    error_message = "abort is granted alone, on the write-once prefix only"
+  }
+}
+
+run "write_once_has_no_unconditional_put" {
+  command = plan
+
+  variables {
+    role_grants = {
+      "some-role" = { read = ["selfplay/"], write = ["nets/"], write_once = ["runs/"] }
+    }
+  }
+
+  assert {
+    condition = !anytrue([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement :
+      contains(flatten([s.Action]), "s3:PutObject")
+      && !can(s.Condition)
+      && anytrue([for r in flatten([s.Resource]) : endswith(r, "/data/runs/*")])
+    ])
+    error_message = "no statement may allow s3:PutObject on a write-once prefix without a Condition"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement :
+      s.Sid == "AddDatasetObjects" && !anytrue([for r in flatten([s.Resource]) : endswith(r, "/data/runs/*")])
+    ])
+    error_message = "the plain write statement still covers its own prefixes, never the write-once one"
+  }
+}
+
+run "list_covers_write_once" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { read = ["selfplay/"], write_once = ["runs/"] } }
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "ListDatasetPrefixes"
+    ]).Condition.StringLike["s3:prefix"] == ["data/selfplay/*", "data/runs/*"]
+    error_message = "a grant can list its write-once prefixes"
+  }
+}
+
+run "plain_grants_unchanged" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { read = ["selfplay/"], write = ["nets/"] } }
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role_policy.grant["some-role"].policy) == {
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid      = "ReadDatasetObjects"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/selfplay/*"]
+        },
+        {
+          Sid      = "AddDatasetObjects"
+          Effect   = "Allow"
+          Action   = ["s3:PutObject", "s3:AbortMultipartUpload"]
+          Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/nets/*"]
+        },
+        {
+          Sid       = "ListDatasetPrefixes"
+          Effect    = "Allow"
+          Action    = "s3:ListBucket"
+          Resource  = "arn:aws:s3:::jwall-engineering-rusty-chess-nnue"
+          Condition = { StringLike = { "s3:prefix" = ["data/selfplay/*", "data/nets/*"] } }
+        },
+      ]
+    }
+    error_message = "a grant without write_once renders exactly today's three statements"
+  }
+}
+
+run "never_delete" {
+  command = plan
+
+  variables {
+    role_grants = {
+      "a" = { read = ["selfplay/"], write = ["nets/"], write_once = ["runs/"] }
+      "b" = { write_once = ["runs/"] }
+    }
+  }
+
+  assert {
+    condition = !anytrue(flatten([
+      for r in ["a", "b"] : [
+        for s in jsondecode(aws_iam_role_policy.grant[r].policy).Statement :
+        anytrue([for a in flatten([s.Action]) : startswith(a, "s3:Delete") || a == "s3:*"])
+      ]
+    ]))
+    error_message = "no grant, write-once or not, ever deletes"
+  }
+}
+
+run "rejects_write_once_overlapping_write" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { write = ["runs/"], write_once = ["runs/2026/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_write_reversed" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { write = ["runs/2026/"], write_once = ["runs/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_with_leading_slash" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { write_once = ["/runs/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}

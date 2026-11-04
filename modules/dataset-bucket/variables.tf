@@ -56,25 +56,36 @@ variable "reader_role_arns" {
 }
 
 variable "role_grants" {
-  description = "Roles in this account granted narrower access than a writer or reader: `read` and `write` are sub-prefixes of `prefix` (each ending in `/`, for example `selfplay/`). An inline policy on each role grants `s3:GetObject` under each `read` sub-prefix, `s3:PutObject` (and `s3:AbortMultipartUpload`) under each `write` sub-prefix, and `s3:ListBucket` limited to all of them. Never delete. Keys are role names."
+  description = "Roles in this account granted narrower access than a writer or reader: `read` and `write` are sub-prefixes of `prefix` (each ending in `/`, for example `selfplay/`). An inline policy on each role grants `s3:GetObject` under each `read` sub-prefix, `s3:PutObject` (and `s3:AbortMultipartUpload`) under each `write` sub-prefix, `write_once` sub-prefixes are add-only: `s3:PutObject` is allowed there only with `If-None-Match: *` (for example `aws s3 cp --no-overwrite`), so an existing object can never be overwritten, and `s3:ListBucket` is limited to all of them. A `write_once` sub-prefix must not overlap a `write` one in the same grant. Never delete. Keys are role names."
   type = map(object({
     read  = optional(list(string), [])
     write = optional(list(string), [])
+    # Add-only: objects can be created but never overwritten (S3 conditional writes).
+    write_once = optional(list(string), [])
   }))
   default = {}
 
   validation {
     condition = alltrue([
       for g in values(var.role_grants) : alltrue([
-        for p in concat(g.read, g.write) : can(regex("^([a-z0-9][a-z0-9._=-]*/)+$", p))
+        for p in concat(g.read, g.write, g.write_once) : can(regex("^([a-z0-9][a-z0-9._=-]*/)+$", p))
       ])
     ])
     error_message = "role_grants read and write entries must be sub-prefixes like `selfplay/`: path segments ending in `/`, without a leading `/`."
   }
 
   validation {
-    condition     = alltrue([for g in values(var.role_grants) : length(g.read) + length(g.write) > 0])
-    error_message = "each role_grants entry must grant at least one read or write sub-prefix."
+    condition     = alltrue([for g in values(var.role_grants) : length(g.read) + length(g.write) + length(g.write_once) > 0])
+    error_message = "each role_grants entry must grant at least one read, write or write_once sub-prefix."
+  }
+
+  validation {
+    condition = alltrue([
+      for g in values(var.role_grants) : !anytrue(flatten([
+        for w in g.write : [for o in g.write_once : startswith(w, o) || startswith(o, w)]
+      ]))
+    ])
+    error_message = "a role_grants write_once sub-prefix must not overlap a write sub-prefix in the same grant: the plain write would allow overwrites."
   }
 }
 
