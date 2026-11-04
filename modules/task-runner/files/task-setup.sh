@@ -36,12 +36,18 @@ image_id=$(curl -sSf -H "X-aws-ec2-metadata-token: $imds_token" \
 cpu_model=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p')
 physical_cores=$(lscpu -p=CORE,SOCKET | grep -v '^#' | sort -u | wc -l)
 
+# Assigned on its own so set -e sees a broken toolchain; inside echo "$(...)"
+# the exit status would be hidden.
+if [ -n "$TASK_RUST_TOOLCHAIN" ]; then
+  rustc_version=$(/root/.cargo/bin/rustc --version)
+fi
+
 mkdir -p /etc/task-runner
 {
   echo "image_id=$image_id"
   echo "rust_toolchain=${TASK_RUST_TOOLCHAIN:-none}"
   if [ -n "$TASK_RUST_TOOLCHAIN" ]; then
-    echo "rustc=$(/root/.cargo/bin/rustc --version)"
+    echo "rustc=$rustc_version"
   fi
   echo "cpu_model=$cpu_model"
   echo "physical_cores=$physical_cores"

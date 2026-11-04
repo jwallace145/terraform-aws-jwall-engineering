@@ -24,10 +24,10 @@ check() {
   fi
 }
 
-# run_case NAME TOOLCHAIN GPU NVIDIA_SMI_OK
+# run_case NAME TOOLCHAIN GPU NVIDIA_SMI_OK [RUSTC_OK]
 # Leaves $work/NAME/{ready,calls,out} behind and sets $status to the exit code.
 run_case() {
-  local name="$1" toolchain="$2" gpu="$3" smi_ok="$4"
+  local name="$1" toolchain="$2" gpu="$3" smi_ok="$4" rustc_ok="${5:-1}"
   local root=$work/$name
   mkdir -p "$root/bin" "$root/etc" "$root/log" "$root/cargo/bin" "$root/cuda/bin"
   : > "$root/calls"
@@ -64,9 +64,13 @@ run_case() {
   if [ "$smi_ok" = 1 ]; then
     fake nvidia-smi 'echo "Fake GPU, 16384 MiB, 999.9"'
   else
-    fake nvidia-smi 'exit 9'
+    fake nvidia-smi 'echo "nvidia-smi" >> "'"$root"'/calls"; exit 9'
   fi
-  fake rustc 'echo "rustc 1.99.1 (fake)"'
+  if [ "$rustc_ok" = 1 ]; then
+    fake rustc 'echo "rustc 1.99.1 (fake)"'
+  else
+    fake rustc 'exit 7'
+  fi
   cp "$root/bin/rustc" "$root/cargo/bin/rustc"
   printf '#!/bin/sh\necho "Cuda compilation tools, release 12.9, V12.9.1"\n' > "$root/cuda/bin/nvcc"
   chmod +x "$root/cuda/bin/nvcc"
@@ -81,6 +85,7 @@ ready_exists() { [ -f "$work/$1/etc/ready" ]; }
 ready_missing() { [ ! -e "$work/$1/etc/ready" ]; }
 calls_lack() { ! grep -q -- "$2" "$work/$1/calls"; }
 calls_have() { grep -q -- "$2" "$work/$1/calls"; }
+tmp_exists() { [ -f "$work/$1/etc/ready.tmp" ]; }
 is_zero() { [ "$1" -eq 0 ]; }
 is_nonzero() { [ "$1" -ne 0 ]; }
 
@@ -106,6 +111,13 @@ echo "gpu that never answers:"
 run_case gpu "1.99.1" 1 0
 check "exits non-zero" is_nonzero "$status"
 check "leaves no ready file" ready_missing gpu
+check "nvidia-smi was invoked" calls_have gpu "^nvidia-smi"
+check "setup got as far as ready.tmp" tmp_exists gpu
+
+echo "broken toolchain:"
+run_case badrustc "1.99.1" 0 1 0
+check "exits non-zero" is_nonzero "$status"
+check "leaves no ready file" ready_missing badrustc
 
 echo "gpu that answers:"
 run_case gpuok "1.99.1" 1 1
