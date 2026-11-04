@@ -84,6 +84,7 @@ No modules.
 | [aws_s3_bucket_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
 | [aws_s3_bucket_public_access_block.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_s3_bucket_server_side_encryption_configuration.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
+| [aws_s3_bucket_versioning.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_versioning) | resource |
 
 ## Inputs
 
@@ -91,9 +92,12 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the bucket, for example `jwall-engineering-rusty-chess-nnue`. Also the value of its `Name` tag. | `string` | n/a | yes |
 | prefix | Key prefix the project's data lives under, ending in `/`, for example `data/`. Writers and readers are granted this prefix only. | `string` | n/a | yes |
+| expire\_noncurrent\_days | Days after which noncurrent object versions are permanently deleted, across the whole bucket. Requires `versioning = true`. `null` keeps them forever. | `number` | `null` | no |
+| expire\_prefixes | Sub-prefixes of `prefix` whose objects are deleted after the given number of days, for example `{ "tmp/" = 30 }` under `data/` expires `data/tmp/` after 30 days. Keys end in `/`. Nothing outside the named sub-prefixes expires. | `map(number)` | `{}` | no |
 | reader\_role\_arns | IAM role ARNs granted `s3:GetObject` under the prefix and `s3:ListBucket` limited to it, through the bucket policy. The account's administrators can read without being listed. | `list(string)` | `[]` | no |
 | role\_grants | Roles in this account granted narrower access than a writer or reader: `read` and `write` are sub-prefixes of `prefix` (each ending in `/`, for example `selfplay/`). An inline policy on each role grants `s3:GetObject` under each `read` sub-prefix, `s3:PutObject` (and `s3:AbortMultipartUpload`) under each `write` sub-prefix, and `s3:ListBucket` limited to all of them. Never delete. Keys are role names. | <pre>map(object({<br/>    read  = optional(list(string), [])<br/>    write = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | transition\_days | Days after which objects move to S3 Intelligent-Tiering. 0 moves them at once (at the next daily lifecycle run). Objects under 128 KB stay in S3 Standard. | `number` | `0` | no |
+| versioning | Keep previous versions of overwritten or deleted objects. Off by default: datasets are write-once, so versioning would only store an accidental re-upload twice. | `bool` | `false` | no |
 | writer\_role\_names | Roles in this account that may add objects under the prefix: an inline policy on each grants `s3:PutObject` (and `s3:AbortMultipartUpload` for its own failed uploads) under the prefix and `s3:ListBucket` limited to it. Never read, delete or overwrite protection: writers only add. | `list(string)` | `[]` | no |
 
 ## Outputs

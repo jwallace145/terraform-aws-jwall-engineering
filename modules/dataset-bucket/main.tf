@@ -1,8 +1,10 @@
 # A durable, append-only dataset: training data that every later model is
 # built and compared from. Objects are write-once by convention (new runs get
-# new keys), so the bucket is not versioned: versioning would only store an
-# accidental re-upload twice. Nothing expires. Data moves to
-# Intelligent-Tiering, because it is read in bursts and then goes cold.
+# new keys), so by default the bucket is not versioned: versioning would only
+# store an accidental re-upload twice. By default nothing expires. Data moves
+# to Intelligent-Tiering, because it is read in bursts and then goes cold.
+# Versioning and expiry of named sub-prefixes are opt-in, for projects that
+# keep scratch data next to the dataset.
 
 locals {
   arn         = "arn:aws:s3:::${var.name}"
@@ -54,6 +56,16 @@ resource "aws_s3_bucket_ownership_controls" "this" {
   }
 }
 
+resource "aws_s3_bucket_versioning" "this" {
+  count = var.versioning ? 1 : 0
+
+  bucket = aws_s3_bucket.this.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "this" {
   bucket = aws_s3_bucket.this.id
 
@@ -83,6 +95,41 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
+    }
+  }
+
+  # Only the sub-prefixes named in expire_prefixes ever expire.
+  dynamic "rule" {
+    for_each = var.expire_prefixes
+
+    content {
+      id     = "expire-${replace(rule.key, "/", "-")}"
+      status = "Enabled"
+
+      filter {
+        prefix = "${var.prefix}${rule.key}"
+      }
+
+      expiration {
+        days = rule.value
+      }
+    }
+  }
+
+  dynamic "rule" {
+    for_each = var.expire_noncurrent_days == null ? [] : [var.expire_noncurrent_days]
+
+    content {
+      id     = "expire-noncurrent-versions"
+      status = "Enabled"
+
+      filter {
+        prefix = ""
+      }
+
+      noncurrent_version_expiration {
+        noncurrent_days = rule.value
+      }
     }
   }
 }

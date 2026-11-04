@@ -326,3 +326,126 @@ run "rejects_reader_that_is_not_a_role_arn" {
 
   expect_failures = [var.reader_role_arns]
 }
+
+run "defaults_are_unchanged" {
+  command = plan
+
+  assert {
+    condition     = length(aws_s3_bucket_versioning.this) == 0
+    error_message = "versioning must be off by default"
+  }
+
+  assert {
+    condition     = toset([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r.id]) == toset(["intelligent-tiering", "abort-incomplete-multipart-uploads"]) && length(aws_s3_bucket_lifecycle_configuration.this.rule) == 2
+    error_message = "by default the lifecycle has exactly the tiering and multipart rules"
+  }
+}
+
+run "versioning_on" {
+  command = plan
+
+  variables {
+    versioning = true
+  }
+
+  assert {
+    condition     = aws_s3_bucket_versioning.this[0].versioning_configuration[0].status == "Enabled"
+    error_message = "versioning must be Enabled when requested"
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket_lifecycle_configuration.this.rule) == 2
+    error_message = "versioning alone must not add expiry rules"
+  }
+}
+
+run "expiry_only_where_named" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "tmp/" = 30 }
+  }
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if length(r.expiration) > 0]) == 1
+    error_message = "exactly one rule may expire objects"
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule :
+      r.filter[0].prefix == "data/tmp/" && tolist(r.expiration)[0].days == 30
+      if length(r.expiration) > 0
+    ])
+    error_message = "the expiring rule must be scoped to data/tmp/ and expire after 30 days"
+  }
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if r.id == "expire-tmp-"]) == 1
+    error_message = "the rule id must be expire-<prefix with / replaced by ->"
+  }
+}
+
+run "noncurrent_expiry" {
+  command = plan
+
+  variables {
+    versioning             = true
+    expire_noncurrent_days = 90
+  }
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if length(r.noncurrent_version_expiration) > 0]) == 1
+    error_message = "exactly one rule may expire noncurrent versions"
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule :
+      r.id == "expire-noncurrent-versions" && tolist(r.noncurrent_version_expiration)[0].noncurrent_days == 90 && r.filter[0].prefix == ""
+      if length(r.noncurrent_version_expiration) > 0
+    ])
+    error_message = "noncurrent versions must expire after 90 days across the bucket"
+  }
+}
+
+run "rejects_noncurrent_expiry_without_versioning" {
+  command = plan
+
+  variables {
+    expire_noncurrent_days = 90
+  }
+
+  expect_failures = [var.expire_noncurrent_days]
+}
+
+run "rejects_expire_prefix_with_leading_slash" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "/tmp" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_zero_expiry_days" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "tmp/" = 0 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_zero_noncurrent_days" {
+  command = plan
+
+  variables {
+    versioning             = true
+    expire_noncurrent_days = 0
+  }
+
+  expect_failures = [var.expire_noncurrent_days]
+}

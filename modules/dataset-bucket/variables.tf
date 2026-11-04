@@ -77,3 +77,41 @@ variable "role_grants" {
     error_message = "each role_grants entry must grant at least one read or write sub-prefix."
   }
 }
+
+variable "versioning" {
+  description = "Keep previous versions of overwritten or deleted objects. Off by default: datasets are write-once, so versioning would only store an accidental re-upload twice."
+  type        = bool
+  default     = false
+}
+
+variable "expire_noncurrent_days" {
+  description = "Days after which noncurrent object versions are permanently deleted, across the whole bucket. Requires `versioning = true`. `null` keeps them forever."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.expire_noncurrent_days == null || (var.expire_noncurrent_days >= 1 && floor(var.expire_noncurrent_days) == var.expire_noncurrent_days)
+    error_message = "expire_noncurrent_days must be a whole number of days, 1 or more."
+  }
+
+  validation {
+    condition     = var.expire_noncurrent_days == null || var.versioning
+    error_message = "expire_noncurrent_days only applies to noncurrent versions, so it requires versioning = true."
+  }
+}
+
+variable "expire_prefixes" {
+  description = "Sub-prefixes of `prefix` whose objects are deleted after the given number of days, for example `{ \"tmp/\" = 30 }` under `data/` expires `data/tmp/` after 30 days. Keys end in `/`. Nothing outside the named sub-prefixes expires."
+  type        = map(number)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for k in keys(var.expire_prefixes) : can(regex("^([a-z0-9][a-z0-9._=-]*/)+$", k))])
+    error_message = "expire_prefixes keys must be sub-prefixes like `tmp/`: path segments ending in `/`, without a leading `/`."
+  }
+
+  validation {
+    condition     = alltrue([for d in values(var.expire_prefixes) : d >= 1 && floor(d) == d])
+    error_message = "expire_prefixes values must be a whole number of days, 1 or more."
+  }
+}
