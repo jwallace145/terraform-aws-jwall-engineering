@@ -56,7 +56,7 @@ variable "reader_role_arns" {
 }
 
 variable "role_grants" {
-  description = "Roles in this account granted narrower access than a writer or reader: `read` and `write` are sub-prefixes of `prefix` (each ending in `/`, for example `selfplay/`). An inline policy on each role grants `s3:GetObject` under each `read` sub-prefix, `s3:PutObject` (and `s3:AbortMultipartUpload`) under each `write` sub-prefix, `write_once` sub-prefixes are add-only: `s3:PutObject` is allowed there only with `If-None-Match: *` (for example `aws s3 cp --no-overwrite`), so an existing object can never be overwritten, and `s3:ListBucket` is limited to all of them. A `write_once` sub-prefix must not overlap a `write` one in the same grant. Never delete. Keys are role names."
+  description = "Roles in this account granted narrower access than a writer or reader. `read`, `write` and `write_once` are lists of sub-prefixes of `prefix`, each ending in `/` (for example `selfplay/`). An inline policy on each role grants `s3:GetObject` under each `read` sub-prefix, `s3:PutObject` (and `s3:AbortMultipartUpload`) under each `write` sub-prefix, and `s3:ListBucket` limited to all three lists. `write_once` sub-prefixes are add-only: `s3:PutObject` is allowed there only with `If-None-Match: *` (for example `aws s3 cp --no-overwrite`), so S3 refuses to overwrite an existing object, and `CopyObject` into such a prefix is refused because it carries no such condition. A grant never deletes. Keys are role names. The guarantee holds only for what this module controls: if any grant has `write_once`, `writer_role_names` must be empty, no grant's `write` may overlap any grant's `write_once`, and no `expire_prefixes` key may overlap one (overlap means either string starts with the other). Policies this module does not manage, such as an administrator's or another inline policy on the same role, can still overwrite."
   type = map(object({
     read  = optional(list(string), [])
     write = optional(list(string), [])
@@ -71,7 +71,7 @@ variable "role_grants" {
         for p in concat(g.read, g.write, g.write_once) : can(regex("^([a-z0-9][a-z0-9._=-]*/)+$", p))
       ])
     ])
-    error_message = "role_grants read and write entries must be sub-prefixes like `selfplay/`: path segments ending in `/`, without a leading `/`."
+    error_message = "role_grants read, write and write_once entries must be sub-prefixes like `selfplay/`: path segments ending in `/`, without a leading `/`."
   }
 
   validation {
@@ -80,17 +80,24 @@ variable "role_grants" {
   }
 
   validation {
-    condition = alltrue([
-      for g in values(var.role_grants) : !anytrue(flatten([
-        for w in g.write : [for o in g.write_once : startswith(w, o) || startswith(o, w)]
-      ]))
-    ])
-    error_message = "a role_grants write_once sub-prefix must not overlap a write sub-prefix in the same grant: the plain write would allow overwrites."
+    condition     = !anytrue([for g in values(var.role_grants) : length(g.write_once) > 0]) || length(var.writer_role_names) == 0
+    error_message = "writer_role_names must be empty when any role_grants entry has write_once: a writer's plain PutObject under the whole prefix would overwrite write-once objects."
+  }
+
+  validation {
+    condition = !anytrue(flatten([
+      for g in values(var.role_grants) : [
+        for o in g.write_once : [
+          for h in values(var.role_grants) : [for w in h.write : startswith(w, o) || startswith(o, w)]
+        ]
+      ]
+    ]))
+    error_message = "no role_grants write sub-prefix, in any grant, may overlap a write_once sub-prefix (either starting with the other): the plain write would allow overwrites."
   }
 }
 
 variable "versioning" {
-  description = "Keep previous versions of overwritten or deleted objects. Off by default: datasets are write-once, so versioning would only store an accidental re-upload twice."
+  description = "Keep previous versions of overwritten or deleted objects. Off by default: datasets are write-once, so versioning would only store an accidental re-upload twice. Setting it back to false suspends versioning rather than removing existing versions."
   type        = bool
   default     = false
 }
@@ -112,7 +119,7 @@ variable "expire_noncurrent_days" {
 }
 
 variable "expire_prefixes" {
-  description = "Sub-prefixes of `prefix` whose objects are deleted after the given number of days, for example `{ \"tmp/\" = 30 }` under `data/` expires `data/tmp/` after 30 days. Keys end in `/`. Nothing outside the named sub-prefixes expires."
+  description = "Sub-prefixes of `prefix` whose objects expire after the given number of days, for example `{ \"tmp/\" = 30 }` under `data/` expires `data/tmp/` after 30 days. Keys end in `/`, must not overlap each other or any `role_grants` `write_once` sub-prefix (either string starting with the other), and must give distinct rule ids (`a/b/` and `a-b/` both give `expire-a-b-`). Nothing outside the named sub-prefixes expires. On a versioned bucket, expiry only adds a delete marker: without `expire_noncurrent_days` the data is kept, and still billed."
   type        = map(number)
   default     = {}
 
@@ -124,5 +131,28 @@ variable "expire_prefixes" {
   validation {
     condition     = alltrue([for d in values(var.expire_prefixes) : d >= 1 && floor(d) == d])
     error_message = "expire_prefixes values must be a whole number of days, 1 or more."
+  }
+
+  validation {
+    condition = !anytrue(flatten([
+      for k in keys(var.expire_prefixes) : [
+        for j in keys(var.expire_prefixes) : startswith(j, k) if j != k
+      ]
+    ]))
+    error_message = "expire_prefixes keys must not overlap (such as `tmp/` and `tmp/keep/`): the nested prefix would get two rules, and S3 applies the shorter expiry to it too."
+  }
+
+  validation {
+    condition     = length(distinct([for k in keys(var.expire_prefixes) : replace(k, "/", "-")])) == length(var.expire_prefixes)
+    error_message = "expire_prefixes keys must give distinct rule ids: `a/b/` and `a-b/` both become `expire-a-b-`."
+  }
+
+  validation {
+    condition = !anytrue(flatten([
+      for k in keys(var.expire_prefixes) : [
+        for g in values(var.role_grants) : [for o in g.write_once : startswith(k, o) || startswith(o, k)]
+      ]
+    ]))
+    error_message = "expire_prefixes keys must not overlap a role_grants write_once sub-prefix (either starting with the other): expiry would delete write-once objects."
   }
 }

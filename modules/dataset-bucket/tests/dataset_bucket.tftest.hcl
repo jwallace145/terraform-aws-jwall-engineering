@@ -454,7 +454,8 @@ run "write_once_statements" {
   command = plan
 
   variables {
-    role_grants = { "some-role" = { write_once = ["runs/"] } }
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["runs/"] } }
   }
 
   assert {
@@ -507,6 +508,7 @@ run "write_once_has_no_unconditional_put" {
   command = plan
 
   variables {
+    writer_role_names = []
     role_grants = {
       "some-role" = { read = ["selfplay/"], write = ["nets/"], write_once = ["runs/"] }
     }
@@ -535,7 +537,8 @@ run "list_covers_write_once" {
   command = plan
 
   variables {
-    role_grants = { "some-role" = { read = ["selfplay/"], write_once = ["runs/"] } }
+    writer_role_names = []
+    role_grants       = { "some-role" = { read = ["selfplay/"], write_once = ["runs/"] } }
   }
 
   assert {
@@ -586,6 +589,7 @@ run "never_delete" {
   command = plan
 
   variables {
+    writer_role_names = []
     role_grants = {
       "a" = { read = ["selfplay/"], write = ["nets/"], write_once = ["runs/"] }
       "b" = { write_once = ["runs/"] }
@@ -607,7 +611,8 @@ run "rejects_write_once_overlapping_write" {
   command = plan
 
   variables {
-    role_grants = { "some-role" = { write = ["runs/"], write_once = ["runs/2026/"] } }
+    writer_role_names = []
+    role_grants       = { "some-role" = { write = ["runs/"], write_once = ["runs/2026/"] } }
   }
 
   expect_failures = [var.role_grants]
@@ -617,7 +622,8 @@ run "rejects_write_once_overlapping_write_reversed" {
   command = plan
 
   variables {
-    role_grants = { "some-role" = { write = ["runs/2026/"], write_once = ["runs/"] } }
+    writer_role_names = []
+    role_grants       = { "some-role" = { write = ["runs/2026/"], write_once = ["runs/"] } }
   }
 
   expect_failures = [var.role_grants]
@@ -627,8 +633,164 @@ run "rejects_write_once_with_leading_slash" {
   command = plan
 
   variables {
-    role_grants = { "some-role" = { write_once = ["/runs/"] } }
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["/runs/"] } }
   }
 
   expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_with_writer_roles" {
+  command = plan
+
+  # The default writer_role_names is non-empty: a writer's plain PutObject
+  # under the whole prefix would overwrite write-once objects.
+  variables {
+    role_grants = { "some-role" = { write_once = ["runs/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_another_grants_write" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "once-role"  = { write_once = ["runs/"] }
+      "plain-role" = { write = ["runs/2026/"] }
+    }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_another_grants_write_reversed" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "once-role"  = { write_once = ["runs/2026/"] }
+      "plain-role" = { write = ["runs/"] }
+    }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_expire_prefix" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["runs/"] } }
+    expire_prefixes   = { "runs/tmp/" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_write_once_inside_expire_prefix" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["runs/tmp/"] } }
+    expire_prefixes   = { "runs/" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "allows_disjoint_write_once_beside_other_grants" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "once-role"  = { write_once = ["runs/"] }
+      "plain-role" = { read = ["runs/"], write = ["nets/"] }
+    }
+    expire_prefixes = { "tmp/" = 30 }
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy.grant) == 2 && length(aws_iam_role_policy.writer) == 0
+    error_message = "disjoint write-once, write and expiry prefixes are accepted, with no writer roles"
+  }
+}
+
+run "writers_expiry_and_overlapping_writes_fine_without_write_once" {
+  command = plan
+
+  variables {
+    role_grants = {
+      "some-role" = { read = ["runs/"], write = ["runs/", "runs/2026/"] }
+    }
+    expire_prefixes = { "runs/tmp/" = 30 }
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy.writer) == 1 && length(aws_iam_role_policy.grant) == 1
+    error_message = "the write-once rules must not fire when no grant has write_once"
+  }
+}
+
+run "rejects_overlapping_expire_prefixes" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "tmp/" = 30, "tmp/keep/" = 90 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_expire_prefixes_with_the_same_rule_id" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "a/b/" = 30, "a-b/" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "versioned_with_both_expiry_kinds" {
+  command = plan
+
+  variables {
+    versioning             = true
+    expire_noncurrent_days = 90
+    expire_prefixes        = { "tmp/" = 30, "scratch/old/" = 7 }
+  }
+
+  assert {
+    condition     = aws_s3_bucket_versioning.this[0].versioning_configuration[0].status == "Enabled"
+    error_message = "versioning is enabled"
+  }
+
+  assert {
+    condition = {
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule : r.filter[0].prefix => tolist(r.expiration)[0].days
+      if length(r.expiration) > 0
+    } == { "data/tmp/" = 30, "data/scratch/old/" = 7 }
+    error_message = "the only rules expiring current objects are the named prefixes, with their days"
+  }
+
+  assert {
+    condition = [
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule :
+      { id = r.id, prefix = r.filter[0].prefix, days = tolist(r.noncurrent_version_expiration)[0].noncurrent_days }
+      if length(r.noncurrent_version_expiration) > 0
+    ] == [{ id = "expire-noncurrent-versions", prefix = "", days = 90 }]
+    error_message = "one bucket-wide rule expires noncurrent versions after 90 days"
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket_lifecycle_configuration.this.rule) == 5
+    error_message = "tiering, multipart abort, two prefix expiries and one noncurrent rule"
+  }
 }
