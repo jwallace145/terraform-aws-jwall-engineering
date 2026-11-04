@@ -16,6 +16,7 @@ locals {
           "s3:DeleteBucket",
           "s3:PutBucketPolicy",
           "s3:DeleteBucketPolicy",
+          "s3:PutBucketVersioning",
           "s3:PutEncryptionConfiguration",
           "s3:PutLifecycleConfiguration",
           "s3:PutBucketPublicAccessBlock",

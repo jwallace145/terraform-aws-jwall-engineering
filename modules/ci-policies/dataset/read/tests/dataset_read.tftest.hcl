@@ -20,6 +20,13 @@ run "reads_only_the_dataset_buckets" {
     condition     = contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadDatasetBuckets"][0].Action, "s3:GetReplicationConfiguration")
     error_message = "aws_s3_bucket refresh reads the replication configuration"
   }
+
+  # s3:GetBucketVersioning, which refreshing the module's versioning reads, is
+  # covered by this wildcard.
+  assert {
+    condition     = contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadDatasetBuckets"][0].Action, "s3:GetBucket*")
+    error_message = "s3:GetBucket* must cover s3:GetBucketVersioning"
+  }
 }
 
 run "no_writes_and_no_objects" {

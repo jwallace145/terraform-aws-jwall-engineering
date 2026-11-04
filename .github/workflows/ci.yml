@@ -120,6 +120,8 @@ jobs:
           - { module: ci-policies/container/read, path: modules/ci-policies/container/read, example: false }
           - { module: ci-policies/container/manage, path: modules/ci-policies/container/manage, example: false }
           - { module: ci-policies/container/release, path: modules/ci-policies/container/release, example: false }
+          - { module: ci-policies/compute/read, path: modules/ci-policies/compute/read, example: false }
+          - { module: ci-policies/compute/manage, path: modules/ci-policies/compute/manage, example: false }
           - { module: ci-policies/task/read, path: modules/ci-policies/task/read, example: false }
           - { module: ci-policies/task/manage, path: modules/ci-policies/task/manage, example: false }
           - { module: ci-policies/task/launch, path: modules/ci-policies/task/launch, example: false }

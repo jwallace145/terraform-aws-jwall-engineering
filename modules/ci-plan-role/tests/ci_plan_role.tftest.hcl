@@ -109,3 +109,16 @@ run "requests_the_plan_allow_list" {
     error_message = "the role must create its policies with role = plan"
   }
 }
+
+run "accepts_compute_read" {
+  command = plan
+
+  variables {
+    policies = ["compute/read"]
+  }
+
+  assert {
+    condition     = module.policies.names["compute/read"] == "jwall-engineering-guitar-ci-plan-compute-read"
+    error_message = "the plan role accepts compute/read"
+  }
+}

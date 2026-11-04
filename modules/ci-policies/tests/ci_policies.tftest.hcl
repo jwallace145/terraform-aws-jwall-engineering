@@ -7,6 +7,12 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_region" {
+    defaults = {
+      region = "us-east-1"
+    }
+  }
+
   mock_resource "aws_iam_policy" {
     defaults = {
       arn = "arn:aws:iam::123456789012:policy/mock"
@@ -55,7 +61,9 @@ run "creates_only_requested_policies" {
       length(module.static_site_deploy) == 1 &&
       length(module.static_site_previews) == 0 &&
       length(module.foundation_read) == 0 &&
-      length(module.foundation_manage) == 0
+      length(module.foundation_manage) == 0 &&
+      length(module.compute_read) == 0 &&
+      length(module.compute_manage) == 0
     )
     error_message = "exactly the requested policies must be created"
   }
@@ -90,6 +98,8 @@ run "every_policy_fits_the_managed_policy_size_limit" {
       "ecr/push",
       "container/read",
       "container/manage",
+      "compute/read",
+      "compute/manage",
     ]
   }
 
@@ -100,7 +110,7 @@ run "every_policy_fits_the_managed_policy_size_limit" {
   }
 
   assert {
-    condition     = length(output.documents) == 10
+    condition     = length(output.documents) == 12
     error_message = "every requested policy must produce a document"
   }
 }
@@ -462,6 +472,149 @@ run "apply_role_rejects_container_release" {
   expect_failures = [var.policies]
 }
 
+
+# -- compute/*: the network, instance role and log group part of container/* ----------
+
+run "apply_role_accepts_compute_read_and_manage" {
+  command = plan
+
+  variables {
+    project  = "tawe"
+    policies = ["compute/read", "compute/manage"]
+  }
+
+  assert {
+    condition = jsonencode(output.names) == jsonencode({
+      "compute/manage" = "jwall-engineering-tawe-ci-apply-compute-manage"
+      "compute/read"   = "jwall-engineering-tawe-ci-apply-compute-read"
+    })
+    error_message = "the apply role gets both compute policies"
+  }
+
+  assert {
+    condition     = length(module.container_read) == 0 && length(module.container_manage) == 0
+    error_message = "compute/* must not bring in container/*"
+  }
+}
+
+run "plan_role_accepts_compute_read" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    project  = "tawe"
+    policies = ["compute/read"]
+  }
+
+  assert {
+    condition     = output.names["compute/read"] == "jwall-engineering-tawe-ci-plan-compute-read"
+    error_message = "the plan role gets compute/read"
+  }
+}
+
+run "plan_role_rejects_compute_manage" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    project  = "tawe"
+    policies = ["compute/manage"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "task_role_rejects_compute_read" {
+  command = plan
+
+  variables {
+    role     = "task"
+    project  = "tawe"
+    policies = ["compute/read"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "task_role_rejects_compute_manage" {
+  command = plan
+
+  variables {
+    role     = "task"
+    project  = "tawe"
+    policies = ["compute/manage"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+# compute/* is a copy of part of container/*, so a project moves between them
+# without its permissions changing. If container/* changes one of these
+# statements, decide whether compute/* should change with it.
+run "compute_read_statements_match_container_read" {
+  command = plan
+
+  variables {
+    project  = "rusty-chess"
+    policies = ["container/read", "compute/read"]
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.documents["compute/read"]).Statement :
+      jsonencode(s) == jsonencode(one([for c in jsondecode(output.documents["container/read"]).Statement : c if c.Sid == s.Sid]))
+    ])
+    error_message = "every compute/read statement must equal the container/read statement with the same Sid"
+  }
+}
+
+run "compute_manage_statements_match_container_manage" {
+  command = plan
+
+  variables {
+    project  = "rusty-chess"
+    policies = ["container/manage", "compute/manage"]
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.documents["compute/manage"]).Statement :
+      jsonencode(s) == jsonencode(one([for c in jsondecode(output.documents["container/manage"]).Statement : c if c.Sid == s.Sid]))
+      if s.Sid != "CreateTagsOnCreate"
+    ])
+    error_message = "every compute/manage statement but CreateTagsOnCreate must equal the container/manage statement with the same Sid"
+  }
+
+  # The one difference: compute/manage runs no instances, so it tags none.
+  assert {
+    condition = jsonencode(one([for s in jsondecode(output.documents["compute/manage"]).Statement : s.Condition.StringEquals["ec2:CreateAction"] if s.Sid == "CreateTagsOnCreate"])) == jsonencode([
+      for a in one([for s in jsondecode(output.documents["container/manage"]).Statement : s.Condition.StringEquals["ec2:CreateAction"] if s.Sid == "CreateTagsOnCreate"]) : a if a != "RunInstances"
+    ])
+    error_message = "CreateTagsOnCreate must be the container/manage statement without RunInstances"
+  }
+}
+
+run "dataset_manage_can_set_versioning_but_never_touches_objects" {
+  command = plan
+
+  variables {
+    project  = "tawe"
+    policies = ["dataset/manage"]
+    policy_inputs = {
+      dataset = { bucket_names = ["jwall-engineering-tawe-nnue"] }
+    }
+  }
+
+  assert {
+    condition     = contains(flatten([for s in jsondecode(output.documents["dataset/manage"]).Statement : tolist(flatten([s.Action]))]), "s3:PutBucketVersioning")
+    error_message = "the dataset-bucket module's versioning needs s3:PutBucketVersioning"
+  }
+
+  assert {
+    condition     = !anytrue([for a in flatten([for s in jsondecode(output.documents["dataset/manage"]).Statement : tolist(flatten([s.Action]))]) : can(regex("^s3:.*Object", a))])
+    error_message = "dataset/manage grants no object action"
+  }
+}
 
 # -- task/* and the task role --------------------------------------------------------
 
