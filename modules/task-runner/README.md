@@ -201,7 +201,7 @@ No modules.
 | name\_root | Prefix of every name, in kebab-case. The template, role, profile and security group are `<name_root>-<project>-task`. | `string` | `"jwall-engineering"` | no |
 | profile | The task profile, in kebab-case: `cpu` (the default) names everything `<name_root>-<project>-task`; any other profile `<name_root>-<project>-task-<profile>`. Instances carry it as the `Profile` tag. | `string` | `"cpu"` | no |
 | root\_volume\_gb | Size of the encrypted gp3 root volume in GB, deleted with the instance. It holds the toolchain, the checkout and the build. | `number` | `40` | no |
-| rust\_toolchain | Rust toolchain the setup installs with rustup: `stable`, a channel like `nightly-2026-10-01`, or a version like `1.91.0`. Pin a version for reproducible builds. | `string` | `"stable"` | no |
+| rust\_toolchain | Rust toolchain the setup installs with rustup: `stable`, a channel like `nightly-2026-10-01`, or a version like `1.91.0`. Pin a version for reproducible builds. `null` installs no Rust, for tasks that do not build Rust. | `string` | `"stable"` | no |
 | shared | The project's log group and security group (output `shared` of its first profile), for every profile but the first. `null` creates them: the log group `/<name_root>/<project>/tasks` and an egress-only security group. | <pre>object({<br/>    log_group_name    = string<br/>    security_group_id = string<br/>  })</pre> | `null` | no |
 
 ## Outputs

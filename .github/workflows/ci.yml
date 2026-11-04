@@ -62,6 +62,16 @@ jobs:
       - name: Check fixture messages pass/fail as expected
         run: bash scripts/test-commitlint.sh
 
+  task-setup:
+    name: task-setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run task-setup.sh against fake binaries
+        run: bash scripts/test-task-setup.sh
+
   fmt:
     name: fmt
     runs-on: ubuntu-latest

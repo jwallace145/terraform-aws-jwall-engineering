@@ -156,6 +156,19 @@ run "user_data" {
   }
 }
 
+run "no_rust_toolchain" {
+  command = plan
+
+  variables {
+    rust_toolchain = null
+  }
+
+  assert {
+    condition     = strcontains(base64decode(aws_launch_template.this.user_data), "TASK_RUST_TOOLCHAIN=\nTASK_GPU=0\n")
+    error_message = "a null toolchain renders an empty TASK_RUST_TOOLCHAIN so the setup skips rustup"
+  }
+}
+
 run "lifetime_and_toolchain_follow_inputs" {
   command = plan
 
