@@ -41,9 +41,11 @@ with `policies = ["compute/manage"]`; it is not meant to be called directly.
 
 Like [`container/manage`](../../container/manage), this policy can edit the
 inline policies of `<name_root>-<project>-*` roles, including the project's
-own CI roles if they share the prefix. A role holding it can therefore grant
-the project's roles more access within the project's namespace. Protect the
-environment the apply role trusts.
+own CI roles if they share the prefix. `iam:PutRolePolicy` and
+`iam:CreatePolicyVersion` do not limit the document, so a holder can rewrite
+one of those roles or policies to grant anything in the account, not only
+within the project's namespace. The only gate on that route is the protected
+environment the apply role trusts, so protect it.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
