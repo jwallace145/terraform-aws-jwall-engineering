@@ -326,3 +326,471 @@ run "rejects_reader_that_is_not_a_role_arn" {
 
   expect_failures = [var.reader_role_arns]
 }
+
+run "defaults_are_unchanged" {
+  command = plan
+
+  assert {
+    condition     = length(aws_s3_bucket_versioning.this) == 0
+    error_message = "versioning must be off by default"
+  }
+
+  assert {
+    condition     = toset([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r.id]) == toset(["intelligent-tiering", "abort-incomplete-multipart-uploads"]) && length(aws_s3_bucket_lifecycle_configuration.this.rule) == 2
+    error_message = "by default the lifecycle has exactly the tiering and multipart rules"
+  }
+}
+
+run "versioning_on" {
+  command = plan
+
+  variables {
+    versioning = true
+  }
+
+  assert {
+    condition     = aws_s3_bucket_versioning.this[0].versioning_configuration[0].status == "Enabled"
+    error_message = "versioning must be Enabled when requested"
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket_lifecycle_configuration.this.rule) == 2
+    error_message = "versioning alone must not add expiry rules"
+  }
+}
+
+run "expiry_only_where_named" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "tmp/" = 30 }
+  }
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if length(r.expiration) > 0]) == 1
+    error_message = "exactly one rule may expire objects"
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule :
+      r.filter[0].prefix == "data/tmp/" && tolist(r.expiration)[0].days == 30
+      if length(r.expiration) > 0
+    ])
+    error_message = "the expiring rule must be scoped to data/tmp/ and expire after 30 days"
+  }
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if r.id == "expire-tmp-"]) == 1
+    error_message = "the rule id must be expire-<prefix with / replaced by ->"
+  }
+}
+
+run "noncurrent_expiry" {
+  command = plan
+
+  variables {
+    versioning             = true
+    expire_noncurrent_days = 90
+  }
+
+  assert {
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.this.rule : r if length(r.noncurrent_version_expiration) > 0]) == 1
+    error_message = "exactly one rule may expire noncurrent versions"
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule :
+      r.id == "expire-noncurrent-versions" && tolist(r.noncurrent_version_expiration)[0].noncurrent_days == 90 && r.filter[0].prefix == ""
+      if length(r.noncurrent_version_expiration) > 0
+    ])
+    error_message = "noncurrent versions must expire after 90 days across the bucket"
+  }
+}
+
+run "rejects_noncurrent_expiry_without_versioning" {
+  command = plan
+
+  variables {
+    expire_noncurrent_days = 90
+  }
+
+  expect_failures = [var.expire_noncurrent_days]
+}
+
+run "rejects_expire_prefix_with_leading_slash" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "/tmp" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_zero_expiry_days" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "tmp/" = 0 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_zero_noncurrent_days" {
+  command = plan
+
+  variables {
+    versioning             = true
+    expire_noncurrent_days = 0
+  }
+
+  expect_failures = [var.expire_noncurrent_days]
+}
+
+run "write_once_statements" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["runs/"] } }
+  }
+
+  assert {
+    condition = [for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s.Sid] == [
+      "ListDatasetPrefixes", "AddDatasetObjectsIfAbsent", "AddDatasetObjectParts", "AbortDatasetUploads",
+    ]
+    error_message = "a write_once grant adds the three conditional-write statements after the list statement"
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "AddDatasetObjectsIfAbsent"
+      ]) == {
+      Sid       = "AddDatasetObjectsIfAbsent"
+      Effect    = "Allow"
+      Action    = "s3:PutObject"
+      Resource  = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/runs/*"]
+      Condition = { StringEquals = { "s3:if-none-match" = "*" } }
+    }
+    error_message = "creating a new object requires If-None-Match: * (StringEquals on s3:if-none-match)"
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "AddDatasetObjectParts"
+      ]) == {
+      Sid       = "AddDatasetObjectParts"
+      Effect    = "Allow"
+      Action    = "s3:PutObject"
+      Resource  = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/runs/*"]
+      Condition = { Bool = { "s3:ObjectCreationOperation" = "false" } }
+    }
+    error_message = "multipart parts are allowed only where the request does not itself create the object"
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "AbortDatasetUploads"
+      ]) == {
+      Sid      = "AbortDatasetUploads"
+      Effect   = "Allow"
+      Action   = "s3:AbortMultipartUpload"
+      Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/runs/*"]
+    }
+    error_message = "abort is granted alone, on the write-once prefix only"
+  }
+}
+
+run "write_once_has_no_unconditional_put" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "some-role" = { read = ["selfplay/"], write = ["nets/"], write_once = ["runs/"] }
+    }
+  }
+
+  assert {
+    condition = !anytrue([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement :
+      contains(flatten([s.Action]), "s3:PutObject")
+      && !can(s.Condition)
+      && anytrue([for r in flatten([s.Resource]) : endswith(r, "/data/runs/*")])
+    ])
+    error_message = "no statement may allow s3:PutObject on a write-once prefix without a Condition"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement :
+      s.Sid == "AddDatasetObjects" && !anytrue([for r in flatten([s.Resource]) : endswith(r, "/data/runs/*")])
+    ])
+    error_message = "the plain write statement still covers its own prefixes, never the write-once one"
+  }
+}
+
+run "list_covers_write_once" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { read = ["selfplay/"], write_once = ["runs/"] } }
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_role_policy.grant["some-role"].policy).Statement : s if s.Sid == "ListDatasetPrefixes"
+    ]).Condition.StringLike["s3:prefix"] == ["data/selfplay/*", "data/runs/*"]
+    error_message = "a grant can list its write-once prefixes"
+  }
+}
+
+run "plain_grants_unchanged" {
+  command = plan
+
+  variables {
+    role_grants = { "some-role" = { read = ["selfplay/"], write = ["nets/"] } }
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role_policy.grant["some-role"].policy) == {
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid      = "ReadDatasetObjects"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/selfplay/*"]
+        },
+        {
+          Sid      = "AddDatasetObjects"
+          Effect   = "Allow"
+          Action   = ["s3:PutObject", "s3:AbortMultipartUpload"]
+          Resource = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/nets/*"]
+        },
+        {
+          Sid       = "ListDatasetPrefixes"
+          Effect    = "Allow"
+          Action    = "s3:ListBucket"
+          Resource  = "arn:aws:s3:::jwall-engineering-rusty-chess-nnue"
+          Condition = { StringLike = { "s3:prefix" = ["data/selfplay/*", "data/nets/*"] } }
+        },
+      ]
+    }
+    error_message = "a grant without write_once renders exactly today's three statements"
+  }
+}
+
+run "never_delete" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "a" = { read = ["selfplay/"], write = ["nets/"], write_once = ["runs/"] }
+      "b" = { write_once = ["runs/"] }
+    }
+  }
+
+  assert {
+    condition = !anytrue(flatten([
+      for r in ["a", "b"] : [
+        for s in jsondecode(aws_iam_role_policy.grant[r].policy).Statement :
+        anytrue([for a in flatten([s.Action]) : startswith(a, "s3:Delete") || a == "s3:*"])
+      ]
+    ]))
+    error_message = "no grant, write-once or not, ever deletes"
+  }
+}
+
+run "rejects_write_once_overlapping_write" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write = ["runs/"], write_once = ["runs/2026/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_write_reversed" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write = ["runs/2026/"], write_once = ["runs/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_with_leading_slash" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["/runs/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_with_writer_roles" {
+  command = plan
+
+  # The default writer_role_names is non-empty: a writer's plain PutObject
+  # under the whole prefix would overwrite write-once objects.
+  variables {
+    role_grants = { "some-role" = { write_once = ["runs/"] } }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_another_grants_write" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "once-role"  = { write_once = ["runs/"] }
+      "plain-role" = { write = ["runs/2026/"] }
+    }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_another_grants_write_reversed" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "once-role"  = { write_once = ["runs/2026/"] }
+      "plain-role" = { write = ["runs/"] }
+    }
+  }
+
+  expect_failures = [var.role_grants]
+}
+
+run "rejects_write_once_overlapping_expire_prefix" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["runs/"] } }
+    expire_prefixes   = { "runs/tmp/" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_write_once_inside_expire_prefix" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants       = { "some-role" = { write_once = ["runs/tmp/"] } }
+    expire_prefixes   = { "runs/" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "allows_disjoint_write_once_beside_other_grants" {
+  command = plan
+
+  variables {
+    writer_role_names = []
+    role_grants = {
+      "once-role"  = { write_once = ["runs/"] }
+      "plain-role" = { read = ["runs/"], write = ["nets/"] }
+    }
+    expire_prefixes = { "tmp/" = 30 }
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy.grant) == 2 && length(aws_iam_role_policy.writer) == 0
+    error_message = "disjoint write-once, write and expiry prefixes are accepted, with no writer roles"
+  }
+}
+
+run "writers_expiry_and_overlapping_writes_fine_without_write_once" {
+  command = plan
+
+  variables {
+    role_grants = {
+      "some-role" = { read = ["runs/"], write = ["runs/", "runs/2026/"] }
+    }
+    expire_prefixes = { "runs/tmp/" = 30 }
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy.writer) == 1 && length(aws_iam_role_policy.grant) == 1
+    error_message = "the write-once rules must not fire when no grant has write_once"
+  }
+}
+
+run "rejects_overlapping_expire_prefixes" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "tmp/" = 30, "tmp/keep/" = 90 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "rejects_expire_prefixes_with_the_same_rule_id" {
+  command = plan
+
+  variables {
+    expire_prefixes = { "a/b/" = 30, "a-b/" = 30 }
+  }
+
+  expect_failures = [var.expire_prefixes]
+}
+
+run "versioned_with_both_expiry_kinds" {
+  command = plan
+
+  variables {
+    versioning             = true
+    expire_noncurrent_days = 90
+    expire_prefixes        = { "tmp/" = 30, "scratch/old/" = 7 }
+  }
+
+  assert {
+    condition     = aws_s3_bucket_versioning.this[0].versioning_configuration[0].status == "Enabled"
+    error_message = "versioning is enabled"
+  }
+
+  assert {
+    condition = {
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule : r.filter[0].prefix => tolist(r.expiration)[0].days
+      if length(r.expiration) > 0
+    } == { "data/tmp/" = 30, "data/scratch/old/" = 7 }
+    error_message = "the only rules expiring current objects are the named prefixes, with their days"
+  }
+
+  assert {
+    condition = [
+      for r in aws_s3_bucket_lifecycle_configuration.this.rule :
+      { id = r.id, prefix = r.filter[0].prefix, days = tolist(r.noncurrent_version_expiration)[0].noncurrent_days }
+      if length(r.noncurrent_version_expiration) > 0
+    ] == [{ id = "expire-noncurrent-versions", prefix = "", days = 90 }]
+    error_message = "one bucket-wide rule expires noncurrent versions after 90 days"
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket_lifecycle_configuration.this.rule) == 5
+    error_message = "tiering, multipart abort, two prefix expiries and one noncurrent rule"
+  }
+}

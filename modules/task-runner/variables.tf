@@ -122,12 +122,13 @@ variable "log_retention_days" {
 }
 
 variable "rust_toolchain" {
-  description = "Rust toolchain the setup installs with rustup: `stable`, a channel like `nightly-2026-10-01`, or a version like `1.91.0`. Pin a version for reproducible builds."
+  description = "Rust toolchain the setup installs with rustup: `stable`, a channel like `nightly-2026-10-01`, or a version like `1.91.0`. Pin a version for reproducible builds. `null` installs no Rust, for tasks that do not build Rust."
   type        = string
   default     = "stable"
+  nullable    = true
 
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9.-]*$", var.rust_toolchain))
+    condition     = var.rust_toolchain == null || can(regex("^[a-z0-9][a-z0-9.-]*$", var.rust_toolchain))
     error_message = "rust_toolchain must be a rustup toolchain name: lowercase letters, digits, `.` and `-`."
   }
 }

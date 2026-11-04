@@ -26,6 +26,8 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 | [`container/read`](container/read) | read | Describe EC2, read the project's instance role and policies, image repository, parameters, log groups and their events, and records bucket configuration | none |
 | [`container/manage`](container/manage) | write | Create and manage the project's VPC, instance, instance role, image repository, log groups and records bucket configuration; never their objects, never parameter values | `container = { attachable_policy_arns? }` (optional) |
 | [`container/release`](container/release) | release | Push images to the project's repository, write `/<name_root>/<project>/bot/*` parameters, run `AWS-RunShellScript` on instances tagged with the project and follow it | none |
+| [`compute/read`](compute/read) | read | Describe EC2, read the project's instance role and policies, its log groups and their events | none |
+| [`compute/manage`](compute/manage) | write | Create and manage the project's VPC, instance role and log groups; never instances, image repositories, parameters or buckets | none |
 | [`task/read`](task/read) | read | Read the configuration of the project's task results bucket | none |
 | [`task/manage`](task/manage) | write | Create and manage the project's task launch template and task results bucket configuration; never its objects | none |
 | [`task/launch`](task/launch) | task | Launch task instances from the project's template (allow-listed types, Amazon images, project network), run `AWS-RunShellScript` on them, read their log group and results prefix, terminate them | `task = { instance_types }` |
@@ -37,8 +39,14 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 project's prefix, for example `project=guitar/`).
 
 Write policies grant no reads. The apply role needs the matching read policy
-too, for refresh: `static-site/read` with `static-site/deploy`, and
-`foundation/read` with `foundation/manage`.
+too, for refresh: `static-site/read` with `static-site/deploy`,
+`foundation/read` with `foundation/manage`, and `compute/read` with
+`compute/manage`.
+
+`compute/*` is for projects with no bot: the network, instance role and log
+group statements of `container/*`, without its image repository, instance,
+parameter and records bucket statements. `container/*` already holds what
+`compute/*` grants, so a project needs one family, not both.
 
 ## Allow-lists
 
@@ -89,7 +97,7 @@ role, the policy and what is accepted.
   only and never reach objects. The default pattern `<name_root>-*` matches
   the state bucket, so a grant on `<pattern>/*` would expose every project's
   state.
-- **Names and paths (`container/*`).** Roles, instance profiles, policies,
+- **Names and paths (`container/*`, `compute/*`).** Roles, instance profiles, policies,
   the image repository and the records bucket are limited to
   `<name_root>-<project>` and `<name_root>-<project>-*`; parameters and log
   groups to `/<name_root>/<project>/`. EC2 is scoped by the `Project` tag:
@@ -170,6 +178,8 @@ No providers.
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
+| compute\_manage | ./compute/manage | n/a |
+| compute\_read | ./compute/read | n/a |
 | container\_manage | ./container/manage | n/a |
 | container\_read | ./container/read | n/a |
 | container\_release | ./container/release | n/a |
@@ -197,11 +207,11 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider, which `foundation/read` may read. | `string` | n/a | yes |
-| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
+| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. Used in policy names and as the `Project` tag value static-site policies are scoped to. | `string` | n/a | yes |
 | role | The CI role the policies are for: `plan`, `preview`, `apply`, `release` or `task`. It decides which policies may be requested. | `string` | n/a | yes |
 | name\_root | Prefix of every policy name, in kebab-case. Policies are named `<name_root>-<project>-ci-<role>-<family>-<name>`. | `string` | `"jwall-engineering"` | no |
-| policy\_inputs | Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `["cpu"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; the `container/*` policies are otherwise built from `project` alone. | <pre>object({<br/>    tfstate = optional(object({<br/>      bucket_arn = string<br/>      key        = optional(string)<br/>      prefix     = optional(string)<br/>    }))<br/>    static_site = optional(object({<br/>      bucket_arn   = string<br/>      zone_id      = optional(string)<br/>      record_names = optional(list(string))<br/>    }))<br/>    foundation = optional(object({<br/>      state_bucket_arn        = string<br/>      hosted_zone_arn         = string<br/>      managed_bucket_patterns = optional(list(string))<br/>      attachable_policy_arns  = optional(list(string))<br/>    }))<br/>    ecr = optional(object({<br/>      repository_arn = string<br/>    }))<br/>    container = optional(object({<br/>      attachable_policy_arns = optional(list(string))<br/>    }))<br/>    task = optional(object({<br/>      instance_types = list(string)<br/>      profiles       = optional(list(string), ["cpu"])<br/>    }))<br/>    dataset = optional(object({<br/>      bucket_names = list(string)<br/>    }))<br/>  })</pre> | `{}` | no |
+| policy\_inputs | Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `["cpu"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; the `container/*` policies are otherwise built from `project` alone, and the `compute/*` policies entirely. | <pre>object({<br/>    tfstate = optional(object({<br/>      bucket_arn = string<br/>      key        = optional(string)<br/>      prefix     = optional(string)<br/>    }))<br/>    static_site = optional(object({<br/>      bucket_arn   = string<br/>      zone_id      = optional(string)<br/>      record_names = optional(list(string))<br/>    }))<br/>    foundation = optional(object({<br/>      state_bucket_arn        = string<br/>      hosted_zone_arn         = string<br/>      managed_bucket_patterns = optional(list(string))<br/>      attachable_policy_arns  = optional(list(string))<br/>    }))<br/>    ecr = optional(object({<br/>      repository_arn = string<br/>    }))<br/>    container = optional(object({<br/>      attachable_policy_arns = optional(list(string))<br/>    }))<br/>    task = optional(object({<br/>      instance_types = list(string)<br/>      profiles       = optional(list(string), ["cpu"])<br/>    }))<br/>    dataset = optional(object({<br/>      bucket_names = list(string)<br/>    }))<br/>  })</pre> | `{}` | no |
 
 ## Outputs
 

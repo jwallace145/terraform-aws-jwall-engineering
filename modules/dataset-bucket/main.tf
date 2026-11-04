@@ -1,13 +1,19 @@
 # A durable, append-only dataset: training data that every later model is
 # built and compared from. Objects are write-once by convention (new runs get
-# new keys), so the bucket is not versioned: versioning would only store an
-# accidental re-upload twice. Nothing expires. Data moves to
-# Intelligent-Tiering, because it is read in bursts and then goes cold.
+# new keys), so by default the bucket is not versioned: versioning would only
+# store an accidental re-upload twice. By default nothing expires. Data moves
+# to Intelligent-Tiering, because it is read in bursts and then goes cold.
+# Versioning and expiry of named sub-prefixes are opt-in, for projects that
+# keep scratch data next to the dataset.
 
 locals {
   arn         = "arn:aws:s3:::${var.name}"
   objects_arn = "${local.arn}/${var.prefix}*"
   list_prefix = { StringLike = { "s3:prefix" = "${var.prefix}*" } }
+
+  write_once_arns = {
+    for role, g in var.role_grants : role => [for p in g.write_once : "${local.arn}/${var.prefix}${p}*"]
+  }
 }
 
 resource "aws_s3_bucket" "this" {
@@ -54,8 +60,22 @@ resource "aws_s3_bucket_ownership_controls" "this" {
   }
 }
 
+resource "aws_s3_bucket_versioning" "this" {
+  count = var.versioning ? 1 : 0
+
+  bucket = aws_s3_bucket.this.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "this" {
   bucket = aws_s3_bucket.this.id
+
+  # The provider recommends enabling versioning first: a failed versioning
+  # call must not leave live expiry rules on an unversioned bucket.
+  depends_on = [aws_s3_bucket_versioning.this]
 
   # Writers upload in S3 Standard (the AWS CLI's default); this moves them.
   # S3 does not transition objects under 128 KB, such as manifests.
@@ -83,6 +103,41 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
+    }
+  }
+
+  # Only the sub-prefixes named in expire_prefixes ever expire.
+  dynamic "rule" {
+    for_each = var.expire_prefixes
+
+    content {
+      id     = "expire-${replace(rule.key, "/", "-")}"
+      status = "Enabled"
+
+      filter {
+        prefix = "${var.prefix}${rule.key}"
+      }
+
+      expiration {
+        days = rule.value
+      }
+    }
+  }
+
+  dynamic "rule" {
+    for_each = var.expire_noncurrent_days == null ? [] : [var.expire_noncurrent_days]
+
+    content {
+      id     = "expire-noncurrent-versions"
+      status = "Enabled"
+
+      filter {
+        prefix = ""
+      }
+
+      noncurrent_version_expiration {
+        noncurrent_days = rule.value
+      }
     }
   }
 }
@@ -191,10 +246,36 @@ resource "aws_iam_role_policy" "grant" {
         Resource = local.arn
         Condition = {
           StringLike = {
-            "s3:prefix" = [for p in distinct(concat(each.value.read, each.value.write)) : "${var.prefix}${p}*"]
+            "s3:prefix" = [for p in distinct(concat(each.value.read, each.value.write, each.value.write_once)) : "${var.prefix}${p}*"]
           }
         }
       }],
+      # Add-only. The conditional PutObject creates an object only if the key
+      # is absent; later multipart parts are not creating requests, so they are
+      # allowed unconditionally, but completing the upload is the creating
+      # request and carries the condition. No unconditional PutObject here.
+      [for s in [
+        {
+          Sid       = "AddDatasetObjectsIfAbsent"
+          Effect    = "Allow"
+          Action    = "s3:PutObject"
+          Resource  = local.write_once_arns[each.key]
+          Condition = { StringEquals = { "s3:if-none-match" = "*" } }
+        },
+        {
+          Sid       = "AddDatasetObjectParts"
+          Effect    = "Allow"
+          Action    = "s3:PutObject"
+          Resource  = local.write_once_arns[each.key]
+          Condition = { Bool = { "s3:ObjectCreationOperation" = "false" } }
+        },
+        {
+          Sid      = "AbortDatasetUploads"
+          Effect   = "Allow"
+          Action   = "s3:AbortMultipartUpload"
+          Resource = local.write_once_arns[each.key]
+        },
+      ] : s if length(each.value.write_once) > 0],
     )
   })
 }

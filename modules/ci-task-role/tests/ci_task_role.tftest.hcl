@@ -119,6 +119,26 @@ run "rejects_write_policies" {
   expect_failures = [var.policies]
 }
 
+run "rejects_compute_read" {
+  command = plan
+
+  variables {
+    policies = ["compute/read"]
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "rejects_compute_manage" {
+  command = plan
+
+  variables {
+    policies = ["compute/manage"]
+  }
+
+  expect_failures = [var.policies]
+}
+
 # `task run` holds the role for the whole task: up to task-runner.max_hours
 # (at most 24) plus launch and setup. A one-hour session would expire mid-task
 # and leave the CLI unable to stream, collect or terminate.

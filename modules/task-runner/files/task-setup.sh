@@ -1,10 +1,11 @@
 #!/bin/bash
 # Task instance setup. Terraform prepends the shebang, the lifetime guard
-# (`shutdown -h +<minutes>`), TASK_RUST_TOOLCHAIN and TASK_GPU to this file to
-# form the user data. Tasks wait for /etc/task-runner/ready before they start.
+# (`shutdown -h +<minutes>`), TASK_RUST_TOOLCHAIN (empty for no Rust) and
+# TASK_GPU to this file to form the user data. Tasks wait for
+# /etc/task-runner/ready before they start.
 set -euo pipefail
 
-: "${TASK_RUST_TOOLCHAIN:?TASK_RUST_TOOLCHAIN must be set}"
+TASK_RUST_TOOLCHAIN=${TASK_RUST_TOOLCHAIN:-}
 TASK_GPU=${TASK_GPU:-0}
 
 exec > >(tee -a /var/log/task-runner-setup.log) 2>&1
@@ -19,29 +20,38 @@ if ! systemctl is-enabled --quiet amazon-ssm-agent 2>/dev/null; then
 fi
 
 # Run Command runs tasks as root; ec2-user is for Session Manager debugging.
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh
-for user in root ec2-user; do
-  sudo -u "$user" -H sh /tmp/rustup-init.sh -y --no-modify-path \
-    --profile minimal --default-toolchain "$TASK_RUST_TOOLCHAIN"
-done
-rm -f /tmp/rustup-init.sh
+if [ -n "$TASK_RUST_TOOLCHAIN" ]; then
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh
+  for user in root ec2-user; do
+    sudo -u "$user" -H sh /tmp/rustup-init.sh -y --no-modify-path \
+      --profile minimal --default-toolchain "$TASK_RUST_TOOLCHAIN"
+  done
+  rm -f /tmp/rustup-init.sh
+fi
 
 imds_token=$(curl -sSf -X PUT http://169.254.169.254/latest/api/token \
   -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')
 image_id=$(curl -sSf -H "X-aws-ec2-metadata-token: $imds_token" \
   http://169.254.169.254/latest/meta-data/ami-id)
-rustc_version=$(/root/.cargo/bin/rustc --version)
 cpu_model=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p')
 physical_cores=$(lscpu -p=CORE,SOCKET | grep -v '^#' | sort -u | wc -l)
 
+# Assigned on its own so set -e sees a broken toolchain; inside echo "$(...)"
+# the exit status would be hidden.
+if [ -n "$TASK_RUST_TOOLCHAIN" ]; then
+  rustc_version=$(/root/.cargo/bin/rustc --version)
+fi
+
 mkdir -p /etc/task-runner
-cat > /etc/task-runner/ready.tmp <<READY
-image_id=$image_id
-rust_toolchain=$TASK_RUST_TOOLCHAIN
-rustc=$rustc_version
-cpu_model=$cpu_model
-physical_cores=$physical_cores
-READY
+{
+  echo "image_id=$image_id"
+  echo "rust_toolchain=${TASK_RUST_TOOLCHAIN:-none}"
+  if [ -n "$TASK_RUST_TOOLCHAIN" ]; then
+    echo "rustc=$rustc_version"
+  fi
+  echo "cpu_model=$cpu_model"
+  echo "physical_cores=$physical_cores"
+} > /etc/task-runner/ready.tmp
 
 # A GPU profile is not ready until the driver answers; set -e fails setup
 # (no ready file) when it never does, and the task reports the setup log.

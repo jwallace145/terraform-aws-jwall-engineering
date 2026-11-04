@@ -56,7 +56,7 @@ locals {
   user_data = join("\n", [
     "#!/bin/bash",
     "shutdown -h +${var.max_lifetime_hours * 60}",
-    "TASK_RUST_TOOLCHAIN=${var.rust_toolchain}",
+    "TASK_RUST_TOOLCHAIN=${var.rust_toolchain == null ? "" : var.rust_toolchain}",
     "TASK_GPU=${var.gpu ? 1 : 0}",
     file("${path.module}/files/task-setup.sh"),
   ])

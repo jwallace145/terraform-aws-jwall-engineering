@@ -23,7 +23,7 @@ run "dataset_bucket_configuration_only" {
 
   assert {
     condition = alltrue([
-      for a in ["s3:CreateBucket", "s3:PutBucketPolicy", "s3:PutEncryptionConfiguration", "s3:PutLifecycleConfiguration", "s3:PutBucketPublicAccessBlock", "s3:PutBucketOwnershipControls", "s3:PutBucketTagging"] :
+      for a in ["s3:CreateBucket", "s3:PutBucketPolicy", "s3:PutBucketVersioning", "s3:PutEncryptionConfiguration", "s3:PutLifecycleConfiguration", "s3:PutBucketPublicAccessBlock", "s3:PutBucketOwnershipControls", "s3:PutBucketTagging"] :
       contains([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ManageDatasetBuckets"][0].Action, a)
     ])
     error_message = "everything the dataset-bucket module configures"
