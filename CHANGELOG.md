@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.16.1...v0.17.0) (2026-11-04)
+
+
+### Features
+
+* add research project support to dataset, task-runner and CI policy modules ([#49](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/49)) ([1b15c6b](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/1b15c6b73ba3107fd32523fe1c27fb3b3e33249d))
+
 ## [0.16.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.16.0...v0.16.1) (2026-10-30)
 
 
