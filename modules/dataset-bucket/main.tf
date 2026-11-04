@@ -73,6 +73,10 @@ resource "aws_s3_bucket_versioning" "this" {
 resource "aws_s3_bucket_lifecycle_configuration" "this" {
   bucket = aws_s3_bucket.this.id
 
+  # The provider recommends enabling versioning first: a failed versioning
+  # call must not leave live expiry rules on an unversioned bucket.
+  depends_on = [aws_s3_bucket_versioning.this]
+
   # Writers upload in S3 Standard (the AWS CLI's default); this moves them.
   # S3 does not transition objects under 128 KB, such as manifests.
   rule {
