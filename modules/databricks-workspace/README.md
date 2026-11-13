@@ -56,6 +56,32 @@ principal is a workspace admin, so the same credentials work in both stacks.
   `Owner` and `ManagedBy`, and no key Databricks reserves (`Vendor`,
   `Creator`, `ClusterName`, `ClusterId`, `Name`).
 
+## S3 endpoint policy
+
+The `s3_endpoint_policy` output is the policy for the VPC's S3 gateway endpoint
+(`vpc`'s `s3_gateway_endpoint.policy`). Compute in the workspace VPC can reach
+the catalog bucket only as the Unity Catalog role (`<p>-databricks-uc`), so
+pasted foreign credentials cannot read data outside Unity Catalog. It allows
+`s3:*` on:
+
+- the Databricks-owned us-east-1 buckets the classic compute plane needs
+  (artifacts, logs, system tables, sample datasets; see `local.databricks_buckets`),
+- the workspace root bucket (its own bucket policy is the real guard),
+- the catalog bucket, only under `ArnEquals aws:PrincipalArn` = the Unity
+  Catalog role.
+
+Everything else is denied at the endpoint. The role is named in a condition,
+never in `Principal`, because the endpoint is created before the role exists.
+The policy depends on names, the account ID and the region only, so the
+account stack can pass it to `vpc` without a dependency cycle.
+
+Limits:
+
+- Serverless compute does not traverse this endpoint; it is not covered
+  (accepted gap).
+- Only same-region S3 goes through the gateway endpoint. Cross-region S3 goes
+  via the NAT and is not covered. The module is us-east-1 only.
+
 ## Known gaps
 
 - The cross-account role's policy (`databricks_aws_crossaccount_policy`,
@@ -144,6 +170,8 @@ No modules.
 | [databricks_mws_storage_configurations.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_storage_configurations) | resource |
 | [databricks_mws_workspaces.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_workspaces) | resource |
 | [time_sleep.iam_propagation](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_subnet.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/subnet) | data source |
 | [databricks_aws_assume_role_policy.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/data-sources/aws_assume_role_policy) | data source |
 | [databricks_aws_bucket_policy.root](https://registry.terraform.io/providers/databricks/databricks/latest/docs/data-sources/aws_bucket_policy) | data source |
@@ -177,6 +205,7 @@ No modules.
 | admin\_group\_name | Account group with ADMIN on the workspace (`<project>-workspace-admins`). |
 | cross\_account\_role\_arn | ARN of the cross-account role Databricks assumes to run clusters in the VPC. |
 | root\_bucket\_name | Name of the workspace root bucket (`<p>-databricks-root`). |
+| s3\_endpoint\_policy | Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, and the catalog bucket only for the Unity Catalog role. Built from names only, so it is known before the workspace exists. |
 | security\_group\_id | ID of the workspace clusters' security group. |
 | users\_group\_name | Account group with USER on the workspace (`<project>-workspace-users`). |
 | workspace\_id | Numeric ID of the workspace. |

@@ -19,6 +19,18 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "111122223333"
+    }
+  }
+
+  mock_data "aws_region" {
+    defaults = {
+      name = "us-east-1"
+    }
+  }
+
   mock_data "aws_subnet" {
     defaults = {
       cidr_block = "10.0.2.0/24"
@@ -474,4 +486,93 @@ run "rejects_bad_deployment_name" {
   }
 
   expect_failures = [var.deployment_name]
+}
+
+run "endpoint_policy_uc_condition" {
+  command = plan
+
+  assert {
+    condition = length([
+      for s in jsondecode(output.s3_endpoint_policy).Statement : s
+      if contains(s.Resource, "arn:aws:s3:::jwall-engineering-databricks-poc-databricks-catalog/*")
+    ]) == 1
+    error_message = "exactly one statement must cover the catalog bucket"
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.s3_endpoint_policy).Statement :
+      s.Effect == "Allow" && s.Principal == "*" &&
+      contains(s.Resource, "arn:aws:s3:::jwall-engineering-databricks-poc-databricks-catalog") &&
+      contains(s.Resource, "arn:aws:s3:::jwall-engineering-databricks-poc-databricks-catalog/*") &&
+      keys(s.Condition) == ["ArnEquals"] &&
+      s.Condition.ArnEquals == { "aws:PrincipalArn" = "arn:aws:iam::111122223333:role/jwall-engineering-databricks-poc-databricks-uc" }
+      if contains(s.Resource, "arn:aws:s3:::jwall-engineering-databricks-poc-databricks-catalog")
+    ])
+    error_message = "the catalog statement must allow Principal * only under ArnEquals aws:PrincipalArn = the Unity Catalog role (no Principal.AWS)"
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.s3_endpoint_policy).Statement :
+      !can(s.Principal.AWS) && !contains(keys(s), "NotPrincipal") && !contains(keys(s), "NotResource")
+    ])
+    error_message = "no statement may name a principal (AWS validates it; the role does not exist yet)"
+  }
+}
+
+run "endpoint_policy_covers_required_buckets" {
+  command = plan
+
+  assert {
+    condition     = length([for s in jsondecode(output.s3_endpoint_policy).Statement : s.Sid]) == 3 && toset([for s in jsondecode(output.s3_endpoint_policy).Statement : s.Sid]) == toset(["DatabricksRequired", "WorkspaceRoot", "UnityCatalogOnly"])
+    error_message = "the policy must have exactly DatabricksRequired, WorkspaceRoot and UnityCatalogOnly"
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.s3_endpoint_policy).Statement :
+      s.Sid == "WorkspaceRoot" ? (
+        toset(s.Resource) == toset(["arn:aws:s3:::jwall-engineering-databricks-poc-databricks-root", "arn:aws:s3:::jwall-engineering-databricks-poc-databricks-root/*"]) && !contains(keys(s), "Condition")
+      ) : true
+    ])
+    error_message = "WorkspaceRoot must cover exactly the root bucket and its objects"
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.s3_endpoint_policy).Statement :
+      s.Sid == "DatabricksRequired" ? (
+        s.Action == "s3:*" && !contains(keys(s), "Condition") &&
+        toset(s.Resource) == toset(flatten([
+          for b in ["databricks-prod-artifacts-us-east-1", "databricks-prod-storage-virginia", "system-tables-prod-us-east-1-uc-metastore-bucket", "databricks-datasets-virginia"] :
+          ["arn:aws:s3:::${b}", "arn:aws:s3:::${b}/*"]
+        ]))
+      ) : true
+    ])
+    error_message = "DatabricksRequired must cover exactly the artifact, log, system tables and sample datasets buckets of us-east-1"
+  }
+}
+
+run "endpoint_policy_has_no_wildcard_bucket" {
+  command = plan
+
+  assert {
+    condition = alltrue(flatten([
+      for s in jsondecode(output.s3_endpoint_policy).Statement : [
+        for r in flatten([s.Resource]) :
+        r != "*" && r != "arn:aws:s3:::*" && startswith(r, "arn:aws:s3:::") && !startswith(r, "arn:aws:s3:::*")
+      ]
+    ]))
+    error_message = "no statement resource may be * or a wildcard bucket"
+  }
+}
+
+run "endpoint_policy_known_without_apply" {
+  command = plan
+
+  assert {
+    condition     = output.s3_endpoint_policy != null
+    error_message = "the endpoint policy must be known at plan time, so it can feed the VPC stack before the workspace exists"
+  }
 }

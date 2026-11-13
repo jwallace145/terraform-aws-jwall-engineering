@@ -22,10 +22,29 @@ locals {
     { from = 8443, to = 8451, description = "Control plane API, Unity Catalog lineage and logging, reserved" },
   ]
 
+  catalog_bucket_name = "${local.prefix}-databricks-catalog"
+  uc_role_arn         = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.prefix}-databricks-uc"
+
+  # Databricks-owned buckets the classic compute plane reads in us-east-1:
+  # artifacts, logs, system tables storage and the sample datasets, from
+  # https://docs.databricks.com/aws/en/resources/ip-domain-region
+  # ("Addresses for artifact storage, log storage, system tables, and shared
+  # datasets buckets", checked 2026-11-13).
+  databricks_buckets = [
+    "databricks-prod-artifacts-${data.aws_region.current.name}",
+    "databricks-prod-storage-virginia",
+    "system-tables-prod-${data.aws_region.current.name}-uc-metastore-bucket",
+    "databricks-datasets-virginia",
+  ]
+
   tags = {
     Component = var.component
   }
 }
+
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
 
 # ---------------------------------------------------------------- network
 
@@ -282,4 +301,46 @@ resource "databricks_mws_permission_assignment" "users" {
   permissions  = ["USER"]
 
   depends_on = [databricks_metastore_assignment.this]
+}
+
+# ----------------------------------------------------- S3 endpoint policy
+
+# For vpc's s3_gateway_endpoint.policy. It depends on names only, never on
+# resources: the endpoint is created before this module (and before the
+# Unity Catalog role), so the role is named in a condition, which AWS does not
+# validate, never in Principal, which it does. Anything not listed here is
+# denied at the endpoint.
+locals {
+  s3_endpoint_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DatabricksRequired"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = flatten([
+          for b in local.databricks_buckets : ["arn:aws:s3:::${b}", "arn:aws:s3:::${b}/*"]
+        ])
+      },
+      {
+        # The root bucket's own policy is the real guard here.
+        Sid       = "WorkspaceRoot"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = ["arn:aws:s3:::${local.root_bucket_name}", "arn:aws:s3:::${local.root_bucket_name}/*"]
+      },
+      {
+        Sid       = "UnityCatalogOnly"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = ["arn:aws:s3:::${local.catalog_bucket_name}", "arn:aws:s3:::${local.catalog_bucket_name}/*"]
+        Condition = {
+          ArnEquals = { "aws:PrincipalArn" = local.uc_role_arn }
+        }
+      },
+    ]
+  })
 }

@@ -32,3 +32,8 @@ output "security_group_id" {
   description = "ID of the workspace clusters' security group."
   value       = aws_security_group.this.id
 }
+
+output "s3_endpoint_policy" {
+  description = "Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, and the catalog bucket only for the Unity Catalog role. Built from names only, so it is known before the workspace exists."
+  value       = local.s3_endpoint_policy
+}
