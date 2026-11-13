@@ -140,6 +140,8 @@ jobs:
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: dataset-bucket, path: modules/dataset-bucket }
+          - { module: databricks-metastore, path: modules/databricks-metastore }
+          - { module: databricks-audit-logs, path: modules/databricks-audit-logs }
           - { module: vpc, path: modules/vpc }
           - { module: nat-instance, path: modules/nat-instance }
           - { module: container-instance, path: modules/container-instance }
