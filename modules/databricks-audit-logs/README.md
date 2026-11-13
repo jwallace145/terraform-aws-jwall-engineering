@@ -8,8 +8,10 @@ the Databricks credentials and storage configuration, and the
 `databricks_mws_log_delivery` for `AUDIT_LOGS`.
 
 **Scope.** Databricks (the delivery role) may write only under
-`<prefix>/*` (`audit/*` by default); its only bucket-level right is
-`s3:GetBucketLocation`. The bucket policy has no Deny besides non-TLS
+`<prefix>/*` (`audit/*` by default); its bucket-level rights are
+`s3:GetBucketLocation` and listing limited by an `s3:prefix` condition to the
+prefix, as in Databricks' documented policy. The role trusts Databricks'
+`SaasUsageDeliveryRole` (not the account root) with the account ID as external ID. The bucket policy has no Deny besides non-TLS
 requests, so the bucket can also host a future `events/` prefix written by
 the account's own principals through their IAM policies.
 

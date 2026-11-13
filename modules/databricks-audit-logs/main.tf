@@ -1,6 +1,10 @@
 locals {
-  # Databricks' AWS account that assumes customer roles for log delivery.
-  databricks_account_arn = "arn:aws:iam::414351767826:root"
+  # Databricks' log delivery role (SaasUsageDeliveryRole, commercial
+  # partition), as in Databricks' "Configure audit log delivery" docs and the
+  # provider's databricks_aws_assume_role_policy with for_log_delivery. Trusting
+  # the account root instead would let any principal there that knows the
+  # external ID assume this role.
+  databricks_log_delivery_arn = "arn:aws:iam::414351767826:role/SaasUsageDeliveryRole-prod-IAMRole-3PLHICCRR1TK"
 
   object_actions = [
     "s3:PutObject",
@@ -8,11 +12,11 @@ locals {
     "s3:DeleteObject",
     "s3:PutObjectAcl",
     "s3:AbortMultipartUpload",
-    "s3:ListMultipartUploadParts",
   ]
 
-  # Everything Databricks may touch lives under one prefix; the only
-  # bucket-level right is GetBucketLocation.
+  # Everything Databricks may touch lives under one prefix. Bucket-level
+  # rights are GetBucketLocation and prefix-conditioned listing, as in
+  # Databricks' documented policy.
   delivery_statements = [
     {
       Effect   = "Allow"
@@ -20,9 +24,26 @@ locals {
       Resource = aws_s3_bucket.this.arn
     },
     {
-      Effect   = "Allow"
-      Action   = local.object_actions
-      Resource = "${aws_s3_bucket.this.arn}/${var.prefix}/*"
+      Effect = "Allow"
+      Action = local.object_actions
+      Resource = [
+        "${aws_s3_bucket.this.arn}/${var.prefix}/",
+        "${aws_s3_bucket.this.arn}/${var.prefix}/*",
+      ]
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "s3:ListBucket",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
+      Resource = aws_s3_bucket.this.arn
+      Condition = {
+        StringLike = {
+          "s3:prefix" = [var.prefix, "${var.prefix}/*"]
+        }
+      }
     },
   ]
 }
@@ -82,7 +103,7 @@ resource "aws_iam_role" "log_delivery" {
     Statement = [
       {
         Effect    = "Allow"
-        Principal = { AWS = local.databricks_account_arn }
+        Principal = { AWS = local.databricks_log_delivery_arn }
         Action    = "sts:AssumeRole"
         Condition = {
           StringEquals = {

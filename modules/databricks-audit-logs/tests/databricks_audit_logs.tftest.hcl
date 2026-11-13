@@ -44,10 +44,10 @@ run "audit_role_trust_requires_external_id" {
       length(jsondecode(aws_iam_role.log_delivery.assume_role_policy).Statement) == 1 &&
       jsondecode(aws_iam_role.log_delivery.assume_role_policy).Statement[0].Effect == "Allow" &&
       jsondecode(aws_iam_role.log_delivery.assume_role_policy).Statement[0].Action == "sts:AssumeRole" &&
-      jsondecode(aws_iam_role.log_delivery.assume_role_policy).Statement[0].Principal.AWS == "arn:aws:iam::414351767826:root" &&
+      jsondecode(aws_iam_role.log_delivery.assume_role_policy).Statement[0].Principal.AWS == "arn:aws:iam::414351767826:role/SaasUsageDeliveryRole-prod-IAMRole-3PLHICCRR1TK" &&
       jsondecode(aws_iam_role.log_delivery.assume_role_policy).Statement[0].Condition.StringEquals["sts:ExternalId"] == var.account_id
     )
-    error_message = "trust must allow only the Databricks account, with sts:ExternalId = account_id under StringEquals"
+    error_message = "trust must allow only the Databricks SaasUsageDeliveryRole (not the account root), with sts:ExternalId = account_id under StringEquals"
   }
 
   assert {
@@ -88,24 +88,38 @@ run "audit_bucket_policy_scoped_to_prefix" {
   command = plan
 
   # Databricks' own statements: Allow statements for the log delivery role.
+  # Object resources must sit under <prefix>/; bucket-ARN statements must be
+  # GetBucketLocation or carry an s3:prefix condition limited to the prefix.
   assert {
     condition = alltrue([
       for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
       alltrue([
         for r in flatten([s.Resource]) :
-        endswith(r, "/audit/*") || (r == aws_s3_bucket.this.arn && s.Action == "s3:GetBucketLocation")
+        (endswith(r, "/audit/*") || endswith(r, "/audit/")) ||
+        (r == aws_s3_bucket.this.arn && (
+          s.Action == "s3:GetBucketLocation" ||
+          (can(s.Condition.StringLike["s3:prefix"]) && toset(s.Condition.StringLike["s3:prefix"]) == toset(["audit", "audit/*"]))
+        ))
       ])
       if s.Effect == "Allow"
     ])
-    error_message = "every Allow statement must target <bucket>/audit/*, or the bucket ARN for GetBucketLocation only"
+    error_message = "every Allow must target <bucket>/audit/ or audit/*, or the bucket ARN for GetBucketLocation or with an s3:prefix condition limited to audit"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
+      s.Effect == "Allow" && contains(flatten([s.Action]), "s3:ListBucket") && contains(flatten([s.Action]), "s3:ListBucketMultipartUploads")
+    ])
+    error_message = "the documented prefix-conditioned ListBucket / ListBucketMultipartUploads statement must be present"
   }
 
   assert {
     condition = length([
       for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s
       if s.Effect == "Allow" && s.Principal.AWS == "arn:aws:iam::111122223333:role/jwall-engineering-databricks-log-delivery"
-    ]) == 2
-    error_message = "the log delivery role must get exactly the bucket-location and object statements"
+    ]) == 3
+    error_message = "the log delivery role must get exactly the bucket-location, object and prefix-listing statements"
   }
 
   # The events/ prefix belongs to the account's own principals: nothing may deny it
@@ -138,7 +152,14 @@ run "prefix_follows_variable" {
   assert {
     condition = alltrue([
       for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
-      alltrue([for r in flatten([s.Resource]) : endswith(r, "/logs/*") || r == aws_s3_bucket.this.arn])
+      alltrue([
+        for r in flatten([s.Resource]) :
+        (endswith(r, "/logs/*") || endswith(r, "/logs/")) ||
+        (r == aws_s3_bucket.this.arn && (
+          s.Action == "s3:GetBucketLocation" ||
+          (can(s.Condition.StringLike["s3:prefix"]) && toset(s.Condition.StringLike["s3:prefix"]) == toset(["logs", "logs/*"]))
+        ))
+      ])
       if s.Effect == "Allow"
     ]) && databricks_mws_log_delivery.audit.delivery_path_prefix == "logs"
     error_message = "a custom prefix must flow into the policy and the delivery path"
