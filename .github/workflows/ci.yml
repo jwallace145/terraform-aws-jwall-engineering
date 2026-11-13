@@ -72,6 +72,16 @@ jobs:
       - name: Run task-setup.sh against fake binaries
         run: bash scripts/test-task-setup.sh
 
+  nat-setup:
+    name: nat-setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run nat-setup.sh against fake binaries
+        run: bash scripts/test-nat-setup.sh
+
   fmt:
     name: fmt
     runs-on: ubuntu-latest
@@ -131,6 +141,7 @@ jobs:
           - { module: private-bucket, path: modules/private-bucket }
           - { module: dataset-bucket, path: modules/dataset-bucket }
           - { module: vpc, path: modules/vpc }
+          - { module: nat-instance, path: modules/nat-instance }
           - { module: container-instance, path: modules/container-instance }
           - { module: task-runner, path: modules/task-runner }
           - { module: static-site, path: modules/static-site }
