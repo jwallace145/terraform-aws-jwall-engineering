@@ -50,8 +50,11 @@ the NAT has no instance profile, so there is no `iam:PassRole`.
   `aws:RequestTag/Project = <project>` and `aws:RequestTag/Component =
   nat-instance` (`StringEquals`) and an `ec2:InstanceType` like `t4g.*`
   (`StringLike`), from an Amazon-owned image, on an existing project network
-  interface, subnet and security group. `TerminateInstances` requires the
-  same two tags on the instance.
+  interface, subnet and security group. `TerminateInstances` and
+  `ModifyInstanceAttribute` require the same two tags on the instance.
+  `DetachNetworkInterface`, which `terraform destroy` of the interface calls
+  while its attachment is in state, is allowed on project-tagged interfaces
+  and instances.
 - **The root volume.** The AWS provider applies `root_block_device` tags with
   a `CreateTags` call after launch, so the launch request may carry no volume
   tags. `RunInstances` on a volume is therefore not tag-conditioned (a volume
@@ -77,15 +80,17 @@ None: no statement uses `Resource = "*"`.
 ## Known limitations
 
 - Changing the NAT's `instance_type` or metadata options in place is denied:
-  this policy grants no `ModifyInstanceAttribute`, `StopInstances` or
-  `StartInstances`, because an in-place type change could not be held to
-  `t4g.*`. Replace the instance instead (`terraform apply -replace`); routes
-  follow the interface, so egress resumes once the new instance is up.
+  this policy grants no `StopInstances`, `StartInstances` or
+  `ModifyInstanceMetadataOptions`, and a type change needs a stopped
+  instance, so it cannot leave `t4g.*` through `ModifyInstanceAttribute`.
+  Replace the instance instead (`terraform apply -replace`); routes follow the
+  interface, so egress resumes once the new instance is up.
 - `nat-instance` accepts the `t4g`, `c7g`, `c8g` and `m7g` families; this
   policy launches `t4g` only.
-- `ec2:DeleteNetworkInterface`, `ec2:ReleaseAddress` and the other actions
-  on existing resources reach any network interface or address tagged with
-  the project, not only the NAT's.
+- `ec2:DeleteNetworkInterface`, `ec2:DetachNetworkInterface`,
+  `ec2:ReleaseAddress` and the other actions on existing resources reach any
+  network interface, address or instance tagged with the project, not only
+  the NAT's.
 
 
 <!-- BEGIN_TF_DOCS -->

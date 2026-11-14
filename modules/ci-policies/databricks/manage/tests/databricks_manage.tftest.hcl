@@ -37,6 +37,7 @@ run "has_exactly_the_databricks_manage_statements" {
       "RunFromAmazonImages",
       "RunNatInProjectNetwork",
       "TerminateNatInstance",
+      "ModifyNatInstance",
       "TagOnCreate",
       "TagNatRootVolume",
       "ReadSecret",
@@ -269,7 +270,7 @@ run "nat_network_resources_by_tag" {
     condition = alltrue([
       for a in [
         "ec2:AssociateAddress", "ec2:DisassociateAddress", "ec2:ReleaseAddress",
-        "ec2:ModifyNetworkInterfaceAttribute", "ec2:DeleteNetworkInterface", "ec2:CreateNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute", "ec2:DeleteNetworkInterface", "ec2:DetachNetworkInterface", "ec2:CreateNetworkInterface",
         "ec2:CreateVpcEndpoint", "ec2:ModifyVpcEndpoint", "ec2:DeleteVpcEndpoints",
         "ec2:CreateRoute", "ec2:ReplaceRoute",
       ] :
@@ -287,8 +288,55 @@ run "nat_network_resources_by_tag" {
       "arn:aws:ec2:us-east-1:123456789012:vpc-endpoint/*",
       "arn:aws:ec2:us-east-1:123456789012:network-interface/*",
       "arn:aws:ec2:us-east-1:123456789012:elastic-ip/*",
+      "arn:aws:ec2:us-east-1:123456789012:instance/*",
     ]))
     error_message = "existing project network resources by type"
+  }
+}
+
+# Destroying the NAT's ENI: aws_network_interface's delete calls
+# DetachNetworkInterface (Force) whenever its attachment is still in state, and
+# the action authorizes both the interface and the instance.
+run "eni_can_be_detached_on_destroy" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(aws_iam_policy.this.policy).Statement :
+      contains(tolist(flatten([s.Action])), "ec2:DetachNetworkInterface") &&
+      contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:network-interface/*") &&
+      contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:instance/*") &&
+      jsonencode(s.Condition) == jsonencode({ StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } })
+    ])
+    error_message = "DetachNetworkInterface on the project's network interfaces and instances, by the Project resource tag"
+  }
+}
+
+# Ruling R12: aws_instance's create path calls ModifyInstanceAttribute when
+# source_dest_check is false.
+run "nat_instance_attributes_can_be_modified" {
+  command = plan
+
+  assert {
+    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { a = s.Action, r = s.Resource, c = s.Condition } if s.Sid == "ModifyNatInstance"])) == jsonencode({
+      a = "ec2:ModifyInstanceAttribute"
+      r = "arn:aws:ec2:us-east-1:123456789012:instance/*"
+      c = {
+        StringEquals = {
+          "aws:ResourceTag/Component" = "nat-instance"
+          "aws:ResourceTag/Project"   = "databricks-poc"
+        }
+      }
+    })
+    error_message = "ModifyInstanceAttribute only on the project's NAT instance (Project and Component resource tags, StringEquals)"
+  }
+
+  assert {
+    condition = jsonencode([
+      for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Sid
+      if contains(tolist(flatten([s.Action])), "ec2:ModifyInstanceAttribute")
+    ]) == jsonencode(["ModifyNatInstance"])
+    error_message = "no other statement may grant ModifyInstanceAttribute"
   }
 }
 

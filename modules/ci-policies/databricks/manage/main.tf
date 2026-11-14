@@ -16,8 +16,9 @@ locals {
   resource_tag = { StringEquals = { "aws:ResourceTag/Project" = var.project } }
 
   # Existing project network resources the endpoint, the NAT's ENI, its
-  # Elastic IP and its routes touch.
-  network_types = ["vpc", "subnet", "route-table", "security-group", "vpc-endpoint", "network-interface", "elastic-ip"]
+  # Elastic IP and its routes touch. instance: DetachNetworkInterface also
+  # authorizes the instance the ENI is attached to.
+  network_types = ["vpc", "subnet", "route-table", "security-group", "vpc-endpoint", "network-interface", "elastic-ip", "instance"]
 
   # Write-only: pair with databricks/read, compute/read and compute/manage.
   # compute/manage already creates and changes the VPC, subnets, route tables,
@@ -91,6 +92,7 @@ locals {
           "ec2:CreateNetworkInterface",
           "ec2:ModifyNetworkInterfaceAttribute",
           "ec2:DeleteNetworkInterface",
+          "ec2:DetachNetworkInterface",
           "ec2:AssociateAddress",
           "ec2:DisassociateAddress",
           "ec2:ReleaseAddress",
@@ -111,6 +113,21 @@ locals {
             "aws:RequestTag/Component" = "nat-instance"
           }
           StringLike = { "ec2:InstanceType" = "t4g.*" }
+        }
+      },
+      {
+        # aws_instance's create calls ModifyInstanceAttribute for
+        # source_dest_check = false, and terraform may change attributes of
+        # the NAT in place.
+        Sid      = "ModifyNatInstance"
+        Effect   = "Allow"
+        Action   = "ec2:ModifyInstanceAttribute"
+        Resource = "${local.ec2}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/Project"   = var.project
+            "aws:ResourceTag/Component" = "nat-instance"
+          }
         }
       },
       {

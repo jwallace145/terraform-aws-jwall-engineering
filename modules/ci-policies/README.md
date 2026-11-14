@@ -51,7 +51,7 @@ groups and `<name_root>-<project>-*` roles (the cross-account and Unity
 Catalog roles included), and `databricks/*` adds only what the `vpc`
 endpoint, `nat-instance`, `databricks-workspace` and `databricks-catalog`
 modules need beyond that. Neither is split: `databricks/manage` is about
-4,800 characters.
+5,100 characters.
 
 `compute/*` is for projects with no bot: the network, instance role and log
 group statements of `container/*`, without its image repository, instance,
