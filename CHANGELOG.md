@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.18.0...v0.18.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **databricks-workspace-config:** take policy definitions as JSON strings ([#53](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/53)) ([f83caae](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/f83caae9040838a7213f0e68d02ad616f5b0f0c0))
+
 ## [0.18.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.17.0...v0.18.0) (2026-11-14)
 
 
