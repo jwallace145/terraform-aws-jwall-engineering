@@ -39,16 +39,27 @@ resource "databricks_permissions" "policy" {
   }
 }
 
+# databricks_entitlements is authoritative: every apply sends the full set of
+# entitlements set to true, replacing the group's (attributes default to
+# false), so the entitlements users need are stated explicitly.
+# workspace_consume is left unset (false): it conflicts with workspace_access
+# and databricks_sql_access, which stay on.
 resource "databricks_entitlements" "users" {
-  group_id             = data.databricks_group.users.id
-  allow_cluster_create = false
+  group_id                   = data.databricks_group.users.id
+  workspace_access           = true
+  databricks_sql_access      = true
+  allow_cluster_create       = false
+  allow_instance_pool_create = false
 }
 
 resource "databricks_entitlements" "builtin_users" {
   count = var.restrict_builtin_users_group ? 1 : 0
 
-  group_id             = data.databricks_group.builtin_users[0].id
-  allow_cluster_create = false
+  group_id                   = data.databricks_group.builtin_users[0].id
+  workspace_access           = true
+  databricks_sql_access      = true
+  allow_cluster_create       = false
+  allow_instance_pool_create = false
 }
 
 resource "databricks_system_schema" "this" {

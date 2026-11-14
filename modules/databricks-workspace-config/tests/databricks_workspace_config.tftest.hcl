@@ -147,6 +147,35 @@ run "cluster_create_entitlement_off" {
   }
 }
 
+run "entitlements_explicit_on_both_groups" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for e in [databricks_entitlements.users, databricks_entitlements.builtin_users[0]] :
+      e.workspace_access == true &&
+      e.databricks_sql_access == true &&
+      e.allow_cluster_create == false &&
+      e.allow_instance_pool_create == false &&
+      coalesce(e.workspace_consume, false) == false
+    ])
+    error_message = "both groups keep workspace and SQL access (the resource replaces the whole entitlement set) and lose cluster and pool creation; workspace_consume stays off"
+  }
+}
+
+run "builtin_users_group_optional" {
+  command = plan
+
+  variables {
+    restrict_builtin_users_group = false
+  }
+
+  assert {
+    condition     = length(databricks_entitlements.builtin_users) == 0
+    error_message = "the built-in users group is left alone when restrict_builtin_users_group is false"
+  }
+}
+
 run "system_schemas_off_by_default" {
   command = plan
 

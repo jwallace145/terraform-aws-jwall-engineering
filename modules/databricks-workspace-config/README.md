@@ -10,9 +10,9 @@ compute policies and settings. Creates:
   override them;
 - `CAN_USE` on every policy for the users group (`users_group_name`), and
   nothing else;
-- `databricks_entitlements` with `allow_cluster_create = false` for the users
-  group and, by default, for the built-in `users` group (Databricks grants it
-  unrestricted cluster creation and every user belongs to it);
+- `databricks_entitlements` for the users group and, by default, for the
+  built-in `users` group (Databricks grants it unrestricted cluster creation
+  and every user belongs to it), set explicitly (see "Entitlements");
 - with `enable_system_schemas`, one `databricks_system_schema` per entry of
   `system_schemas` (default `access`, `billing`, `compute`, `lakeflow`,
   `query`, `storage`). System schemas are metastore-wide: enable them in the
@@ -42,6 +42,22 @@ be assigned to the workspace.
   gap.
 - Policy rules for node types, sizes and runtimes are the caller's; the module
   enforces only the `fixed_tags` and the presence of `autotermination_minutes`.
+
+## Entitlements
+
+`databricks_entitlements` replaces the principal's whole entitlement set on
+every apply: the provider sends only the attributes that are `true` (all
+default to `false`). Each entitlement is therefore stated:
+
+| Entitlement | Value | Why |
+| --- | --- | --- |
+| `workspace_access` | `true` | users keep the workspace UI; leaving it unset would remove it |
+| `databricks_sql_access` | `true` | users keep Databricks SQL and SQL warehouses; leaving it unset would remove it |
+| `allow_cluster_create` | `false` | no unrestricted clusters; policies are the way to create them |
+| `allow_instance_pool_create` | `false` | users do not create instance pools |
+| `workspace_consume` | unset | conflicts with the two access entitlements above, which stay on |
+
+Destroying the resource removes these entitlements from the group.
 
 ## Validation
 
