@@ -102,6 +102,13 @@ Limits:
   first apply still fails on IAM propagation, apply again.
 - The NAT (for example `nat-instance`) must route the private subnets before a
   cluster starts; the workspace itself does not need it to be created.
+- New us-east-1 workspaces may be auto-assigned to the region's metastore by
+  Databricks, in which case `databricks_metastore_assignment` could fail with
+  "already assigned" on the first apply. To be confirmed on the first live
+  apply.
+- `deployment_name` is optional and not computed in provider 1.142, so leaving
+  it null may show drift after the workspace is created. Pass it explicitly
+  (recommended).
 
 On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/databricks-workspace>
 
