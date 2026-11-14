@@ -59,11 +59,21 @@ default to `false`). Each entitlement is therefore stated:
 
 Destroying the resource removes these entitlements from the group.
 
+## Policy definitions are JSON strings
+
+`compute_policies[*].definition` is a JSON string, not an object: pass
+`jsonencode({...})`. Terraform must give every element of a map one type, so
+policies whose definitions have different attributes could not be passed as
+objects (0.18.0 failed with "Inconsistent conversion types"). A string has no
+shape, so each policy can carry its own rules. This changes the input type
+from 0.18.0, which no consumer had pinned yet.
+
 ## Validation
 
 - `compute_policies`: keys kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); no
   definition sets `custom_tags.*` (the platform owns them); every definition
-  sets `autotermination_minutes`.
+  sets `autotermination_minutes`; every `definition` is a JSON string that
+  decodes to an object.
 - `fixed_tags`: no empty keys or values; must contain `Project`,
   `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy`, and no key
   Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`).
@@ -102,10 +112,18 @@ module "workspace_config" {
   compute_policies = {
     team-a-jobs = {
       description = "Small autoscaling jobs compute"
-      definition = {
+      definition = jsonencode({
         autotermination_minutes = { type = "fixed", value = 30, hidden = true }
         node_type_id            = { type = "allowlist", values = ["m5.xlarge", "m5.2xlarge"] }
-      }
+      })
+    }
+    team-a-shared = {
+      description = "Shared all-purpose compute"
+      definition = jsonencode({
+        autotermination_minutes = { type = "fixed", value = 60 }
+        cluster_type            = { type = "fixed", value = "all-purpose" }
+        num_workers             = { type = "range", maxValue = 2 }
+      })
     }
   }
 }
@@ -149,7 +167,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| compute\_policies | Platform-owned cluster policies, keyed by policy name (lowercase kebab-case, for example `team-a-jobs`). `definition` is the policy rules as an object (Databricks' policy definition language); the module adds a `fixed` rule for every entry of `fixed_tags` under `custom_tags.<key>`. Each definition must set `autotermination_minutes` and must not set `custom_tags.*` itself. The CLI passes only this project's policies. | <pre>map(object({<br/>    description = string<br/>    definition  = any<br/>  }))</pre> | n/a | yes |
+| compute\_policies | Platform-owned cluster policies, keyed by policy name (lowercase kebab-case, for example `team-a-jobs`). `definition` is the policy rules (Databricks' policy definition language) as a JSON string, so policies may have differently shaped definitions: pass `jsonencode({...})`. The module adds a `fixed` rule for every entry of `fixed_tags` under `custom_tags.<key>`. Each definition must set `autotermination_minutes` and must not set `custom_tags.*` itself. The CLI passes only this project's policies. | <pre>map(object({<br/>    description = string<br/>    definition  = string<br/>  }))</pre> | n/a | yes |
 | fixed\_tags | Tags pinned on every cluster created through a platform policy, as `custom_tags.<key>` rules of type `fixed` (for example `CostCenter`, `Project`). Must contain `Project`, `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy` (the same governance tags as `databricks-workspace`'s `tags`), and no key Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`). | `map(string)` | n/a | yes |
 | metastore\_id | ID of the metastore the workspace is assigned to: the `metastore_id` of `databricks-metastore`. When system schemas are enabled, the plan fails if the workspace's current metastore is a different one. | `string` | n/a | yes |
 | users\_group\_name | Account group that may use the policies (`CAN_USE`) and has cluster creation switched off: the `users_group_name` output of `databricks-workspace` (`<project>-workspace-users`). | `string` | n/a | yes |

@@ -23,7 +23,7 @@ resource "databricks_cluster_policy" "this" {
 
   name        = each.key
   description = each.value.description
-  definition  = jsonencode(merge(each.value.definition, local.tag_rules))
+  definition  = jsonencode(merge(jsondecode(each.value.definition), local.tag_rules))
 }
 
 # CAN_USE lets users create clusters through the policy even though

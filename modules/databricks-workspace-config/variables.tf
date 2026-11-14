@@ -1,8 +1,8 @@
 variable "compute_policies" {
-  description = "Platform-owned cluster policies, keyed by policy name (lowercase kebab-case, for example `team-a-jobs`). `definition` is the policy rules as an object (Databricks' policy definition language); the module adds a `fixed` rule for every entry of `fixed_tags` under `custom_tags.<key>`. Each definition must set `autotermination_minutes` and must not set `custom_tags.*` itself. The CLI passes only this project's policies."
+  description = "Platform-owned cluster policies, keyed by policy name (lowercase kebab-case, for example `team-a-jobs`). `definition` is the policy rules (Databricks' policy definition language) as a JSON string, so policies may have differently shaped definitions: pass `jsonencode({...})`. The module adds a `fixed` rule for every entry of `fixed_tags` under `custom_tags.<key>`. Each definition must set `autotermination_minutes` and must not set `custom_tags.*` itself. The CLI passes only this project's policies."
   type = map(object({
     description = string
-    definition  = any
+    definition  = string
   }))
 
   validation {
@@ -11,13 +11,18 @@ variable "compute_policies" {
   }
 
   validation {
-    condition     = alltrue([for p in values(var.compute_policies) : !anytrue([for k in keys(p.definition) : startswith(k, "custom_tags.")])])
+    condition     = alltrue([for p in values(var.compute_policies) : can(jsondecode(p.definition)) && can(keys(jsondecode(p.definition)))])
+    error_message = "Every compute policy `definition` must be a JSON string that decodes to an object; pass `jsonencode({...})` for each definition in the compute_policies variable."
+  }
+
+  validation {
+    condition     = alltrue([for p in values(var.compute_policies) : !can(jsondecode(p.definition)) || !can(keys(jsondecode(p.definition))) || !anytrue([for k in keys(jsondecode(p.definition)) : startswith(k, "custom_tags.")])])
     error_message = "A compute policy definition must not set `custom_tags.*` rules: the platform owns them and injects them from fixed_tags; remove those keys from the definitions in the compute_policies variable (add the tag to the fixed_tags variable instead)."
   }
 
   validation {
-    condition     = alltrue([for p in values(var.compute_policies) : contains(keys(p.definition), "autotermination_minutes")])
-    error_message = "Every compute policy definition must set `autotermination_minutes` (cost control), for example `autotermination_minutes = { type = \"fixed\", value = 30 }`; add it to each definition in the compute_policies variable."
+    condition     = alltrue([for p in values(var.compute_policies) : !can(jsondecode(p.definition)) || !can(keys(jsondecode(p.definition))) || contains(keys(jsondecode(p.definition)), "autotermination_minutes")])
+    error_message = "Every compute policy definition must set `autotermination_minutes` (cost control), for example `jsonencode({ autotermination_minutes = { type = \"fixed\", value = 30 } })`; add it to each definition in the compute_policies variable."
   }
 }
 
