@@ -47,6 +47,10 @@ variables {
     ecr = {
       repository_arn = "arn:aws:ecr:us-east-1:123456789012:repository/jwall-engineering-sites"
     }
+    databricks = {
+      secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/guitar/databricks"
+      events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=guitar/*"
+    }
   }
 }
 
@@ -100,6 +104,8 @@ run "every_policy_fits_the_managed_policy_size_limit" {
       "container/manage",
       "compute/read",
       "compute/manage",
+      "databricks/read",
+      "databricks/manage",
     ]
   }
 
@@ -110,7 +116,7 @@ run "every_policy_fits_the_managed_policy_size_limit" {
   }
 
   assert {
-    condition     = length(output.documents) == 12
+    condition     = length(output.documents) == 14
     error_message = "every requested policy must produce a document"
   }
 }
@@ -782,4 +788,253 @@ run "rejects_dataset_without_inputs" {
   }
 
   expect_failures = [var.policies]
+}
+
+run "databricks_policies_by_class" {
+  command = plan
+
+  variables {
+    project  = "databricks-poc"
+    policies = ["databricks/read", "databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition = jsonencode(output.names) == jsonencode({
+      "databricks/manage" = "jwall-engineering-databricks-poc-ci-apply-databricks-manage"
+      "databricks/read"   = "jwall-engineering-databricks-poc-ci-apply-databricks-read"
+    })
+    error_message = "the apply role gets both databricks policies"
+  }
+
+  assert {
+    condition = alltrue([
+      for p in ["databricks/read", "databricks/manage"] :
+      one([for s in jsondecode(output.documents[p]).Statement : s.Resource if s.Sid == "ReadSecret"]) == "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks" &&
+      one([for s in jsondecode(output.documents[p]).Statement : s.Resource if s.Sid == "AppendEvents"]) == "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+    ])
+    error_message = "databricks policies are built from policy_inputs.databricks"
+  }
+
+  assert {
+    condition     = alltrue([for p, d in output.documents : length(d) < 6144])
+    error_message = "every databricks policy fits the 6,144-character managed policy limit"
+  }
+}
+
+run "plan_role_accepts_databricks_read" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    project  = "databricks-poc"
+    policies = ["tfstate/read", "compute/read", "databricks/read"]
+    policy_inputs = {
+      tfstate = {
+        bucket_arn = "arn:aws:s3:::jwall-engineering-tfstate"
+        prefix     = "project=databricks-poc/"
+      }
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.names["databricks/read"] == "jwall-engineering-databricks-poc-ci-plan-databricks-read"
+    error_message = "the plan role gets databricks/read"
+  }
+}
+
+run "plan_role_rejects_manage" {
+  command = plan
+
+  variables {
+    role     = "plan"
+    project  = "databricks-poc"
+    policies = ["databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  expect_failures = [var.policies]
+}
+
+run "rejects_databricks_without_inputs" {
+  command = plan
+
+  variables {
+    role          = "plan"
+    project       = "databricks-poc"
+    policies      = ["databricks/read"]
+    policy_inputs = {}
+  }
+
+  expect_failures = [var.policies]
+}
+
+# databricks/manage adds no IAM: the apply role's compute/manage already
+# manages every <name_root>-<project>-* role. Check that its role pattern
+# matches both Databricks roles and holds every action their modules use.
+run "compute_manage_covers_the_databricks_roles" {
+  command = plan
+
+  variables {
+    project  = "databricks-poc"
+    policies = ["compute/read", "compute/manage", "databricks/read", "databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for role in ["jwall-engineering-databricks-poc-databricks-cross-account", "jwall-engineering-databricks-poc-databricks-uc"] : [
+        for a in ["iam:CreateRole", "iam:DeleteRole", "iam:TagRole", "iam:UntagRole", "iam:UpdateAssumeRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy"] :
+        anytrue([
+          for s in jsondecode(output.documents["compute/manage"]).Statement :
+          contains(tolist(flatten([s.Action])), a) && try(s.Condition, null) == null && anytrue([
+            for r in tolist(flatten([s.Resource])) :
+            can(regex("^${replace(replace(r, ".", "\\."), "*", ".*")}$", "arn:aws:iam::123456789012:role/${role}"))
+          ])
+        ])
+      ]
+    ]))
+    error_message = "compute/manage must manage the -databricks-cross-account and -databricks-uc roles and their inline policies"
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for role in ["jwall-engineering-databricks-poc-databricks-cross-account", "jwall-engineering-databricks-poc-databricks-uc"] : [
+        for a in ["iam:GetRole", "iam:GetRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole"] :
+        anytrue([
+          for s in jsondecode(output.documents["compute/read"]).Statement :
+          contains(tolist(flatten([s.Action])), a) && anytrue([
+            for r in tolist(flatten([s.Resource])) :
+            can(regex("^${replace(replace(r, ".", "\\."), "*", ".*")}$", "arn:aws:iam::123456789012:role/${role}"))
+          ])
+        ])
+      ]
+    ]))
+    error_message = "compute/read must read the -databricks- roles for refresh and delete"
+  }
+
+  assert {
+    condition     = !anytrue([for d in values(output.documents) : contains(flatten([for s in jsondecode(d).Statement : tolist(flatten([s.Action]))]), "iam:AttachRolePolicy")])
+    error_message = "neither Databricks role attaches a managed policy; their policies are inline"
+  }
+}
+
+# The NAT's security group, its rules and the routes to the NAT come from
+# compute/manage, and every refresh describe from compute/read; databricks/*
+# does not repeat them.
+run "compute_covers_the_nat_network" {
+  command = plan
+
+  variables {
+    project  = "databricks-poc"
+    policies = ["compute/read", "compute/manage", "databricks/read", "databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for need in [
+        { a = "ec2:CreateSecurityGroup", r = "security-group" },
+        { a = "ec2:CreateSecurityGroup", r = "vpc" },
+        { a = "ec2:AuthorizeSecurityGroupIngress", r = "security-group" },
+        { a = "ec2:AuthorizeSecurityGroupEgress", r = "security-group" },
+        { a = "ec2:RevokeSecurityGroupEgress", r = "security-group" },
+        { a = "ec2:DeleteSecurityGroup", r = "security-group" },
+        { a = "ec2:CreateRoute", r = "route-table" },
+        { a = "ec2:DeleteRoute", r = "route-table" },
+        ] : anytrue([
+          for s in jsondecode(output.documents["compute/manage"]).Statement :
+          contains(tolist(flatten([s.Action])), need.a) && contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:${need.r}/*")
+      ])
+    ]))
+    error_message = "compute/manage must create, change and delete the NAT's security group and the routes to the NAT"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(output.documents["compute/manage"]).Statement :
+      contains(tolist(flatten([s.Action])), "ec2:CreateTags") && try(contains(s.Condition.StringEquals["ec2:CreateAction"], "CreateSecurityGroup"), false)
+    ])
+    error_message = "compute/manage tags the security group on create"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(output.documents["compute/read"]).Statement : s.Action == "ec2:Describe*" && s.Resource == "*"
+    ])
+    error_message = "compute/read's ec2:Describe* covers every refresh describe of the NAT, its volume, group, routes and the endpoint"
+  }
+}
+
+# Ruling R15: the provider tags the NAT root volume a second time after launch
+# (no ec2:CreateAction). The volume already carries Project from the launch,
+# so compute/manage's ManageProjectTags must allow that call for every key the
+# Databricks stack's default_tags and nat-instance set.
+run "compute_manage_tags_the_nat_root_volume" {
+  command = plan
+
+  variables {
+    project  = "databricks-poc"
+    policies = ["compute/manage", "databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(output.documents["compute/manage"]).Statement :
+      s.Effect == "Allow" &&
+      contains(tolist(flatten([s.Action])), "ec2:CreateTags") &&
+      anytrue([
+        for r in tolist(flatten([s.Resource])) :
+        can(regex("^${replace(replace(r, ".", "\\."), "*", ".*")}$", "arn:aws:ec2:us-east-1:123456789012:volume/vol-0123456789abcdef0"))
+      ]) &&
+      jsonencode(s.Condition) == jsonencode({ StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } })
+    ])
+    error_message = "compute/manage must allow ec2:CreateTags on volumes tagged Project = <project>, with only that condition (no tag-key restriction)"
+  }
+
+  # Nothing in compute/manage restricts tag keys, so all ten keys pass:
+  # Organization, Project, Environment, Repository, ManagedBy, Owner,
+  # CostCenter, Workspace, Component, Name.
+  assert {
+    condition     = !anytrue([for s in jsondecode(output.documents["compute/manage"]).Statement : strcontains(jsonencode(try(s.Condition, {})), "aws:TagKeys")])
+    error_message = "compute/manage must not restrict tag keys"
+  }
+
+  assert {
+    condition = !anytrue([
+      for s in jsondecode(output.documents["databricks/manage"]).Statement :
+      contains(tolist(flatten([s.Action])), "ec2:CreateTags") && try(s.Condition.StringEquals["ec2:CreateAction"], null) == null && try(s.Condition.StringEquals["aws:ResourceTag/Project"], null) == null
+    ])
+    error_message = "databricks/manage must not tag volumes outside create calls without a ResourceTag condition"
+  }
 }

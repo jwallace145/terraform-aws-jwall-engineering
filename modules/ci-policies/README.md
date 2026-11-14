@@ -33,6 +33,8 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 | [`task/launch`](task/launch) | task | Launch task instances from the project's template (allow-listed types, Amazon images, project network), run `AWS-RunShellScript` on them, read their log group and results prefix, terminate them | `task = { instance_types }` |
 | [`dataset/read`](dataset/read) | read | Read the configuration of the project's dataset buckets; never their objects | `dataset = { bucket_names }` |
 | [`dataset/manage`](dataset/manage) | write | Create and configure the project's dataset buckets; never their objects | `dataset = { bucket_names }` |
+| [`databricks/read`](databricks/read) | read | Read the configuration of the `<p>-databricks-root` and `<p>-databricks-catalog` buckets, read and decrypt the one Databricks credential parameter, append to the project's event log | `databricks = { secret_parameter_arn, events_object_arn }` |
+| [`databricks/manage`](databricks/manage) | write | Configure and empty (list and delete, never read or put) the two Databricks buckets; create and manage the S3 gateway endpoint and the NAT instance (`t4g`, `c7g`, `c8g` or `m7g`, `Component = nat-instance`) with its own interface and public IP, and replace routes to it; the credential and event log as in `databricks/read`. Roles come from `compute/manage` | `databricks = { secret_parameter_arn, events_object_arn }` |
 
 `tfstate` takes exactly one of `key` (one stack's state object, for example
 `project=infra/env=prod/infra-prod.tfstate`) or `prefix` (every object under a
@@ -40,8 +42,16 @@ project's prefix, for example `project=guitar/`).
 
 Write policies grant no reads. The apply role needs the matching read policy
 too, for refresh: `static-site/read` with `static-site/deploy`,
-`foundation/read` with `foundation/manage`, and `compute/read` with
-`compute/manage`.
+`foundation/read` with `foundation/manage`, `compute/read` with
+`compute/manage`, and `databricks/read` with `databricks/manage`.
+
+A Databricks workspace project holds `compute/*` and `databricks/*`
+together: `compute/*` already covers its VPC, subnets, route tables, security
+groups and `<name_root>-<project>-*` roles (the cross-account and Unity
+Catalog roles included), and `databricks/*` adds only what the `vpc`
+endpoint, `nat-instance`, `databricks-workspace` and `databricks-catalog`
+modules need beyond that. Neither is split: `databricks/manage` is about
+4,100 characters.
 
 `compute/*` is for projects with no bot: the network, instance role and log
 group statements of `container/*`, without its image repository, instance,
@@ -183,6 +193,8 @@ No providers.
 | container\_manage | ./container/manage | n/a |
 | container\_read | ./container/read | n/a |
 | container\_release | ./container/release | n/a |
+| databricks\_manage | ./databricks/manage | n/a |
+| databricks\_read | ./databricks/read | n/a |
 | dataset\_manage | ./dataset/manage | n/a |
 | dataset\_read | ./dataset/read | n/a |
 | ecr\_pull | ./ecr/pull | n/a |
@@ -207,11 +219,11 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider, which `foundation/read` may read. | `string` | n/a | yes |
-| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
+| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`, `databricks/read`, `databricks/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. Used in policy names and as the `Project` tag value static-site policies are scoped to. | `string` | n/a | yes |
 | role | The CI role the policies are for: `plan`, `preview`, `apply`, `release` or `task`. It decides which policies may be requested. | `string` | n/a | yes |
 | name\_root | Prefix of every policy name, in kebab-case. Policies are named `<name_root>-<project>-ci-<role>-<family>-<name>`. | `string` | `"jwall-engineering"` | no |
-| policy\_inputs | Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `["cpu"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; the `container/*` policies are otherwise built from `project` alone, and the `compute/*` policies entirely. | <pre>object({<br/>    tfstate = optional(object({<br/>      bucket_arn = string<br/>      key        = optional(string)<br/>      prefix     = optional(string)<br/>    }))<br/>    static_site = optional(object({<br/>      bucket_arn   = string<br/>      zone_id      = optional(string)<br/>      record_names = optional(list(string))<br/>    }))<br/>    foundation = optional(object({<br/>      state_bucket_arn        = string<br/>      hosted_zone_arn         = string<br/>      managed_bucket_patterns = optional(list(string))<br/>      attachable_policy_arns  = optional(list(string))<br/>    }))<br/>    ecr = optional(object({<br/>      repository_arn = string<br/>    }))<br/>    container = optional(object({<br/>      attachable_policy_arns = optional(list(string))<br/>    }))<br/>    task = optional(object({<br/>      instance_types = list(string)<br/>      profiles       = optional(list(string), ["cpu"])<br/>    }))<br/>    dataset = optional(object({<br/>      bucket_names = list(string)<br/>    }))<br/>  })</pre> | `{}` | no |
+| policy\_inputs | Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `["cpu"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; `databricks` takes `secret_parameter_arn` (the one SSM parameter holding the Databricks credential) and `events_object_arn` (`arn:aws:s3:::<audit bucket>/events/project=<project>/*`) for the `databricks/*` policies; the `container/*` policies are otherwise built from `project` alone, and the `compute/*` policies entirely. | <pre>object({<br/>    tfstate = optional(object({<br/>      bucket_arn = string<br/>      key        = optional(string)<br/>      prefix     = optional(string)<br/>    }))<br/>    static_site = optional(object({<br/>      bucket_arn   = string<br/>      zone_id      = optional(string)<br/>      record_names = optional(list(string))<br/>    }))<br/>    foundation = optional(object({<br/>      state_bucket_arn        = string<br/>      hosted_zone_arn         = string<br/>      managed_bucket_patterns = optional(list(string))<br/>      attachable_policy_arns  = optional(list(string))<br/>    }))<br/>    ecr = optional(object({<br/>      repository_arn = string<br/>    }))<br/>    container = optional(object({<br/>      attachable_policy_arns = optional(list(string))<br/>    }))<br/>    task = optional(object({<br/>      instance_types = list(string)<br/>      profiles       = optional(list(string), ["cpu"])<br/>    }))<br/>    dataset = optional(object({<br/>      bucket_names = list(string)<br/>    }))<br/>    databricks = optional(object({<br/>      secret_parameter_arn = string<br/>      events_object_arn    = string<br/>    }))<br/>  })</pre> | `{}` | no |
 
 ## Outputs
 

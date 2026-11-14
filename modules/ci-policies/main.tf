@@ -23,6 +23,8 @@ locals {
     "task/launch"          = "task"
     "dataset/read"         = "read"
     "dataset/manage"       = "write"
+    "databricks/read"      = "read"
+    "databricks/manage"    = "write"
   }
 
   # plan and preview trust `pull_request`, so unreviewed code can assume them.
@@ -52,6 +54,7 @@ locals {
   container   = var.policy_inputs.container
   task        = var.policy_inputs.task
   dataset     = var.policy_inputs.dataset
+  databricks  = var.policy_inputs.databricks
 }
 
 module "tfstate_read" {
@@ -238,4 +241,26 @@ module "dataset_manage" {
   name_root    = var.name_root
   project      = var.project
   bucket_names = local.dataset.bucket_names
+}
+
+module "databricks_read" {
+  source = "./databricks/read"
+  count  = contains(var.policies, "databricks/read") ? 1 : 0
+
+  name                 = local.names["databricks/read"]
+  name_root            = var.name_root
+  project              = var.project
+  secret_parameter_arn = local.databricks.secret_parameter_arn
+  events_object_arn    = local.databricks.events_object_arn
+}
+
+module "databricks_manage" {
+  source = "./databricks/manage"
+  count  = contains(var.policies, "databricks/manage") ? 1 : 0
+
+  name                 = local.names["databricks/manage"]
+  name_root            = var.name_root
+  project              = var.project
+  secret_parameter_arn = local.databricks.secret_parameter_arn
+  events_object_arn    = local.databricks.events_object_arn
 }

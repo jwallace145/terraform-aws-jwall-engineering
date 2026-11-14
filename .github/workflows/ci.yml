@@ -72,6 +72,16 @@ jobs:
       - name: Run task-setup.sh against fake binaries
         run: bash scripts/test-task-setup.sh
 
+  nat-setup:
+    name: nat-setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run nat-setup.sh against fake binaries
+        run: bash scripts/test-nat-setup.sh
+
   fmt:
     name: fmt
     runs-on: ubuntu-latest
@@ -127,10 +137,18 @@ jobs:
           - { module: ci-policies/task/launch, path: modules/ci-policies/task/launch, example: false }
           - { module: ci-policies/dataset/read, path: modules/ci-policies/dataset/read, example: false }
           - { module: ci-policies/dataset/manage, path: modules/ci-policies/dataset/manage, example: false }
+          - { module: ci-policies/databricks/read, path: modules/ci-policies/databricks/read, example: false }
+          - { module: ci-policies/databricks/manage, path: modules/ci-policies/databricks/manage, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: dataset-bucket, path: modules/dataset-bucket }
+          - { module: databricks-metastore, path: modules/databricks-metastore }
+          - { module: databricks-audit-logs, path: modules/databricks-audit-logs }
+          - { module: databricks-workspace, path: modules/databricks-workspace }
+          - { module: databricks-catalog, path: modules/databricks-catalog }
+          - { module: databricks-workspace-config, path: modules/databricks-workspace-config }
           - { module: vpc, path: modules/vpc }
+          - { module: nat-instance, path: modules/nat-instance }
           - { module: container-instance, path: modules/container-instance }
           - { module: task-runner, path: modules/task-runner }
           - { module: static-site, path: modules/static-site }
