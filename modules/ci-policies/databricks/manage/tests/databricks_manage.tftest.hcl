@@ -143,10 +143,10 @@ run "nat_launch_requires_component_tag" {
           "aws:RequestTag/Component" = "nat-instance"
           "aws:RequestTag/Project"   = "databricks-poc"
         }
-        StringLike = { "ec2:InstanceType" = "t4g.*" }
+        StringLike = { "ec2:InstanceType" = ["t4g.*", "c7g.*", "c8g.*", "m7g.*"] }
       }
     })
-    error_message = "a NAT launch needs Project and Component = nat-instance (StringEquals) and a t4g type (StringLike)"
+    error_message = "a NAT launch needs Project and Component = nat-instance (StringEquals) and an arm64 type from the t4g, c7g, c8g or m7g families (StringLike), as nat-instance accepts"
   }
 
   assert {

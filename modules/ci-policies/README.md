@@ -34,7 +34,7 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 | [`dataset/read`](dataset/read) | read | Read the configuration of the project's dataset buckets; never their objects | `dataset = { bucket_names }` |
 | [`dataset/manage`](dataset/manage) | write | Create and configure the project's dataset buckets; never their objects | `dataset = { bucket_names }` |
 | [`databricks/read`](databricks/read) | read | Read the configuration of the `<p>-databricks-root` and `<p>-databricks-catalog` buckets, read and decrypt the one Databricks credential parameter, append to the project's event log | `databricks = { secret_parameter_arn, events_object_arn }` |
-| [`databricks/manage`](databricks/manage) | write | Configure and empty (list and delete, never read or put) the two Databricks buckets; create and manage the S3 gateway endpoint and the NAT instance (`t4g`, `Component = nat-instance`) with its own interface and public IP, and replace routes to it; the credential and event log as in `databricks/read`. Roles come from `compute/manage` | `databricks = { secret_parameter_arn, events_object_arn }` |
+| [`databricks/manage`](databricks/manage) | write | Configure and empty (list and delete, never read or put) the two Databricks buckets; create and manage the S3 gateway endpoint and the NAT instance (`t4g`, `c7g`, `c8g` or `m7g`, `Component = nat-instance`) with its own interface and public IP, and replace routes to it; the credential and event log as in `databricks/read`. Roles come from `compute/manage` | `databricks = { secret_parameter_arn, events_object_arn }` |
 
 `tfstate` takes exactly one of `key` (one stack's state object, for example
 `project=infra/env=prod/infra-prod.tfstate`) or `prefix` (every object under a

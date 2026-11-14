@@ -96,7 +96,7 @@ locals {
             "aws:RequestTag/Project"   = var.project
             "aws:RequestTag/Component" = "nat-instance"
           }
-          StringLike = { "ec2:InstanceType" = "t4g.*" }
+          StringLike = { "ec2:InstanceType" = ["t4g.*", "c7g.*", "c8g.*", "m7g.*"] }
         }
       },
       {
@@ -113,7 +113,10 @@ locals {
         }
       },
       {
-        # The launch tags the root volume with the provider default tags.
+        # The launch tags the root volume with the provider default tags
+        # (TagSpecifications). The provider then makes a second, post-launch
+        # CreateTags call with the root_block_device tags; compute/manage's
+        # ManageProjectTags authorizes that one.
         Sid       = "RunNatVolume"
         Effect    = "Allow"
         Action    = "ec2:RunInstances"

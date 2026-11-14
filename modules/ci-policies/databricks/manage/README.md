@@ -55,8 +55,9 @@ no `iam:PassRole`.
   when the instance is replaced) is here; the rest is in `compute/manage`.
 - **The NAT instance.** `RunInstances` creates an instance only with
   `aws:RequestTag/Project = <project>` and `aws:RequestTag/Component =
-  nat-instance` (`StringEquals`) and an `ec2:InstanceType` like `t4g.*`
-  (`StringLike`), from an Amazon-owned image, in a project subnet and
+  nat-instance` (`StringEquals`) and an `ec2:InstanceType` like `t4g.*`,
+  `c7g.*`, `c8g.*` or `m7g.*` (`StringLike`, the families `nat-instance`
+  accepts), from an Amazon-owned image, in a project subnet and
   security group (`aws:ResourceTag/Project`). Its root volume must be
   launched with `Project = <project>` (the provider default tags). Its
   primary network interface is created untagged, so that resource is not
@@ -86,20 +87,18 @@ project's resources:
 
 | Statement | Why |
 |---|---|
-| `RunNatInterface` (`ec2:RunInstances` on `network-interface/*`, no condition) | The provider does not tag the primary interface RunInstances creates, so it cannot be scoped by tag. A launch still needs every other statement: a `t4g` instance tagged `Project` and `Component = nat-instance`, an Amazon image, a project subnet and security group. |
+| `RunNatInterface` (`ec2:RunInstances` on `network-interface/*`, no condition) | The provider does not tag the primary interface RunInstances creates, so it cannot be scoped by tag. A launch still needs every other statement: an arm64 instance (`t4g`, `c7g`, `c8g` or `m7g`) tagged `Project` and `Component = nat-instance`, an Amazon image, a project subnet and security group. |
 
 ## Known limitations
 
 - Changing the NAT's `instance_type` or metadata options in place is denied:
   this policy grants no `StopInstances`, `StartInstances` or
   `ModifyInstanceMetadataOptions`, and a type change needs a stopped
-  instance, so it cannot leave `t4g.*` through `ModifyInstanceAttribute`.
+  instance, so it cannot leave the allowed families through `ModifyInstanceAttribute`.
   Replacing the NAT's security group in place (which the provider applies to
   the untagged primary interface with `ModifyNetworkInterfaceAttribute`) is
   also denied. Replace the instance instead (`terraform apply -replace`);
   the routes are replaced to the new interface.
-- `nat-instance` accepts the `t4g`, `c7g`, `c8g` and `m7g` families; this
-  policy launches `t4g` only.
 - The tag-scoped endpoint and route actions reach any VPC, route table or
   endpoint tagged with the project, not only the Databricks ones.
 
