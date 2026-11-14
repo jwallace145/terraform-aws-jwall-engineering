@@ -137,6 +137,8 @@ jobs:
           - { module: ci-policies/task/launch, path: modules/ci-policies/task/launch, example: false }
           - { module: ci-policies/dataset/read, path: modules/ci-policies/dataset/read, example: false }
           - { module: ci-policies/dataset/manage, path: modules/ci-policies/dataset/manage, example: false }
+          - { module: ci-policies/databricks/read, path: modules/ci-policies/databricks/read, example: false }
+          - { module: ci-policies/databricks/manage, path: modules/ci-policies/databricks/manage, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: dataset-bucket, path: modules/dataset-bucket }
