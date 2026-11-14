@@ -49,6 +49,7 @@ module "audit_logs" {
 | terraform | >= 1.11 |
 | aws | ~> 6.0 |
 | databricks | >= 1.142, < 2.0 |
+| time | ~> 0.13 |
 
 ## Providers
 
@@ -56,6 +57,7 @@ module "audit_logs" {
 | ---- | ------- |
 | aws | ~> 6.0 |
 | databricks | >= 1.142, < 2.0 |
+| time | ~> 0.13 |
 
 ## Modules
 
@@ -76,6 +78,7 @@ No modules.
 | [databricks_mws_credentials.log_delivery](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_credentials) | resource |
 | [databricks_mws_log_delivery.audit](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_log_delivery) | resource |
 | [databricks_mws_storage_configurations.log_delivery](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_storage_configurations) | resource |
+| [time_sleep.iam_propagation](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 
 ## Inputs
 

@@ -18,6 +18,8 @@ mock_provider "databricks" {
   override_during = plan
 }
 
+mock_provider "time" {}
+
 variables {
   account_id = "11111111-2222-3333-4444-555555555555"
 }
@@ -184,4 +186,13 @@ run "rejects_prefix_with_slash" {
   }
 
   expect_failures = [var.prefix]
+}
+
+run "credentials_wait_for_iam_propagation" {
+  command = plan
+
+  assert {
+    condition     = time_sleep.iam_propagation.create_duration == "20s" && databricks_mws_credentials.log_delivery.role_arn == aws_iam_role.log_delivery.arn
+    error_message = "credentials must use the log delivery role after a 20s IAM propagation wait"
+  }
 }

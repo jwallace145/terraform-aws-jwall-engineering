@@ -167,12 +167,20 @@ resource "aws_s3_bucket_policy" "this" {
   depends_on = [aws_s3_bucket_public_access_block.this]
 }
 
+# IAM is eventually consistent and Databricks validates the role when the
+# credentials are created. depends_on only orders the API calls; it does not
+# wait for the role and policy to propagate, so a fixed wait follows them.
+resource "time_sleep" "iam_propagation" {
+  create_duration = "20s"
+
+  depends_on = [aws_iam_role_policy.log_delivery]
+}
+
 resource "databricks_mws_credentials" "log_delivery" {
   credentials_name = var.role_name
   role_arn         = aws_iam_role.log_delivery.arn
 
-  # IAM is eventually consistent; Databricks validates the role on create.
-  depends_on = [aws_iam_role_policy.log_delivery]
+  depends_on = [time_sleep.iam_propagation]
 }
 
 resource "databricks_mws_storage_configurations" "log_delivery" {
