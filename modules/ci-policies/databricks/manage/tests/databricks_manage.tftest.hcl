@@ -30,10 +30,10 @@ run "has_exactly_the_databricks_manage_statements" {
       "ListDatabricksBuckets",
       "EmptyDatabricksBuckets",
       "CreateS3Endpoint",
-      "CreateNatNetworkResources",
       "ManageInProjectNetwork",
       "RunNatInstance",
       "RunNatVolume",
+      "RunNatInterface",
       "RunFromAmazonImages",
       "RunNatInProjectNetwork",
       "TerminateNatInstance",
@@ -178,8 +178,8 @@ run "no_wildcard_under_string_equals" {
   }
 }
 
-# The other resources RunInstances authorizes. None of them is created with
-# request tags, so none may be conditioned on aws:RequestTag.
+# The other resources RunInstances authorizes. The image, subnet and security
+# group exist already; the primary interface is created untagged.
 run "run_instances_touches_only_scoped_resources" {
   command = plan
 
@@ -190,12 +190,12 @@ run "run_instances_touches_only_scoped_resources" {
       ]))) == jsonencode(sort([
       "arn:aws:ec2:us-east-1:123456789012:instance/*",
       "arn:aws:ec2:us-east-1:123456789012:volume/*",
+      "arn:aws:ec2:us-east-1:123456789012:network-interface/*",
       "arn:aws:ec2:us-east-1::image/*",
       "arn:aws:ec2:us-east-1:123456789012:subnet/*",
       "arn:aws:ec2:us-east-1:123456789012:security-group/*",
-      "arn:aws:ec2:us-east-1:123456789012:network-interface/*",
     ]))
-    error_message = "RunInstances reaches the instance, its root volume, an image and the project network"
+    error_message = "RunInstances reaches the instance, its root volume and primary interface, an image and the project network"
   }
 
   assert {
@@ -204,47 +204,46 @@ run "run_instances_touches_only_scoped_resources" {
   }
 
   assert {
-    condition     = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Condition if s.Sid == "RunNatInProjectNetwork"])) == jsonencode({ StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } })
-    error_message = "the existing subnet, security group and ENI must be the project's"
+    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { r = s.Resource, c = s.Condition } if s.Sid == "RunNatInProjectNetwork"])) == jsonencode({
+      r = ["arn:aws:ec2:us-east-1:123456789012:subnet/*", "arn:aws:ec2:us-east-1:123456789012:security-group/*"]
+      c = { StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } }
+    })
+    error_message = "the existing subnet and security group must be the project's"
   }
 
-  # The provider tags the root volume after launch, so the launch request may
-  # carry no volume tags: a tag condition here would deny every launch.
+  # RunInstances tags the volume with the provider default tags.
   assert {
-    condition     = one([for s in jsondecode(aws_iam_policy.this.policy).Statement : try(s.Condition, null) if s.Sid == "RunNatVolume"]) == null
-    error_message = "the root volume is bounded by the instance it is launched with, not by request tags"
+    condition     = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Condition if s.Sid == "RunNatVolume"])) == jsonencode({ StringEquals = { "aws:RequestTag/Project" = "databricks-poc" } })
+    error_message = "the root volume is launched with the Project tag"
+  }
+
+  # The provider does not tag the primary interface, so a tag condition would
+  # deny every launch; the instance, subnet and group statements bound it.
+  assert {
+    condition     = one([for s in jsondecode(aws_iam_policy.this.policy).Statement : try(s.Condition, null) if s.Sid == "RunNatInterface"]) == null
+    error_message = "the primary interface is created untagged and must not be tag-conditioned"
   }
 }
 
-# aws:RequestTag only exists on a request that creates a tagged resource.
+# aws:RequestTag only exists on a request that creates or tags a resource
+# with tags: never on the untagged primary interface, an image, a subnet or a
+# security group.
 run "request_tags_only_on_resources_created_with_tags" {
   command = plan
 
   assert {
     condition = alltrue(flatten([
       for s in jsondecode(aws_iam_policy.this.policy).Statement : [
-        for r in tolist(flatten([s.Resource])) : can(regex(":(instance|vpc-endpoint|network-interface|elastic-ip|volume)/\\*$", r))
+        for r in tolist(flatten([s.Resource])) : can(regex(":(instance|vpc-endpoint|volume)/\\*$", r))
       ]
       if length([for k in keys(merge(values(try(s.Condition, {}))...)) : k if startswith(k, "aws:RequestTag/")]) > 0
     ]))
-    error_message = "aws:RequestTag conditions only on resources a request creates with tags"
+    error_message = "aws:RequestTag conditions only on the instance, its volume and the endpoint"
   }
 }
 
-run "nat_network_resources_by_tag" {
+run "endpoint_and_routes_by_tag" {
   command = plan
-
-  assert {
-    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { a = sort(s.Action), r = s.Resource, c = s.Condition } if s.Sid == "CreateNatNetworkResources"])) == jsonencode({
-      a = ["ec2:AllocateAddress", "ec2:CreateNetworkInterface"]
-      r = [
-        "arn:aws:ec2:us-east-1:123456789012:network-interface/*",
-        "arn:aws:ec2:us-east-1:123456789012:elastic-ip/*",
-      ]
-      c = { StringEquals = { "aws:RequestTag/Project" = "databricks-poc" } }
-    })
-    error_message = "the ENI and the Elastic IP are created with the Project tag"
-  }
 
   assert {
     condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { r = s.Resource, c = s.Condition } if s.Sid == "CreateS3Endpoint"])) == jsonencode({
@@ -259,61 +258,48 @@ run "nat_network_resources_by_tag" {
     error_message = "only the S3 gateway endpoint, created with the Project tag"
   }
 
+  # CreateRoute, ReplaceRoute and DeleteRoute authorize the route table only
+  # (EC2 service authorization reference), so the untagged primary interface
+  # a route targets needs no grant. CreateRoute and DeleteRoute on project
+  # route tables come from compute/manage.
   assert {
-    condition     = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Condition if s.Sid == "ManageInProjectNetwork"])) == jsonencode({ StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } })
-    error_message = "every change to existing network resources needs the Project tag"
-  }
-
-  # Ruling R1 (EIP lifecycle), the ENI's source/dest check, the endpoint, and
-  # routes whose target is the NAT's ENI.
-  assert {
-    condition = alltrue([
-      for a in [
-        "ec2:AssociateAddress", "ec2:DisassociateAddress", "ec2:ReleaseAddress",
-        "ec2:ModifyNetworkInterfaceAttribute", "ec2:DeleteNetworkInterface", "ec2:DetachNetworkInterface", "ec2:CreateNetworkInterface",
-        "ec2:CreateVpcEndpoint", "ec2:ModifyVpcEndpoint", "ec2:DeleteVpcEndpoints",
-        "ec2:CreateRoute", "ec2:ReplaceRoute",
-      ] :
-      contains(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Action if s.Sid == "ManageInProjectNetwork"]), a)
-    ])
-    error_message = "the EIP, ENI, endpoint and route actions on existing project resources"
-  }
-
-  assert {
-    condition = jsonencode(sort(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Resource if s.Sid == "ManageInProjectNetwork"]))) == jsonencode(sort([
-      "arn:aws:ec2:us-east-1:123456789012:vpc/*",
-      "arn:aws:ec2:us-east-1:123456789012:subnet/*",
-      "arn:aws:ec2:us-east-1:123456789012:route-table/*",
-      "arn:aws:ec2:us-east-1:123456789012:security-group/*",
-      "arn:aws:ec2:us-east-1:123456789012:vpc-endpoint/*",
-      "arn:aws:ec2:us-east-1:123456789012:network-interface/*",
-      "arn:aws:ec2:us-east-1:123456789012:elastic-ip/*",
-      "arn:aws:ec2:us-east-1:123456789012:instance/*",
-    ]))
-    error_message = "existing project network resources by type"
+    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { a = sort(s.Action), r = sort(s.Resource), c = s.Condition } if s.Sid == "ManageInProjectNetwork"])) == jsonencode({
+      a = sort(["ec2:CreateVpcEndpoint", "ec2:ModifyVpcEndpoint", "ec2:DeleteVpcEndpoints", "ec2:ReplaceRoute"])
+      r = sort([
+        "arn:aws:ec2:us-east-1:123456789012:vpc/*",
+        "arn:aws:ec2:us-east-1:123456789012:route-table/*",
+        "arn:aws:ec2:us-east-1:123456789012:vpc-endpoint/*",
+      ])
+      c = { StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } }
+    })
+    error_message = "the endpoint and route replacement on existing project resources, by the Project tag"
   }
 }
 
-# Destroying the NAT's ENI: aws_network_interface's delete calls
-# DetachNetworkInterface (Force) whenever its attachment is still in state, and
-# the action authorizes both the interface and the instance.
-run "eni_can_be_detached_on_destroy" {
+# Ruling R14: the NAT owns its interface and public IP, so nothing pre-creates
+# an interface or an Elastic IP any more.
+run "no_interface_or_elastic_ip_actions" {
   command = plan
 
   assert {
-    condition = anytrue([
-      for s in jsondecode(aws_iam_policy.this.policy).Statement :
-      contains(tolist(flatten([s.Action])), "ec2:DetachNetworkInterface") &&
-      contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:network-interface/*") &&
-      contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:instance/*") &&
-      jsonencode(s.Condition) == jsonencode({ StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } })
+    condition = !anytrue([
+      for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) :
+      contains([
+        "ec2:AllocateAddress", "ec2:AssociateAddress", "ec2:DisassociateAddress", "ec2:ReleaseAddress",
+        "ec2:CreateNetworkInterface", "ec2:DeleteNetworkInterface", "ec2:ModifyNetworkInterfaceAttribute", "ec2:DetachNetworkInterface",
+      ], a)
     ])
-    error_message = "DetachNetworkInterface on the project's network interfaces and instances, by the Project resource tag"
+    error_message = "no Elastic IP or standalone interface actions"
+  }
+
+  assert {
+    condition     = !anytrue([for r in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Resource]))]) : strcontains(r, ":elastic-ip/")])
+    error_message = "no Elastic IP resources"
   }
 }
 
-# Ruling R12: aws_instance's create path calls ModifyInstanceAttribute when
-# source_dest_check is false.
+# Ruling R12: aws_instance's create path calls ModifyInstanceAttribute for
+# source_dest_check = false.
 run "nat_instance_attributes_can_be_modified" {
   command = plan
 
@@ -340,13 +326,32 @@ run "nat_instance_attributes_can_be_modified" {
   }
 }
 
+# The provider tags the root volume a second time after launch, with the root
+# block device's tags and no ec2:CreateAction.
+run "root_volume_tagging_is_bounded" {
+  command = plan
+
+  assert {
+    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { a = s.Action, r = s.Resource, c = s.Condition } if s.Sid == "TagNatRootVolume"])) == jsonencode({
+      a = "ec2:CreateTags"
+      r = "arn:aws:ec2:us-east-1:123456789012:volume/*"
+      c = {
+        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "Component", "Name"] }
+        StringEquals = {
+          "aws:RequestTag/Component" = "nat-instance"
+          "aws:RequestTag/Project"   = "databricks-poc"
+        }
+      }
+    })
+    error_message = "post-launch volume tagging only stamps this project's NAT tags, and only the known tag keys"
+  }
+}
+
 run "tags_on_create_are_bounded_to_this_policys_create_calls" {
   command = plan
 
   assert {
     condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : sort(s.Condition.StringEquals["ec2:CreateAction"]) if s.Sid == "TagOnCreate"])) == jsonencode(sort([
-      "AllocateAddress",
-      "CreateNetworkInterface",
       "CreateVpcEndpoint",
       "RunInstances",
     ]))
@@ -354,8 +359,12 @@ run "tags_on_create_are_bounded_to_this_policys_create_calls" {
   }
 
   assert {
-    condition     = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { r = s.Resource, c = s.Condition } if s.Sid == "TagNatRootVolume"])) == jsonencode({ r = "arn:aws:ec2:us-east-1:123456789012:volume/*", c = { StringEquals = { "aws:RequestTag/Component" = "nat-instance" } } })
-    error_message = "the post-launch root volume tagging carries Component = nat-instance"
+    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : sort(s.Resource) if s.Sid == "TagOnCreate"])) == jsonencode(sort([
+      "arn:aws:ec2:us-east-1:123456789012:vpc-endpoint/*",
+      "arn:aws:ec2:us-east-1:123456789012:instance/*",
+      "arn:aws:ec2:us-east-1:123456789012:volume/*",
+    ]))
+    error_message = "tags on create reach the endpoint, the instance and its volume only"
   }
 }
 

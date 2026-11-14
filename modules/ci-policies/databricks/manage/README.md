@@ -5,9 +5,9 @@ beyond [`compute/manage`](../../compute/manage), with `<p>` =
 `<name_root>-<project>`:
 
 - the S3 gateway endpoint of [`vpc`](../../../vpc);
-- the NAT of [`nat-instance`](../../../nat-instance): its network interface,
-  Elastic IP (allocate, associate, disassociate, release), instance and the
-  routes that target the interface;
+- the NAT instance of [`nat-instance`](../../../nat-instance), which owns its
+  primary network interface and public IP (no separate interface or Elastic
+  IP), its root volume's tags, and replacing the target of the routes to it;
 - the root bucket `<p>-databricks-root` of
   [`databricks-workspace`](../../../databricks-workspace) and the catalog
   bucket `<p>-databricks-catalog` of
@@ -25,46 +25,51 @@ with `policies = ["databricks/manage"]` and
 `policy_inputs = { databricks = { secret_parameter_arn, events_object_arn } }`;
 it is not meant to be called directly.
 
-## What `compute/manage` already grants
+## What `compute/*` already grants
 
-- The VPC, private subnets, private route table, their associations, routes
-  on the route tables and the security groups (the NAT's and the
-  workspace's), by the `Project` tag.
+- The VPC, private subnets, private route table, their associations,
+  `CreateRoute`/`DeleteRoute` on the route tables, and the security groups
+  (the NAT's and the workspace's: create, tag on create, authorize ingress and
+  egress, revoke the default egress, delete), by the `Project` tag.
 - The roles `<p>-databricks-cross-account` and `<p>-databricks-uc` and their
-  inline policies: its role scoping `<name_root>-<project>-*` covers them. A
-  test in `ci-policies` checks this.
+  inline policies: its role scoping `<name_root>-<project>-*` covers them.
+- Every refresh read of EC2 (`ec2:Describe*` in `compute/read`).
 
-So this policy grants no IAM action. Neither role is passed to an AWS service
-(Databricks assumes them; `databricks_mws_credentials` and
-`databricks_storage_credential` take the ARN through the Databricks API), and
-the NAT has no instance profile, so there is no `iam:PassRole`.
+Tests in `ci-policies` check all three. This policy therefore grants no IAM
+action. Neither role is passed to an AWS service (Databricks assumes them;
+`databricks_mws_credentials` and `databricks_storage_credential` take the ARN
+through the Databricks API), and the NAT has no instance profile, so there is
+no `iam:PassRole`.
 
 ## How it is scoped
 
-- **EC2 by tag.** Creating the endpoint, the network interface and the
-  Elastic IP requires `aws:RequestTag/Project = <project>`; the endpoint must
-  also be for `com.amazonaws.us-east-1.s3`. Every change or delete requires
-  `aws:ResourceTag/Project = <project>` on the endpoint, interface, address,
-  VPC, subnet, route table or security group it touches.
+- **The endpoint.** `CreateVpcEndpoint` requires `aws:RequestTag/Project =
+  <project>` and `ec2:VpceServiceName = com.amazonaws.us-east-1.s3`; the VPC,
+  route tables and endpoint it touches afterwards need
+  `aws:ResourceTag/Project = <project>`.
+- **Routes.** `CreateRoute`, `ReplaceRoute` and `DeleteRoute` authorize only
+  the route table, not the target, so routes to the NAT's untagged primary
+  interface need no interface grant. `ReplaceRoute` (the interface changes
+  when the instance is replaced) is here; the rest is in `compute/manage`.
 - **The NAT instance.** `RunInstances` creates an instance only with
   `aws:RequestTag/Project = <project>` and `aws:RequestTag/Component =
   nat-instance` (`StringEquals`) and an `ec2:InstanceType` like `t4g.*`
-  (`StringLike`), from an Amazon-owned image, on an existing project network
-  interface, subnet and security group. `TerminateInstances` and
-  `ModifyInstanceAttribute` require the same two tags on the instance.
-  `DetachNetworkInterface`, which `terraform destroy` of the interface calls
-  while its attachment is in state, is allowed on project-tagged interfaces
-  and instances.
-- **The root volume.** The AWS provider applies `root_block_device` tags with
-  a `CreateTags` call after launch, so the launch request may carry no volume
-  tags. `RunInstances` on a volume is therefore not tag-conditioned (a volume
-  exists only with an instance that passed the checks above), and
-  `CreateTags` on a volume is allowed when the request sets `Component =
-  nat-instance`.
-- **Tags on create.** `CreateTags` with `ec2:CreateAction` in
-  `CreateVpcEndpoint`, `CreateNetworkInterface`, `AllocateAddress` and
-  `RunInstances`, on those resource types only. Tag changes on existing
-  resources go through `compute/manage`.
+  (`StringLike`), from an Amazon-owned image, in a project subnet and
+  security group (`aws:ResourceTag/Project`). Its root volume must be
+  launched with `Project = <project>` (the provider default tags). Its
+  primary network interface is created untagged, so that resource is not
+  tag-conditioned; the statements above bound the launch.
+  `ModifyInstanceAttribute` (the provider sets `source_dest_check = false`
+  right after launch) and `TerminateInstances` (which also deletes the
+  primary interface and the volume) require the `Project` and `Component =
+  nat-instance` tags on the instance.
+- **Tags.** `CreateTags` with `ec2:CreateAction` in `CreateVpcEndpoint` and
+  `RunInstances`, on endpoints, instances and volumes. The provider also tags
+  the root volume with a separate `CreateTags` after launch (no
+  `ec2:CreateAction`): allowed on volumes only when the request sets
+  `Project = <project>` and `Component = nat-instance`, with tag keys limited
+  to the organisation tags, `Component` and `Name`
+  (`ForAllValues:StringEquals` on `aws:TagKeys`).
 - **Buckets by name.** Configuration of the two buckets. Of their objects,
   only `s3:ListBucket`, `s3:ListBucketVersions`, `s3:DeleteObject` and
   `s3:DeleteObjectVersion`: what `force_destroy` needs to empty them. Never
@@ -75,7 +80,13 @@ the NAT has no instance profile, so there is no `iam:PassRole`.
 
 ## Known gaps
 
-None: no statement uses `Resource = "*"`.
+No statement uses `Resource = "*"`. Two statements are broader than one
+project's resources:
+
+| Statement | Why |
+|---|---|
+| `RunNatInterface` (`ec2:RunInstances` on `network-interface/*`, no condition) | The provider does not tag the primary interface RunInstances creates, so it cannot be scoped by tag. A launch still needs every other statement: a `t4g` instance tagged `Project` and `Component = nat-instance`, an Amazon image, a project subnet and security group. |
+| `TagNatRootVolume` (`ec2:CreateTags` on `volume/*`) | The post-launch tag call has no `ec2:CreateAction`. It can stamp this project's NAT tags (only the known keys) on any volume in the account, which would bring that volume under the project's tag scope; no policy here can delete or attach a volume. |
 
 ## Known limitations
 
@@ -83,15 +94,14 @@ None: no statement uses `Resource = "*"`.
   this policy grants no `StopInstances`, `StartInstances` or
   `ModifyInstanceMetadataOptions`, and a type change needs a stopped
   instance, so it cannot leave `t4g.*` through `ModifyInstanceAttribute`.
-  Replace the instance instead (`terraform apply -replace`); routes follow the
-  interface, so egress resumes once the new instance is up.
+  Replacing the NAT's security group in place (which the provider applies to
+  the untagged primary interface with `ModifyNetworkInterfaceAttribute`) is
+  also denied. Replace the instance instead (`terraform apply -replace`);
+  the routes are replaced to the new interface.
 - `nat-instance` accepts the `t4g`, `c7g`, `c8g` and `m7g` families; this
   policy launches `t4g` only.
-- `ec2:DeleteNetworkInterface`, `ec2:DetachNetworkInterface`,
-  `ec2:ReleaseAddress` and the other actions on existing resources reach any
-  network interface, address or instance tagged with the project, not only
-  the NAT's.
-
+- The tag-scoped endpoint and route actions reach any VPC, route table or
+  endpoint tagged with the project, not only the Databricks ones.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

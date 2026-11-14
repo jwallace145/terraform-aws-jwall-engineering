@@ -937,3 +937,55 @@ run "compute_manage_covers_the_databricks_roles" {
     error_message = "neither Databricks role attaches a managed policy; their policies are inline"
   }
 }
+
+# The NAT's security group, its rules and the routes to the NAT come from
+# compute/manage, and every refresh describe from compute/read; databricks/*
+# does not repeat them.
+run "compute_covers_the_nat_network" {
+  command = plan
+
+  variables {
+    project  = "databricks-poc"
+    policies = ["compute/read", "compute/manage", "databricks/read", "databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for need in [
+        { a = "ec2:CreateSecurityGroup", r = "security-group" },
+        { a = "ec2:CreateSecurityGroup", r = "vpc" },
+        { a = "ec2:AuthorizeSecurityGroupIngress", r = "security-group" },
+        { a = "ec2:AuthorizeSecurityGroupEgress", r = "security-group" },
+        { a = "ec2:RevokeSecurityGroupEgress", r = "security-group" },
+        { a = "ec2:DeleteSecurityGroup", r = "security-group" },
+        { a = "ec2:CreateRoute", r = "route-table" },
+        { a = "ec2:DeleteRoute", r = "route-table" },
+        ] : anytrue([
+          for s in jsondecode(output.documents["compute/manage"]).Statement :
+          contains(tolist(flatten([s.Action])), need.a) && contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:${need.r}/*")
+      ])
+    ]))
+    error_message = "compute/manage must create, change and delete the NAT's security group and the routes to the NAT"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(output.documents["compute/manage"]).Statement :
+      contains(tolist(flatten([s.Action])), "ec2:CreateTags") && try(contains(s.Condition.StringEquals["ec2:CreateAction"], "CreateSecurityGroup"), false)
+    ])
+    error_message = "compute/manage tags the security group on create"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(output.documents["compute/read"]).Statement : s.Action == "ec2:Describe*" && s.Resource == "*"
+    ])
+    error_message = "compute/read's ec2:Describe* covers every refresh describe of the NAT, its volume, group, routes and the endpoint"
+  }
+}

@@ -15,10 +15,12 @@ locals {
   request_tag  = { StringEquals = { "aws:RequestTag/Project" = var.project } }
   resource_tag = { StringEquals = { "aws:ResourceTag/Project" = var.project } }
 
-  # Existing project network resources the endpoint, the NAT's ENI, its
-  # Elastic IP and its routes touch. instance: DetachNetworkInterface also
-  # authorizes the instance the ENI is attached to.
-  network_types = ["vpc", "subnet", "route-table", "security-group", "vpc-endpoint", "network-interface", "elastic-ip", "instance"]
+  # The organisation tags from the caller's default_tags (README, Tagging)
+  # plus the two nat-instance sets itself.
+  nat_volume_tag_keys = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "Component", "Name"]
+
+  # Existing project resources the S3 endpoint and the NAT's routes touch.
+  network_types = ["vpc", "route-table", "vpc-endpoint"]
 
   # Write-only: pair with databricks/read, compute/read and compute/manage.
   # compute/manage already creates and changes the VPC, subnets, route tables,
@@ -73,30 +75,16 @@ locals {
         }
       },
       {
-        Sid       = "CreateNatNetworkResources"
-        Effect    = "Allow"
-        Action    = ["ec2:CreateNetworkInterface", "ec2:AllocateAddress"]
-        Resource  = ["${local.ec2}:network-interface/*", "${local.ec2}:elastic-ip/*"]
-        Condition = local.request_tag
-      },
-      {
-        # The endpoint in the project VPC on its route tables; the ENI in a
-        # project subnet and security group, its source/dest check, the
-        # Elastic IP on it, and routes whose target is the ENI.
+        # The endpoint in the project VPC on its route tables, and replacing
+        # the target of a route (the NAT's interface changes when the instance
+        # is replaced). CreateRoute and ReplaceRoute authorize the route
+        # table only, never the target interface.
         Sid    = "ManageInProjectNetwork"
         Effect = "Allow"
         Action = [
           "ec2:CreateVpcEndpoint",
           "ec2:ModifyVpcEndpoint",
           "ec2:DeleteVpcEndpoints",
-          "ec2:CreateNetworkInterface",
-          "ec2:ModifyNetworkInterfaceAttribute",
-          "ec2:DeleteNetworkInterface",
-          "ec2:DetachNetworkInterface",
-          "ec2:AssociateAddress",
-          "ec2:DisassociateAddress",
-          "ec2:ReleaseAddress",
-          "ec2:CreateRoute",
           "ec2:ReplaceRoute",
         ]
         Resource  = [for t in local.network_types : "${local.ec2}:${t}/*"]
@@ -116,9 +104,7 @@ locals {
         }
       },
       {
-        # aws_instance's create calls ModifyInstanceAttribute for
-        # source_dest_check = false, and terraform may change attributes of
-        # the NAT in place.
+        # The provider sets source_dest_check = false right after launch.
         Sid      = "ModifyNatInstance"
         Effect   = "Allow"
         Action   = "ec2:ModifyInstanceAttribute"
@@ -131,13 +117,20 @@ locals {
         }
       },
       {
-        # The provider tags the root volume after launch, so the request may
-        # carry no volume tags. The volume exists only with an instance that
-        # passes RunNatInstance.
-        Sid      = "RunNatVolume"
+        # The launch tags the root volume with the provider default tags.
+        Sid       = "RunNatVolume"
+        Effect    = "Allow"
+        Action    = "ec2:RunInstances"
+        Resource  = "${local.ec2}:volume/*"
+        Condition = local.request_tag
+      },
+      {
+        # The launch creates the primary interface, untagged: it is bounded
+        # by the instance, subnet and security group statements.
+        Sid      = "RunNatInterface"
         Effect   = "Allow"
         Action   = "ec2:RunInstances"
-        Resource = "${local.ec2}:volume/*"
+        Resource = "${local.ec2}:network-interface/*"
       },
       {
         Sid       = "RunFromAmazonImages"
@@ -147,14 +140,12 @@ locals {
         Condition = { StringEquals = { "ec2:Owner" = "amazon" } }
       },
       {
-        # The NAT launches on its existing ENI, in its subnet and group.
         Sid    = "RunNatInProjectNetwork"
         Effect = "Allow"
         Action = "ec2:RunInstances"
         Resource = [
           "${local.ec2}:subnet/*",
           "${local.ec2}:security-group/*",
-          "${local.ec2}:network-interface/*",
         ]
         Condition = local.resource_tag
       },
@@ -176,26 +167,30 @@ locals {
         Action = "ec2:CreateTags"
         Resource = [
           "${local.ec2}:vpc-endpoint/*",
-          "${local.ec2}:network-interface/*",
-          "${local.ec2}:elastic-ip/*",
           "${local.ec2}:instance/*",
           "${local.ec2}:volume/*",
         ]
         Condition = {
           StringEquals = {
-            "ec2:CreateAction" = ["CreateVpcEndpoint", "CreateNetworkInterface", "AllocateAddress", "RunInstances"]
+            "ec2:CreateAction" = ["CreateVpcEndpoint", "RunInstances"]
           }
         }
       },
       {
-        # root_block_device tags are applied by a CreateTags call after
-        # launch, to a volume with no tags yet. Later changes go through
-        # compute/manage's ManageProjectTags.
-        Sid       = "TagNatRootVolume"
-        Effect    = "Allow"
-        Action    = "ec2:CreateTags"
-        Resource  = "${local.ec2}:volume/*"
-        Condition = { StringEquals = { "aws:RequestTag/Component" = "nat-instance" } }
+        # The provider applies the root block device's tags with a separate
+        # CreateTags after launch, with no ec2:CreateAction. Bounded to the
+        # NAT's tag set: the organisation tags, Component and Name.
+        Sid      = "TagNatRootVolume"
+        Effect   = "Allow"
+        Action   = "ec2:CreateTags"
+        Resource = "${local.ec2}:volume/*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestTag/Project"   = var.project
+            "aws:RequestTag/Component" = "nat-instance"
+          }
+          "ForAllValues:StringEquals" = { "aws:TagKeys" = local.nat_volume_tag_keys }
+        }
       },
       {
         Sid      = "ReadSecret"
