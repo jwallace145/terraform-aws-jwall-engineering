@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.18.1...v0.19.0) (2026-11-14)
+
+
+### Features
+
+* **ci-policies:** let databricks/read read the EC2 vCPU quota ([#55](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/55)) ([7841e19](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/7841e195909aad563df8f9b0c84d15b44befcd0d))
+
 ## [0.18.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.18.0...v0.18.1) (2026-11-14)
 
 
