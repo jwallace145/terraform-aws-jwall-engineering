@@ -51,6 +51,14 @@ minutes. A failure of the whole zone takes egress down until it returns.
 - **Throughput is the instance's.** A `t4g.nano` has burstable, limited network
   bandwidth; raise `instance_type` for sustained load.
 - **Source CIDRs are fixed at boot.** Changing them replaces the instance.
+- **`source_dest_check` on the instance (provider v6.73.0).** The check is off on
+  the ENI, but `aws_instance` cannot set it with `primary_network_interface`
+  (`ec2_instance.go:864`, ConflictsWith), and its schema Default of `true`
+  (`:1082-1090`, suppressed only for the deprecated `network_interface`) is
+  compared with the `false` that Read stores from the ENI (`:3450`, `:3494`);
+  Update calls `ModifyInstanceAttribute` on that change (`:1474-1481`). An
+  existing NAT may therefore plan an in-place `source_dest_check` update
+  after the first apply; do not apply it blind, as it would re-enable the check.
 - **No IPv6.**
 - **No monitoring or alarms** are created.
 - **The security group allows all protocols** from the source CIDRs, because a
@@ -85,6 +93,7 @@ No modules.
 | [aws_network_interface.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/network_interface) | resource |
 | [aws_route.default](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_security_group.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_default_tags.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/default_tags) | data source |
 | [aws_subnet.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/subnet) | data source |
 
 ## Inputs

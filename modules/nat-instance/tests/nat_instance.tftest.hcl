@@ -1,4 +1,13 @@
 mock_provider "aws" {
+  mock_data "aws_default_tags" {
+    defaults = {
+      tags = {
+        Project     = "databricks-poc"
+        Environment = "prod"
+      }
+    }
+  }
+
   # Computed and unset unless the module sets it: a route that targeted the
   # instance would carry the instance's ID here instead.
   mock_resource "aws_route" {
@@ -151,6 +160,20 @@ run "root_volume_encrypted_gp3" {
       one(aws_instance.this.root_block_device).volume_size == 8
     )
     error_message = "root volume must be an encrypted 8 GB gp3"
+  }
+}
+
+run "root_volume_carries_default_tags" {
+  command = plan
+
+  assert {
+    condition = (
+      one(aws_instance.this.root_block_device).tags["Project"] == "databricks-poc" &&
+      one(aws_instance.this.root_block_device).tags["Environment"] == "prod" &&
+      one(aws_instance.this.root_block_device).tags["Name"] == "databricks-poc-nat" &&
+      one(aws_instance.this.root_block_device).tags["Component"] == "nat-instance"
+    )
+    error_message = "the root volume must carry the provider default_tags plus Name and Component"
   }
 }
 

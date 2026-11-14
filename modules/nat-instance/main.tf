@@ -19,6 +19,8 @@ locals {
   ])
 }
 
+data "aws_default_tags" "current" {}
+
 data "aws_subnet" "this" {
   id = var.subnet_id
 }
@@ -84,7 +86,9 @@ resource "aws_instance" "this" {
     volume_type = "gp3"
     volume_size = 8
     encrypted   = true
-    tags        = local.tags
+    # Tagged after launch from this block alone, so it must carry the provider's
+    # default_tags itself or the volume never gets them.
+    tags = merge(data.aws_default_tags.current.tags, local.tags)
   }
 
   user_data                   = local.user_data
