@@ -67,8 +67,10 @@ resource "aws_instance" "this" {
     volume_type = "gp3"
     volume_size = 8
     encrypted   = true
-    # Tagged after launch from this block alone, so it must carry the provider's
-    # default_tags itself or the volume never gets them.
+    # The provider tags the root volume at launch (TagSpecifications, with the
+    # provider default_tags merged in), then makes a second CreateTags call
+    # after launch with these block tags alone. The block repeats the default
+    # tags so that second call does not drop them.
     tags = merge(data.aws_default_tags.current.tags, local.tags)
   }
 
