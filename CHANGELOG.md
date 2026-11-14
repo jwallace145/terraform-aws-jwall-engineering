@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.17.0...v0.18.0) (2026-11-14)
+
+
+### Features
+
+* add nat-instance, vpc private subnets and the Databricks workspace modules ([#51](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/51)) ([dec1c22](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/dec1c225f666349411580ba9d16951d202bcd290))
+
 ## [0.17.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.16.1...v0.17.0) (2026-11-04)
 
 
