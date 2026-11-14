@@ -34,8 +34,10 @@ it is not meant to be called directly.
 - The roles `<p>-databricks-cross-account` and `<p>-databricks-uc` and their
   inline policies: its role scoping `<name_root>-<project>-*` covers them.
 - Every refresh read of EC2 (`ec2:Describe*` in `compute/read`).
+- Tag changes on project-tagged resources, including the NAT root volume's
+  post-launch tagging (`ManageProjectTags`).
 
-Tests in `ci-policies` check all three. This policy therefore grants no IAM
+Tests in `ci-policies` check all four. This policy therefore grants no IAM
 action. Neither role is passed to an AWS service (Databricks assumes them;
 `databricks_mws_credentials` and `databricks_storage_credential` take the ARN
 through the Databricks API), and the NAT has no instance profile, so there is
@@ -66,10 +68,9 @@ no `iam:PassRole`.
 - **Tags.** `CreateTags` with `ec2:CreateAction` in `CreateVpcEndpoint` and
   `RunInstances`, on endpoints, instances and volumes. The provider also tags
   the root volume with a separate `CreateTags` after launch (no
-  `ec2:CreateAction`): allowed on volumes only when the request sets
-  `Project = <project>` and `Component = nat-instance`, with tag keys limited
-  to the organisation tags, `CostCenter`, `Workspace`, `Component` and `Name`
-  (`ForAllValues:StringEquals` on `aws:TagKeys`).
+  `ec2:CreateAction`); the volume already carries `Project = <project>` from
+  the launch, so that call goes through `compute/manage`'s
+  `ManageProjectTags` (`aws:ResourceTag/Project`), not through this policy.
 - **Buckets by name.** Configuration of the two buckets. Of their objects,
   only `s3:ListBucket`, `s3:ListBucketVersions`, `s3:DeleteObject` and
   `s3:DeleteObjectVersion`: what `force_destroy` needs to empty them. Never
@@ -80,13 +81,12 @@ no `iam:PassRole`.
 
 ## Known gaps
 
-No statement uses `Resource = "*"`. Two statements are broader than one
+No statement uses `Resource = "*"`. One statement is broader than one
 project's resources:
 
 | Statement | Why |
 |---|---|
 | `RunNatInterface` (`ec2:RunInstances` on `network-interface/*`, no condition) | The provider does not tag the primary interface RunInstances creates, so it cannot be scoped by tag. A launch still needs every other statement: a `t4g` instance tagged `Project` and `Component = nat-instance`, an Amazon image, a project subnet and security group. |
-| `TagNatRootVolume` (`ec2:CreateTags` on `volume/*`) | The post-launch tag call has no `ec2:CreateAction`. It can stamp this project's NAT tags (only the known keys) on any volume in the account, which would bring that volume under the project's tag scope; no policy here can delete or attach a volume. |
 
 ## Known limitations
 

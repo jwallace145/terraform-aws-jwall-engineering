@@ -15,11 +15,6 @@ locals {
   request_tag  = { StringEquals = { "aws:RequestTag/Project" = var.project } }
   resource_tag = { StringEquals = { "aws:ResourceTag/Project" = var.project } }
 
-  # The organisation tags from the caller's default_tags (README, Tagging),
-  # CostCenter and Workspace (required on Databricks projects),
-  # plus the two nat-instance sets itself.
-  nat_volume_tag_keys = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "CostCenter", "Workspace", "Component", "Name"]
-
   # Existing project resources the S3 endpoint and the NAT's routes touch.
   network_types = ["vpc", "route-table", "vpc-endpoint"]
 
@@ -163,6 +158,9 @@ locals {
         }
       },
       {
+        # The provider also tags the root volume after launch, with no
+        # ec2:CreateAction. The volume already carries Project from the launch,
+        # so that call goes through compute/manage's ManageProjectTags.
         Sid    = "TagOnCreate"
         Effect = "Allow"
         Action = "ec2:CreateTags"
@@ -175,22 +173,6 @@ locals {
           StringEquals = {
             "ec2:CreateAction" = ["CreateVpcEndpoint", "RunInstances"]
           }
-        }
-      },
-      {
-        # The provider applies the root block device's tags with a separate
-        # CreateTags after launch, with no ec2:CreateAction. Bounded to the
-        # NAT's tag set: the organisation tags, Component and Name.
-        Sid      = "TagNatRootVolume"
-        Effect   = "Allow"
-        Action   = "ec2:CreateTags"
-        Resource = "${local.ec2}:volume/*"
-        Condition = {
-          StringEquals = {
-            "aws:RequestTag/Project"   = var.project
-            "aws:RequestTag/Component" = "nat-instance"
-          }
-          "ForAllValues:StringEquals" = { "aws:TagKeys" = local.nat_volume_tag_keys }
         }
       },
       {

@@ -39,7 +39,6 @@ run "has_exactly_the_databricks_manage_statements" {
       "TerminateNatInstance",
       "ModifyNatInstance",
       "TagOnCreate",
-      "TagNatRootVolume",
       "ReadSecret",
       "DecryptSecretThroughSsm",
       "AppendEvents",
@@ -326,24 +325,25 @@ run "nat_instance_attributes_can_be_modified" {
   }
 }
 
-# The provider tags the root volume a second time after launch, with the root
-# block device's tags and no ec2:CreateAction.
-run "root_volume_tagging_is_bounded" {
+# The post-launch root volume tagging (no ec2:CreateAction) is left to
+# compute/manage's ManageProjectTags, which needs the volume's own Project tag.
+# Here, CreateTags on a volume is only ever tag-on-create.
+run "no_unbounded_volume_tagging" {
   command = plan
 
   assert {
-    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { a = s.Action, r = s.Resource, c = s.Condition } if s.Sid == "TagNatRootVolume"])) == jsonencode({
-      a = "ec2:CreateTags"
-      r = "arn:aws:ec2:us-east-1:123456789012:volume/*"
-      c = {
-        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "CostCenter", "Workspace", "Component", "Name"] }
-        StringEquals = {
-          "aws:RequestTag/Component" = "nat-instance"
-          "aws:RequestTag/Project"   = "databricks-poc"
-        }
-      }
-    })
-    error_message = "post-launch volume tagging only stamps this project's NAT tags, and only the known tag keys"
+    condition = alltrue([
+      for s in jsondecode(aws_iam_policy.this.policy).Statement :
+      try(s.Condition.StringEquals["aws:ResourceTag/Project"], null) == "databricks-poc" ||
+      jsonencode(try(s.Condition.StringEquals["ec2:CreateAction"], null)) == jsonencode(["CreateVpcEndpoint", "RunInstances"])
+      if contains(tolist(flatten([s.Action])), "ec2:CreateTags") && contains(tolist(flatten([s.Resource])), "arn:aws:ec2:us-east-1:123456789012:volume/*")
+    ])
+    error_message = "CreateTags on volumes only on create or on the project's own volumes"
+  }
+
+  assert {
+    condition     = length([for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Sid if s.Sid == "TagNatRootVolume"]) == 0
+    error_message = "TagNatRootVolume is removed (ruling R15)"
   }
 }
 

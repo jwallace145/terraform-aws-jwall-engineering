@@ -989,3 +989,52 @@ run "compute_covers_the_nat_network" {
     error_message = "compute/read's ec2:Describe* covers every refresh describe of the NAT, its volume, group, routes and the endpoint"
   }
 }
+
+# Ruling R15: the provider tags the NAT root volume a second time after launch
+# (no ec2:CreateAction). The volume already carries Project from the launch,
+# so compute/manage's ManageProjectTags must allow that call for every key the
+# Databricks stack's default_tags and nat-instance set.
+run "compute_manage_tags_the_nat_root_volume" {
+  command = plan
+
+  variables {
+    project  = "databricks-poc"
+    policies = ["compute/manage", "databricks/manage"]
+    policy_inputs = {
+      databricks = {
+        secret_parameter_arn = "arn:aws:ssm:us-east-1:123456789012:parameter/jwall-engineering/databricks-poc/databricks"
+        events_object_arn    = "arn:aws:s3:::jwall-engineering-databricks-audit-logs/events/project=databricks-poc/*"
+      }
+    }
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(output.documents["compute/manage"]).Statement :
+      s.Effect == "Allow" &&
+      contains(tolist(flatten([s.Action])), "ec2:CreateTags") &&
+      anytrue([
+        for r in tolist(flatten([s.Resource])) :
+        can(regex("^${replace(replace(r, ".", "\\."), "*", ".*")}$", "arn:aws:ec2:us-east-1:123456789012:volume/vol-0123456789abcdef0"))
+      ]) &&
+      jsonencode(s.Condition) == jsonencode({ StringEquals = { "aws:ResourceTag/Project" = "databricks-poc" } })
+    ])
+    error_message = "compute/manage must allow ec2:CreateTags on volumes tagged Project = <project>, with only that condition (no tag-key restriction)"
+  }
+
+  # Nothing in compute/manage restricts tag keys, so all ten keys pass:
+  # Organization, Project, Environment, Repository, ManagedBy, Owner,
+  # CostCenter, Workspace, Component, Name.
+  assert {
+    condition     = !anytrue([for s in jsondecode(output.documents["compute/manage"]).Statement : strcontains(jsonencode(try(s.Condition, {})), "aws:TagKeys")])
+    error_message = "compute/manage must not restrict tag keys"
+  }
+
+  assert {
+    condition = !anytrue([
+      for s in jsondecode(output.documents["databricks/manage"]).Statement :
+      contains(tolist(flatten([s.Action])), "ec2:CreateTags") && try(s.Condition.StringEquals["ec2:CreateAction"], null) == null && try(s.Condition.StringEquals["aws:ResourceTag/Project"], null) == null
+    ])
+    error_message = "databricks/manage must not tag volumes outside create calls without a ResourceTag condition"
+  }
+}
