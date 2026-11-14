@@ -143,6 +143,7 @@ jobs:
           - { module: databricks-metastore, path: modules/databricks-metastore }
           - { module: databricks-audit-logs, path: modules/databricks-audit-logs }
           - { module: databricks-workspace, path: modules/databricks-workspace }
+          - { module: databricks-catalog, path: modules/databricks-catalog }
           - { module: vpc, path: modules/vpc }
           - { module: nat-instance, path: modules/nat-instance }
           - { module: container-instance, path: modules/container-instance }
