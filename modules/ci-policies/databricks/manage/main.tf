@@ -15,9 +15,10 @@ locals {
   request_tag  = { StringEquals = { "aws:RequestTag/Project" = var.project } }
   resource_tag = { StringEquals = { "aws:ResourceTag/Project" = var.project } }
 
-  # The organisation tags from the caller's default_tags (README, Tagging)
+  # The organisation tags from the caller's default_tags (README, Tagging),
+  # CostCenter and Workspace (required on Databricks projects),
   # plus the two nat-instance sets itself.
-  nat_volume_tag_keys = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "Component", "Name"]
+  nat_volume_tag_keys = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "CostCenter", "Workspace", "Component", "Name"]
 
   # Existing project resources the S3 endpoint and the NAT's routes touch.
   network_types = ["vpc", "route-table", "vpc-endpoint"]

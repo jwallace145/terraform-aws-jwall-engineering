@@ -336,7 +336,7 @@ run "root_volume_tagging_is_bounded" {
       a = "ec2:CreateTags"
       r = "arn:aws:ec2:us-east-1:123456789012:volume/*"
       c = {
-        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "Component", "Name"] }
+        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["Organization", "Project", "Environment", "Repository", "ManagedBy", "Owner", "CostCenter", "Workspace", "Component", "Name"] }
         StringEquals = {
           "aws:RequestTag/Component" = "nat-instance"
           "aws:RequestTag/Project"   = "databricks-poc"

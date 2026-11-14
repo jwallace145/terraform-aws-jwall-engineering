@@ -68,7 +68,7 @@ no `iam:PassRole`.
   the root volume with a separate `CreateTags` after launch (no
   `ec2:CreateAction`): allowed on volumes only when the request sets
   `Project = <project>` and `Component = nat-instance`, with tag keys limited
-  to the organisation tags, `Component` and `Name`
+  to the organisation tags, `CostCenter`, `Workspace`, `Component` and `Name`
   (`ForAllValues:StringEquals` on `aws:TagKeys`).
 - **Buckets by name.** Configuration of the two buckets. Of their objects,
   only `s3:ListBucket`, `s3:ListBucketVersions`, `s3:DeleteObject` and
