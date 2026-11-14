@@ -64,12 +64,14 @@ resource "aws_s3_bucket_ownership_controls" "this" {
   }
 }
 
-# Data is reachable only through Unity Catalog: only the UC role may read or
-# write objects. The apply role may list and delete, never read or put: the
-# CLI empties the bucket with it before terraform destroy, while this policy
-# still stands. Every other principal, the management roles
-# included, gets no object rights. Only object actions are denied, so
-# Terraform keeps managing the bucket's configuration and this policy.
+# Only the UC role may read or write objects, and every other principal is
+# denied them, whatever its IAM policies allow. The apply role may list and
+# delete, never read or put: the CLI empties the bucket with it before
+# terraform destroy, while this policy still stands. Only object actions are
+# denied, so Terraform keeps managing the bucket's configuration and this
+# policy. This is not absolute: a principal that can rewrite this policy or
+# the UC role's trust (the apply role, account admins) can open the data, and
+# is trusted not to; the plan role cannot.
 resource "aws_s3_bucket_policy" "this" {
   bucket = aws_s3_bucket.this.id
   policy = jsonencode({

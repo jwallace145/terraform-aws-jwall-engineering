@@ -37,7 +37,8 @@ neither. It is applied after `databricks-workspace`, and takes that module's
 
 ## Bucket policy
 
-Data in the bucket is reachable only through Unity Catalog:
+Data in the bucket is guarded against every principal that cannot rewrite the
+bucket policy or the Unity Catalog role's trust (see "Known gaps"):
 
 | Statement | Effect | Actions | Who |
 | --- | --- | --- | --- |
@@ -45,10 +46,10 @@ Data in the bucket is reachable only through Unity Catalog:
 | `DenyDeleteExceptUCAndApply` | Deny | `s3:DeleteObject*` on objects | everyone except the Unity Catalog role and `apply_role_arn` |
 | `AllowApplyEmpty` | Allow | `s3:ListBucket`, `s3:ListBucketVersions`, `s3:DeleteObject`, `s3:DeleteObjectVersion` | `apply_role_arn` |
 
-The explicit denies override any IAM allow, the account's admin roles
-included. `management_role_arns` (CI plan, admin) get no statement: they keep
-their IAM rights to the bucket's configuration but cannot read, write or delete
-objects. A precondition rejects the Unity Catalog role in
+The explicit denies override any IAM allow, so a principal's own IAM
+permissions do not open the data. `management_role_arns` (CI plan, admin) get
+no statement: they keep their IAM rights to the bucket's configuration but
+cannot read, write or delete objects as themselves. A precondition rejects the Unity Catalog role in
 `management_role_arns` or `apply_role_arn`.
 
 Only object actions are denied, so the apply role (and Terraform) can still
@@ -56,8 +57,9 @@ manage the bucket's configuration and this policy.
 
 **Why the apply role may only list and delete.** Destroy must be able to empty
 the bucket (see "Destroy order") so a proof of concept can be torn down and
-rebuilt, but CI must never be a path to the data. Listing and deleting is all
-emptying needs; reading or putting objects would bypass Unity Catalog.
+rebuilt, but the apply role should not be a routine path to the data. Listing
+and deleting is all emptying needs; reading or putting objects would bypass
+Unity Catalog.
 
 **Why `tags` requires only `Project` and `Owner`.** The tags become catalog
 properties (`databricks_catalog.properties`), which describe the catalog and
@@ -117,6 +119,9 @@ isolated catalog, external location or storage credential.
 
 ## Known gaps
 
+- Data is guarded against every principal that cannot rewrite the bucket policy
+  or the UC role's trust: the CI apply role and account admins can, and are
+  trusted. The plan role cannot.
 - The Unity Catalog role's trust and permissions come from the provider's
   helper data sources as JSON rather than `jsonencode()`, so they follow
   Databricks' documented shapes; the tests decode and check them. The bucket
@@ -209,7 +214,7 @@ No modules.
 | users\_group\_name | Account group that may use the catalog, create schemas and tables in it, and read and modify data, but not manage it: the `users_group_name` output of `databricks-workspace` (`<project>-workspace-users`). | `string` | n/a | yes |
 | workspace\_id | Numeric ID of the workspace the catalog, external location and storage credential are bound to: the `workspace_id` output of `databricks-workspace`, the workspace this stack's `databricks` provider points at. | `number` | n/a | yes |
 | component | Value of the `Component` tag on every AWS resource. | `string` | `"databricks-catalog"` | no |
-| management\_role\_arns | ARNs of the other roles that manage the account (CI plan, admin). They keep their IAM rights to the bucket's configuration, but the bucket policy denies them every object read, write and delete; none may be the Unity Catalog role. | `list(string)` | `[]` | no |
+| management\_role\_arns | ARNs of the other roles that manage the account (CI plan, admin). Used only to reject passing the Unity Catalog role (a precondition); it grants nothing and adds no statement to the bucket policy, whose denies already cover every principal but the Unity Catalog role (and, for delete, `apply_role_arn`). | `list(string)` | `[]` | no |
 | name\_root | Prefix of AWS resource names, in kebab-case; must equal `databricks-workspace`'s. With `<p>` = `<name_root>-<project>`, the bucket is `<p>-databricks-catalog` and the Unity Catalog role `<p>-databricks-uc`, the names the workspace's S3 endpoint policy admits. | `string` | `"jwall-engineering"` | no |
 
 ## Outputs

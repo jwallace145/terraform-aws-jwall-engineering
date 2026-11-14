@@ -66,7 +66,7 @@ variable "apply_role_arn" {
 }
 
 variable "management_role_arns" {
-  description = "ARNs of the other roles that manage the account (CI plan, admin). They keep their IAM rights to the bucket's configuration, but the bucket policy denies them every object read, write and delete; none may be the Unity Catalog role."
+  description = "ARNs of the other roles that manage the account (CI plan, admin). Used only to reject passing the Unity Catalog role (a precondition); it grants nothing and adds no statement to the bucket policy, whose denies already cover every principal but the Unity Catalog role (and, for delete, `apply_role_arn`)."
   type        = list(string)
   default     = []
 
