@@ -49,7 +49,9 @@ data "aws_region" "current" {}
 # ---------------------------------------------------------------- network
 
 data "aws_subnet" "this" {
-  for_each = toset(var.subnet_ids)
+  # Keyed by position, not by ID: with subnets created in the same stack the
+  # IDs are unknown at plan, and for_each keys must be known.
+  for_each = { for i, id in var.subnet_ids : tostring(i) => id }
 
   id = each.value
 

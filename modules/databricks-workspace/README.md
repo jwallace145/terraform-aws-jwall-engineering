@@ -84,6 +84,9 @@ Limits:
 
 ## Known gaps
 
+- `subnet_ids` is keyed by position (so IDs of subnets created in the same
+  stack may be unknown at plan). Reordering the list re-keys the subnet checks;
+  they are data sources, so nothing is replaced.
 - The cross-account role's policy (`databricks_aws_crossaccount_policy`,
   `policy_type = "customer"`) grants its EC2 actions (`RunInstances`,
   `TerminateInstances`, `Describe*`, security group rule changes, launch
