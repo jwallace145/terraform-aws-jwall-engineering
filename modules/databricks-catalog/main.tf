@@ -26,8 +26,11 @@ data "aws_caller_identity" "current" {}
 resource "aws_s3_bucket" "this" {
   bucket = local.bucket_name
 
-  # Unity Catalog managed storage is disposable with the project: destroy
-  # empties it with the apply role's delete-only rights.
+  # Unity Catalog managed storage is disposable with the project. The CLI
+  # empties the bucket with the apply role before terraform destroy, while
+  # AllowApplyEmpty still stands. This is only a backstop: it runs after the
+  # bucket policy is destroyed, so it relies on the apply role's IAM identity
+  # policy (the databricks/manage CI policy leaf grants list/delete here).
   force_destroy = true
 
   tags = merge(local.tags, { Name = local.bucket_name })
@@ -62,8 +65,9 @@ resource "aws_s3_bucket_ownership_controls" "this" {
 }
 
 # Data is reachable only through Unity Catalog: only the UC role may read or
-# write objects. The apply role may list and delete, so destroy can empty the
-# bucket, never read or put. Every other principal, the management roles
+# write objects. The apply role may list and delete, never read or put: the
+# CLI empties the bucket with it before terraform destroy, while this policy
+# still stands. Every other principal, the management roles
 # included, gets no object rights. Only object actions are denied, so
 # Terraform keeps managing the bucket's configuration and this policy.
 resource "aws_s3_bucket_policy" "this" {
@@ -194,8 +198,8 @@ resource "databricks_catalog" "this" {
   owner          = var.admin_group_name
   properties     = var.tags
 
-  # Destroy drops the catalog with its schemas and tables, then the bucket is
-  # emptied directly.
+  # Destroy drops the catalog with its schemas and tables; Unity Catalog's
+  # delayed cleanup is not waited for (the bucket is emptied directly).
   force_destroy = true
 }
 

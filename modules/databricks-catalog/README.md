@@ -55,7 +55,7 @@ Only object actions are denied, so the apply role (and Terraform) can still
 manage the bucket's configuration and this policy.
 
 **Why the apply role may only list and delete.** Destroy must be able to empty
-the bucket (`force_destroy`) so a proof of concept can be torn down and
+the bucket (see "Destroy order") so a proof of concept can be torn down and
 rebuilt, but CI must never be a path to the data. Listing and deleting is all
 emptying needs; reading or putting objects would bypass Unity Catalog.
 
@@ -80,15 +80,22 @@ shows it as known after apply.
 
 ## Destroy order
 
-`terraform destroy` (the workspace stack, before the account stack) removes:
+1. The CLI empties the catalog bucket with the apply role **before**
+   `terraform destroy`, while the bucket policy still stands: `AllowApplyEmpty`
+   authorizes this (a same-account Allow in the resource policy suffices).
+   The bucket is emptied directly, not through Unity Catalog's delayed cleanup
+   of managed data.
+2. `terraform destroy` of the workspace stack removes grants and bindings, the
+   catalog (`force_destroy`, dropping its schemas and tables), the external
+   location and storage credential (both `force_destroy`), the role, the
+   bucket policy and the now empty bucket.
+3. The account stack is destroyed.
 
-1. grants and workspace bindings;
-2. the catalog, with `force_destroy`, so its schemas and tables are dropped;
-3. the external location and the storage credential (both `force_destroy`, so
-   Unity Catalog's retained, dropped managed tables do not block them);
-4. the role, its policy and the bucket policy; the bucket is emptied directly
-   with the apply role's list and delete rights (`force_destroy`), not through
-   Unity Catalog's delayed cleanup of managed data, then deleted.
+The bucket's `force_destroy = true` is only a backstop. Terraform destroys the
+bucket policy before the bucket, so the backstop runs without
+`AllowApplyEmpty` and relies on the apply role's IAM identity policy (the
+`databricks/manage` CI policy leaf grants list and delete on this bucket).
+Callers who run plain `terraform destroy` without step 1 depend on that grant.
 
 Removing a binding of the current workspace does not block deleting the
 securable: the provider re-binds the current workspace before deleting an
