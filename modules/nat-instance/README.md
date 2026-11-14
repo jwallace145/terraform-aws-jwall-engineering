@@ -26,10 +26,11 @@ The module knows nothing about what sits behind it. Typical use is
 
 ## Cost
 
-About $3 per month in us-east-1 (`t4g.nano` plus its 8 GB volume plus the
-instance's auto-assigned public IPv4 at $0.005 per hour), against about $33
-per month plus per-GB data processing charges for a NAT gateway. Data
-transfer out to the internet is billed as usual.
+About $7 per month in us-east-1: `t4g.nano` on demand (about $3.07), the
+instance's auto-assigned public IPv4 at $0.005 per hour (about $3.65) and the
+8 GB gp3 root volume (about $0.64). A NAT gateway is about $33 per month plus
+$0.045 per GB processed.
+Data transfer out to the internet is billed as usual.
 
 ## Replacement and routing
 
