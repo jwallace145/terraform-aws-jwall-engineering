@@ -21,8 +21,12 @@ variables {
   metastore_id     = "11111111-2222-3333-4444-555555555555"
 
   fixed_tags = {
-    CostCenter = "cc-0000"
-    Project    = "databricks-poc"
+    Project     = "databricks-poc"
+    Environment = "dev"
+    CostCenter  = "cc-0000"
+    Workspace   = "databricks-poc-dev"
+    Owner       = "team-a"
+    ManagedBy   = "terraform"
   }
 
   compute_policies = {
@@ -254,4 +258,38 @@ run "system_schemas_reject_other_metastore" {
   }
 
   expect_failures = [databricks_system_schema.this]
+}
+
+run "rejects_fixed_tags_missing_owner" {
+  command = plan
+
+  variables {
+    fixed_tags = {
+      Project     = "databricks-poc"
+      Environment = "dev"
+      CostCenter  = "cc-0000"
+      Workspace   = "databricks-poc-dev"
+      ManagedBy   = "terraform"
+    }
+  }
+
+  expect_failures = [var.fixed_tags]
+}
+
+run "rejects_reserved_fixed_tag_key" {
+  command = plan
+
+  variables {
+    fixed_tags = {
+      Project     = "databricks-poc"
+      Environment = "dev"
+      CostCenter  = "cc-0000"
+      Workspace   = "databricks-poc-dev"
+      Owner       = "team-a"
+      ManagedBy   = "terraform"
+      Vendor      = "someone"
+    }
+  }
+
+  expect_failures = [var.fixed_tags]
 }

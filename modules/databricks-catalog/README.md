@@ -59,6 +59,13 @@ the bucket (see "Destroy order") so a proof of concept can be torn down and
 rebuilt, but CI must never be a path to the data. Listing and deleting is all
 emptying needs; reading or putting objects would bypass Unity Catalog.
 
+**Why `tags` requires only `Project` and `Owner`.** The tags become catalog
+properties (`databricks_catalog.properties`), which describe the catalog and
+nothing else, so only the two that identify it are required. The workspace
+modules (`databricks-workspace`, `databricks-workspace-config`) put their tags
+on cluster resources, where cost attribution needs all six governance tags
+(`Project`, `Environment`, `CostCenter`, `Workspace`, `Owner`, `ManagedBy`).
+
 ## Unity Catalog role and the external ID
 
 Databricks requires storage credential roles to be self-assuming and to trust

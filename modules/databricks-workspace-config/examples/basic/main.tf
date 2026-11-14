@@ -15,8 +15,12 @@ module "workspace_config" {
   metastore_id     = "11111111-2222-3333-4444-555555555555"
 
   fixed_tags = {
-    CostCenter = "cc-0000"
-    Project    = "databricks-poc"
+    Project     = "databricks-poc"
+    Environment = "dev"
+    CostCenter  = "cc-0000"
+    Workspace   = "databricks-poc-dev"
+    Owner       = "team-a"
+    ManagedBy   = "terraform"
   }
 
   compute_policies = {

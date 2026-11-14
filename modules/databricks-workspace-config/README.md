@@ -64,7 +64,9 @@ Destroying the resource removes these entitlements from the group.
 - `compute_policies`: keys kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); no
   definition sets `custom_tags.*` (the platform owns them); every definition
   sets `autotermination_minutes`.
-- `fixed_tags`: no empty keys or values.
+- `fixed_tags`: no empty keys or values; must contain `Project`,
+  `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy`, and no key
+  Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`).
 - `metastore_id`: a UUID. `system_schemas`: lowercase schema names.
 - `max_token_lifetime_days`: a positive whole number.
 
@@ -89,8 +91,12 @@ module "workspace_config" {
   metastore_id     = var.metastore_id
 
   fixed_tags = {
-    CostCenter = "cc-0000"
-    Project    = "databricks-poc"
+    Project     = "databricks-poc"
+    Environment = "dev"
+    CostCenter  = "cc-0000"
+    Workspace   = "databricks-poc-dev"
+    Owner       = "team-a"
+    ManagedBy   = "terraform"
   }
 
   compute_policies = {
@@ -144,7 +150,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | compute\_policies | Platform-owned cluster policies, keyed by policy name (lowercase kebab-case, for example `team-a-jobs`). `definition` is the policy rules as an object (Databricks' policy definition language); the module adds a `fixed` rule for every entry of `fixed_tags` under `custom_tags.<key>`. Each definition must set `autotermination_minutes` and must not set `custom_tags.*` itself. The CLI passes only this project's policies. | <pre>map(object({<br/>    description = string<br/>    definition  = any<br/>  }))</pre> | n/a | yes |
-| fixed\_tags | Tags pinned on every cluster created through a platform policy, as `custom_tags.<key>` rules of type `fixed` (for example `CostCenter`, `Project`). Usually the project's governance tags. | `map(string)` | n/a | yes |
+| fixed\_tags | Tags pinned on every cluster created through a platform policy, as `custom_tags.<key>` rules of type `fixed` (for example `CostCenter`, `Project`). Must contain `Project`, `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy` (the same governance tags as `databricks-workspace`'s `tags`), and no key Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`). | `map(string)` | n/a | yes |
 | metastore\_id | ID of the metastore the workspace is assigned to: the `metastore_id` of `databricks-metastore`. When system schemas are enabled, the plan fails if the workspace's current metastore is a different one. | `string` | n/a | yes |
 | users\_group\_name | Account group that may use the policies (`CAN_USE`) and has cluster creation switched off: the `users_group_name` output of `databricks-workspace` (`<project>-workspace-users`). | `string` | n/a | yes |
 | enable\_system\_schemas | Enable Unity Catalog system schemas (`system.<schema>` tables). Metastore-wide: set it in exactly one workspace, the governance workspace. | `bool` | `false` | no |

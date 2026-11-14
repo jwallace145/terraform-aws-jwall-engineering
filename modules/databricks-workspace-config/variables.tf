@@ -22,8 +22,18 @@ variable "compute_policies" {
 }
 
 variable "fixed_tags" {
-  description = "Tags pinned on every cluster created through a platform policy, as `custom_tags.<key>` rules of type `fixed` (for example `CostCenter`, `Project`). Usually the project's governance tags."
+  description = "Tags pinned on every cluster created through a platform policy, as `custom_tags.<key>` rules of type `fixed` (for example `CostCenter`, `Project`). Must contain `Project`, `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy` (the same governance tags as `databricks-workspace`'s `tags`), and no key Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`)."
   type        = map(string)
+
+  validation {
+    condition     = alltrue([for k in ["Project", "Environment", "CostCenter", "Workspace", "Owner", "ManagedBy"] : contains(keys(var.fixed_tags), k)])
+    error_message = "fixed_tags must contain the keys Project, Environment, CostCenter, Workspace, Owner and ManagedBy; add the missing ones to the fixed_tags variable."
+  }
+
+  validation {
+    condition     = length(setintersection(keys(var.fixed_tags), ["Vendor", "Creator", "ClusterName", "ClusterId", "Name"])) == 0
+    error_message = "fixed_tags must not use a key Databricks reserves (Vendor, Creator, ClusterName, ClusterId, Name); remove it from the fixed_tags variable."
+  }
 
   validation {
     condition     = alltrue([for k, v in var.fixed_tags : length(trimspace(k)) > 0 && length(trimspace(v)) > 0])

@@ -115,7 +115,7 @@ module "workspace_config" {
 
   users_group_name = module.workspace.users_group_name
   metastore_id     = "abcdef01-2345-6789-abcd-ef0123456789"
-  fixed_tags       = { CostCenter = "cc-0000", Project = "databricks-poc" }
+  fixed_tags       = local.tags
 
   compute_policies = {
     team-a-jobs = {
