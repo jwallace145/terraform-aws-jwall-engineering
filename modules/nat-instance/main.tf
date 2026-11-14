@@ -49,33 +49,14 @@ resource "aws_security_group" "this" {
   tags = local.tags
 }
 
-# The ENI outlives the instance: routes point at it, so replacing the instance
-# keeps routing alive.
-resource "aws_network_interface" "this" {
-  subnet_id         = var.subnet_id
-  security_groups   = [aws_security_group.this.id]
-  source_dest_check = false
-  description       = "${var.name} NAT interface"
-
-  tags = local.tags
-}
-
-# An interface created separately never gets an auto-assigned public IPv4, so
-# the NAT's egress address is an Elastic IP on the ENI.
-resource "aws_eip" "this" {
-  domain            = "vpc"
-  network_interface = aws_network_interface.this.id
-
-  tags = local.tags
-}
-
 resource "aws_instance" "this" {
   ami           = var.ami_id
   instance_type = var.instance_type
 
-  primary_network_interface {
-    network_interface_id = aws_network_interface.this.id
-  }
+  subnet_id                   = var.subnet_id
+  vpc_security_group_ids      = [aws_security_group.this.id]
+  associate_public_ip_address = true
+  source_dest_check           = false
 
   metadata_options {
     http_endpoint = "enabled"
@@ -95,8 +76,6 @@ resource "aws_instance" "this" {
   user_data_replace_on_change = true
 
   tags = local.tags
-
-  depends_on = [aws_eip.this]
 }
 
 resource "aws_route" "default" {
@@ -104,5 +83,5 @@ resource "aws_route" "default" {
 
   route_table_id         = each.value
   destination_cidr_block = "0.0.0.0/0"
-  network_interface_id   = aws_network_interface.this.id
+  network_interface_id   = aws_instance.this.primary_network_interface_id
 }

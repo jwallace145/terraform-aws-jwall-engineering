@@ -25,7 +25,7 @@ variables {
   ami_id                  = "ami-0123456789abcdef0"
 }
 
-run "routes_target_eni" {
+run "routes_target_instance_primary_eni" {
   command = apply
 
   assert {
@@ -36,49 +36,60 @@ run "routes_target_eni" {
   assert {
     condition = alltrue([
       for r in aws_route.default :
-      r.destination_cidr_block == "0.0.0.0/0" && r.network_interface_id == aws_network_interface.this.id && r.instance_id == ""
+      r.destination_cidr_block == "0.0.0.0/0" &&
+      r.network_interface_id == aws_instance.this.primary_network_interface_id &&
+      r.instance_id == ""
     ])
-    error_message = "routes must target the ENI (network_interface_id), never instance_id"
+    error_message = "routes must target the instance's primary ENI (network_interface_id), never instance_id"
+  }
+
+  assert {
+    condition     = output.network_interface_id == aws_instance.this.primary_network_interface_id
+    error_message = "network_interface_id output must be the instance's primary ENI"
   }
 }
 
-run "eni_disables_source_dest_check" {
+run "instance_disables_source_dest_check" {
   command = plan
 
-
   assert {
-    condition     = aws_network_interface.this.source_dest_check == false
-    error_message = "the NAT ENI must have source_dest_check disabled"
-  }
-
-  assert {
-    condition     = aws_network_interface.this.subnet_id == "subnet-0123456789abcdef0"
-    error_message = "the ENI must sit in subnet_id"
-  }
-
-  assert {
-    condition     = one(aws_instance.this.primary_network_interface).network_interface_id == aws_network_interface.this.id
-    error_message = "the instance must use the ENI as its primary interface"
+    condition     = aws_instance.this.source_dest_check == false
+    error_message = "the NAT instance must set source_dest_check = false"
   }
 }
 
-run "one_elastic_ip_on_eni" {
+run "instance_gets_public_ip" {
   command = plan
 
-
   assert {
-    condition     = aws_eip.this.domain == "vpc"
-    error_message = "the Elastic IP must be a VPC address"
+    condition     = aws_instance.this.associate_public_ip_address == true
+    error_message = "the instance must get an auto-assigned public IPv4 for egress"
   }
 
   assert {
-    condition     = aws_eip.this.network_interface == aws_network_interface.this.id
-    error_message = "the Elastic IP must target the NAT ENI"
+    condition     = aws_instance.this.subnet_id == "subnet-0123456789abcdef0"
+    error_message = "the instance must sit in subnet_id"
   }
 
   assert {
-    condition     = aws_eip.this.tags["Name"] == "databricks-poc-nat" && aws_eip.this.tags["Component"] == "nat-instance"
-    error_message = "the Elastic IP must carry Name and Component"
+    condition     = length(aws_instance.this.vpc_security_group_ids) == 1
+    error_message = "the instance must use the module's security group"
+  }
+}
+
+run "no_eip_or_standalone_eni" {
+  command = plan
+
+  # A test cannot enumerate resource types of a plan, and referencing an
+  # undeclared resource is a config error, so this reads the declarations.
+  assert {
+    condition     = length(regexall("(?m)^resource \"(aws_eip|aws_eip_association|aws_network_interface|aws_network_interface_attachment)\"", file("${path.module}/main.tf"))) == 0
+    error_message = "the instance creates its own primary interface: no aws_eip, association or standalone aws_network_interface"
+  }
+
+  assert {
+    condition     = length(regexall("(?m)^resource \"aws_instance\"", file("${path.module}/main.tf"))) == 1
+    error_message = "exactly one aws_instance"
   }
 }
 

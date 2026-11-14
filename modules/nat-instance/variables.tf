@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Name of the NAT in kebab-case, for example `jwall-engineering-databricks-poc-nat`. The instance, network interface, security group and Elastic IP are named after it."
+  description = "Name of the NAT in kebab-case, for example `jwall-engineering-databricks-poc-nat`. The instance and security group are named after it."
   type        = string
 
   validation {
