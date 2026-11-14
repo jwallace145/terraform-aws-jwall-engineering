@@ -30,6 +30,11 @@ it is not meant to be called directly.
   Store encrypts a SecureString with its ARN as encryption context, so the
   grant decrypts that parameter and nothing else, under any key in the
   account.
+- **One quota.** `servicequotas:GetServiceQuota` on the `quota` resource
+  `arn:aws:servicequotas:<region>:<account>:ec2/L-1216C47A` (Running
+  On-Demand Standard instances vCPUs) only, for the infra CLI's vCPU
+  headroom check. The action supports resource-level permissions, so there is
+  no wildcard.
 - **Event log, append-only.** `s3:PutObject` on `events_object_arn`, which
   must be `arn:aws:s3:::<audit bucket>/events/project=<project>/*`. No read,
   no list, no delete. It is the one write in this read policy, so the plan

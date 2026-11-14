@@ -54,6 +54,15 @@ locals {
         }
       },
       {
+        # The infra CLI's vCPU headroom check: Running On-Demand Standard
+        # instances (ServiceCode ec2, QuotaCode L-1216C47A). GetServiceQuota
+        # supports the quota resource type, so it is scoped to that one quota.
+        Sid      = "ReadEc2VcpuQuota"
+        Effect   = "Allow"
+        Action   = "servicequotas:GetServiceQuota"
+        Resource = "arn:aws:servicequotas:${local.region}:${local.account_id}:ec2/L-1216C47A"
+      },
+      {
         # Append-only: no read, no delete.
         Sid      = "AppendEvents"
         Effect   = "Allow"
