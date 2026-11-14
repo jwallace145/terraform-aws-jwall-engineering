@@ -31,9 +31,9 @@ locals {
   # ("Addresses for artifact storage, log storage, system tables, and shared
   # datasets buckets", checked 2026-11-13).
   databricks_buckets = [
-    "databricks-prod-artifacts-${data.aws_region.current.name}",
+    "databricks-prod-artifacts-${data.aws_region.current.region}",
     "databricks-prod-storage-virginia",
-    "system-tables-prod-${data.aws_region.current.name}-uc-metastore-bucket",
+    "system-tables-prod-${data.aws_region.current.region}-uc-metastore-bucket",
     "databricks-datasets-virginia",
   ]
 
@@ -75,6 +75,15 @@ resource "aws_security_group" "this" {
   description = "Databricks workspace clusters: all traffic within the group, documented ports out"
   vpc_id      = var.vpc_id
 
+  lifecycle {
+    # The Databricks bucket names, the S3 endpoint policy and the workspace's
+    # region are all us-east-1; fail here rather than build a half-wrong stack.
+    precondition {
+      condition     = data.aws_region.current.region == "us-east-1"
+      error_message = "the AWS provider's region is ${data.aws_region.current.region}: this module is us-east-1 only; configure the aws provider for us-east-1."
+    }
+  }
+
   ingress {
     description = "All traffic from the workspace clusters (same group)"
     protocol    = "-1"
@@ -112,6 +121,14 @@ resource "databricks_mws_networks" "this" {
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = [aws_security_group.this.id]
+
+  lifecycle {
+    # Databricks needs subnets in at least two distinct AZs.
+    precondition {
+      condition     = length(distinct([for s in data.aws_subnet.this : s.availability_zone])) == length(var.subnet_ids)
+      error_message = "subnet_ids must be in distinct availability zones, one subnet per zone; pass subnets from different zones in subnet_ids."
+    }
+  }
 
   # Fail at the subnet check, not inside the Databricks API.
   depends_on = [data.aws_subnet.this]
@@ -227,7 +244,7 @@ resource "databricks_mws_workspaces" "this" {
   account_id      = var.account_id
   workspace_name  = "${var.project}-${var.environment}"
   deployment_name = var.deployment_name
-  aws_region      = "us-east-1"
+  aws_region      = data.aws_region.current.region
   pricing_tier    = "PREMIUM"
 
   credentials_id           = databricks_mws_credentials.this.credentials_id

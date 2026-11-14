@@ -27,7 +27,7 @@ mock_provider "aws" {
 
   mock_data "aws_region" {
     defaults = {
-      name = "us-east-1"
+      region = "us-east-1"
     }
   }
 
@@ -575,4 +575,59 @@ run "endpoint_policy_known_without_apply" {
     condition     = output.s3_endpoint_policy != null
     error_message = "the endpoint policy must be known at plan time, so it can feed the VPC stack before the workspace exists"
   }
+}
+
+run "rejects_region_other_than_us_east_1" {
+  command = plan
+
+  override_data {
+    target = data.aws_region.current
+    values = {
+      region = "eu-west-1"
+    }
+  }
+
+  expect_failures = [aws_security_group.this]
+}
+
+run "accepts_subnets_in_distinct_azs" {
+  command = plan
+
+  override_data {
+    target = data.aws_subnet.this["0"]
+    values = {
+      cidr_block        = "10.0.2.0/24"
+      vpc_id            = "vpc-0123456789abcdef0"
+      availability_zone = "us-east-1a"
+    }
+  }
+
+  override_data {
+    target = data.aws_subnet.this["1"]
+    values = {
+      cidr_block        = "10.0.3.0/24"
+      vpc_id            = "vpc-0123456789abcdef0"
+      availability_zone = "us-east-1b"
+    }
+  }
+
+  assert {
+    condition     = databricks_mws_networks.this.network_name == "jwall-engineering-databricks-poc-databricks-network"
+    error_message = "two subnets in different zones must pass the zone check"
+  }
+}
+
+run "rejects_subnets_in_the_same_az" {
+  command = plan
+
+  override_data {
+    target = data.aws_subnet.this
+    values = {
+      cidr_block        = "10.0.2.0/24"
+      vpc_id            = "vpc-0123456789abcdef0"
+      availability_zone = "us-east-1a"
+    }
+  }
+
+  expect_failures = [databricks_mws_networks.this]
 }
