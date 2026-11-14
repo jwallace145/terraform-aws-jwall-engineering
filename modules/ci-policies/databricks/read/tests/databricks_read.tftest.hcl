@@ -29,9 +29,10 @@ run "has_exactly_the_databricks_read_statements" {
       "AppendEvents",
       "DecryptSecretThroughSsm",
       "ReadDatabricksBuckets",
+      "ReadEc2VcpuQuota",
       "ReadSecret",
     ])
-    error_message = "databricks/read holds the bucket reads, the secret read and the event log append only"
+    error_message = "databricks/read holds the bucket reads, the secret read, the vCPU quota read and the event log append only"
   }
 
   assert {
@@ -50,7 +51,7 @@ run "databricks_read_is_read_only" {
     condition = alltrue(flatten([
       for s in jsondecode(aws_iam_policy.this.policy).Statement : [
         for a in tolist(flatten([s.Action])) :
-        can(regex("^[a-z0-9]+:(Get|List|Describe)", a)) || contains(["ssm:GetParameter", "kms:Decrypt"], a)
+        can(regex("^[a-z0-9]+:(Get|List|Describe)", a)) || contains(["ssm:GetParameter", "kms:Decrypt", "servicequotas:GetServiceQuota"], a)
       ] if s.Sid != "AppendEvents"
     ]))
     error_message = "databricks/read may only Get, List or Describe, read the one parameter and decrypt it"
@@ -112,6 +113,26 @@ run "secret_scoped_to_one_parameter" {
       }
     })
     error_message = "kms:Decrypt only through SSM, and only for the one parameter's encryption context"
+  }
+}
+
+# DBX-LIVE-008 reads the Running On-Demand Standard instances vCPU quota.
+run "vcpu_quota_read_scoped_to_one_quota" {
+  command = plan
+
+  assert {
+    condition = jsonencode(one([for s in jsondecode(aws_iam_policy.this.policy).Statement : { a = s.Action, r = s.Resource, e = s.Effect, c = try(s.Condition, null) } if s.Sid == "ReadEc2VcpuQuota"])) == jsonencode({
+      a = "servicequotas:GetServiceQuota"
+      c = null
+      e = "Allow"
+      r = "arn:aws:servicequotas:us-east-1:123456789012:ec2/L-1216C47A"
+    })
+    error_message = "exactly servicequotas:GetServiceQuota on the ec2 L-1216C47A quota ARN"
+  }
+
+  assert {
+    condition     = !anytrue([for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : can(regex("^servicequotas:(Request|Put|Delete|Associate|Disassociate|Start|Tag|Untag)", a))])
+    error_message = "no Service Quotas write"
   }
 }
 
