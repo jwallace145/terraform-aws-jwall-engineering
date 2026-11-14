@@ -32,11 +32,11 @@ variables {
   compute_policies = {
     team-a-jobs = {
       description = "Single-node jobs compute"
-      definition = {
+      definition = jsonencode({
         autotermination_minutes = { type = "fixed", value = 30, hidden = true }
         node_type_id            = { type = "allowlist", values = ["m5.xlarge", "m5.2xlarge"] }
         num_workers             = { type = "range", maxValue = 4 }
-      }
+      })
     }
   }
 }
@@ -75,10 +75,10 @@ run "rejects_definition_setting_custom_tags" {
     compute_policies = {
       team-a-jobs = {
         description = "x"
-        definition = {
+        definition = jsonencode({
           autotermination_minutes  = { type = "fixed", value = 30 }
           "custom_tags.CostCenter" = { type = "fixed", value = "cc-9999" }
-        }
+        })
       }
     }
   }
@@ -93,9 +93,39 @@ run "rejects_definition_without_autotermination" {
     compute_policies = {
       team-a-jobs = {
         description = "x"
-        definition = {
+        definition = jsonencode({
           node_type_id = { type = "fixed", value = "m5.xlarge" }
-        }
+        })
+      }
+    }
+  }
+
+  expect_failures = [var.compute_policies]
+}
+
+run "rejects_non_json_definition" {
+  command = plan
+
+  variables {
+    compute_policies = {
+      team-a-jobs = {
+        description = "x"
+        definition  = "autotermination_minutes = 30"
+      }
+    }
+  }
+
+  expect_failures = [var.compute_policies]
+}
+
+run "rejects_non_object_definition" {
+  command = plan
+
+  variables {
+    compute_policies = {
+      team-a-jobs = {
+        description = "x"
+        definition  = jsonencode(["autotermination_minutes"])
       }
     }
   }
@@ -110,7 +140,7 @@ run "rejects_bad_policy_name" {
     compute_policies = {
       "Team A" = {
         description = "x"
-        definition  = { autotermination_minutes = { type = "fixed", value = 30 } }
+        definition  = jsonencode({ autotermination_minutes = { type = "fixed", value = 30 } })
       }
     }
   }
@@ -292,4 +322,55 @@ run "rejects_reserved_fixed_tag_key" {
   }
 
   expect_failures = [var.fixed_tags]
+}
+
+run "two_differently_shaped_policies_plan" {
+  command = plan
+
+  variables {
+    compute_policies = {
+      team-a-jobs = {
+        description = "Jobs compute"
+        definition = jsonencode({
+          num_workers                   = { type = "range", maxValue = 4 }
+          node_type_id                  = { type = "fixed", value = "m5.xlarge" }
+          autotermination_minutes       = { type = "fixed", value = 30 }
+          "aws_attributes.availability" = { type = "fixed", value = "SPOT_WITH_FALLBACK" }
+        })
+      }
+      team-a-shared = {
+        description = "Shared compute"
+        definition = jsonencode({
+          cluster_type                  = { type = "fixed", value = "all-purpose" }
+          num_workers                   = { type = "fixed", value = 2 }
+          node_type_id                  = { type = "allowlist", values = ["m5.xlarge", "m5.2xlarge"] }
+          autotermination_minutes       = { type = "fixed", value = 60 }
+          "aws_attributes.availability" = { type = "fixed", value = "ON_DEMAND" }
+        })
+      }
+    }
+  }
+
+  assert {
+    condition     = toset(keys(databricks_cluster_policy.this)) == toset(["team-a-jobs", "team-a-shared"])
+    error_message = "both policies are planned"
+  }
+
+  assert {
+    condition = (
+      !contains(keys(jsondecode(databricks_cluster_policy.this["team-a-jobs"].definition)), "cluster_type") &&
+      jsondecode(databricks_cluster_policy.this["team-a-shared"].definition)["cluster_type"].value == "all-purpose" &&
+      jsondecode(databricks_cluster_policy.this["team-a-jobs"].definition)["autotermination_minutes"].value == 30 &&
+      jsondecode(databricks_cluster_policy.this["team-a-shared"].definition)["autotermination_minutes"].value == 60
+    )
+    error_message = "each policy keeps its own differently shaped rules"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, p in databricks_cluster_policy.this :
+      jsondecode(p.definition)["custom_tags.Owner"] == { type = "fixed", value = "team-a" }
+    ])
+    error_message = "fixed tags are injected into both policies"
+  }
 }

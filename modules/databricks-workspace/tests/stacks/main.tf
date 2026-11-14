@@ -120,11 +120,11 @@ module "workspace_config" {
   compute_policies = {
     team-a-jobs = {
       description = "Small autoscaling jobs compute"
-      definition = {
+      definition = jsonencode({
         autotermination_minutes = { type = "fixed", value = 30, hidden = true }
         node_type_id            = { type = "allowlist", values = ["m5.xlarge"] }
         num_workers             = { type = "range", maxValue = 4 }
-      }
+      })
     }
   }
 }
