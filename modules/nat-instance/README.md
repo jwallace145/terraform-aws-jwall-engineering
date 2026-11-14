@@ -45,6 +45,9 @@ failure of the whole zone takes egress down until it returns.
 
 ## Known gaps
 
+- **Routes are keyed by position** in `private_route_table_ids`, so IDs of tables
+  created in the same stack may be unknown at plan. Reordering the list re-keys
+  the routes: Terraform destroys and recreates them (a brief egress gap).
 - **Single point of failure**, as above. Use a NAT gateway where egress must
   survive an instance or zone failure.
 - **Throughput is the instance's.** A `t4g.nano` has burstable, limited network

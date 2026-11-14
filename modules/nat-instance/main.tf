@@ -79,7 +79,9 @@ resource "aws_instance" "this" {
 }
 
 resource "aws_route" "default" {
-  for_each = toset(var.private_route_table_ids)
+  # Keyed by position, not by ID: with the tables created in the same stack the
+  # IDs are unknown at plan, and for_each keys must be known.
+  for_each = { for i, id in var.private_route_table_ids : tostring(i) => id }
 
   route_table_id         = each.value
   destination_cidr_block = "0.0.0.0/0"
