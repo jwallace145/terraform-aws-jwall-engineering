@@ -631,3 +631,105 @@ run "rejects_subnets_in_the_same_az" {
 
   expect_failures = [databricks_mws_networks.this]
 }
+
+# ------------------------------------------------- read-only datasets
+
+run "endpoint_policy_read_only_datasets" {
+  command = plan
+
+  variables {
+    read_only_datasets = {
+      rusty-chess-nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "data/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-rusty-chess-nnue-databricks-share" }
+      other-games      = { bucket = "jwall-engineering-other-games", prefix = "games/2026/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-other-games-databricks-share" }
+    }
+  }
+
+  assert {
+    condition     = length(jsondecode(output.s3_endpoint_policy).Statement) == 5 && toset([for s in jsondecode(output.s3_endpoint_policy).Statement : s.Sid]) == toset(["DatabricksRequired", "WorkspaceRoot", "UnityCatalogOnly", "ReadOnlyDatasetRustyChessNnue", "ReadOnlyDatasetOtherGames"])
+    error_message = "each dataset must add exactly one statement, ReadOnlyDataset<Name>, to the three"
+  }
+
+  assert {
+    condition = (
+      { for s in jsondecode(output.s3_endpoint_policy).Statement : s.Sid => s }["ReadOnlyDatasetRustyChessNnue"] == {
+        Sid       = "ReadOnlyDatasetRustyChessNnue"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"]
+        Resource  = ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue", "arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/*"]
+        Condition = { ArnEquals = { "aws:PrincipalArn" = "arn:aws:iam::111122223333:role/jwall-engineering-rusty-chess-nnue-databricks-share" } }
+      }
+    )
+    error_message = "a dataset's statement must allow exactly GetObject under its prefix and ListBucket/GetBucketLocation on its bucket, only for its own share role"
+  }
+
+  # One role can never reach another dataset's bucket.
+  assert {
+    condition = alltrue([
+      for s in jsondecode(output.s3_endpoint_policy).Statement :
+      length(s.Resource) == 2 && alltrue([for r in s.Resource : strcontains(r, "other-games")]) && s.Condition.ArnEquals["aws:PrincipalArn"] == "arn:aws:iam::111122223333:role/jwall-engineering-other-games-databricks-share"
+      if s.Sid == "ReadOnlyDatasetOtherGames"
+    ])
+    error_message = "each dataset statement must name only its own bucket and its own role"
+  }
+}
+
+run "rejects_own_uc_role_as_dataset_role" {
+  command = plan
+
+  variables {
+    read_only_datasets = {
+      nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "data/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-databricks-poc-databricks-uc" }
+    }
+  }
+
+  expect_failures = [var.read_only_datasets]
+}
+
+run "rejects_own_catalog_bucket_as_dataset" {
+  command = plan
+
+  variables {
+    read_only_datasets = {
+      mine = { bucket = "jwall-engineering-databricks-poc-databricks-catalog", prefix = "managed/", role_arn = "arn:aws:iam::111122223333:role/x-databricks-share" }
+    }
+  }
+
+  expect_failures = [var.read_only_datasets]
+}
+
+run "rejects_dataset_prefix_with_leading_slash" {
+  command = plan
+
+  variables {
+    read_only_datasets = {
+      nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "/data/", role_arn = "arn:aws:iam::111122223333:role/x-databricks-share" }
+    }
+  }
+
+  expect_failures = [var.read_only_datasets]
+}
+
+run "rejects_wildcard_dataset_prefix" {
+  command = plan
+
+  variables {
+    read_only_datasets = {
+      nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "data/*/", role_arn = "arn:aws:iam::111122223333:role/x-databricks-share" }
+    }
+  }
+
+  expect_failures = [var.read_only_datasets]
+}
+
+run "rejects_bad_dataset_role_arn" {
+  command = plan
+
+  variables {
+    read_only_datasets = {
+      nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "data/", role_arn = "share-role" }
+    }
+  }
+
+  expect_failures = [var.read_only_datasets]
+}

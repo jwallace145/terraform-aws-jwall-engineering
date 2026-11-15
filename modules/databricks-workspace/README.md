@@ -55,6 +55,10 @@ principal is a workspace admin, so the same credentials work in both stacks.
 - `tags`: must contain `Project`, `Environment`, `CostCenter`, `Workspace`,
   `Owner` and `ManagedBy`, and no key Databricks reserves (`Vendor`,
   `Creator`, `ClusterName`, `ClusterId`, `Name`).
+- `read_only_datasets`: kebab-case keys (at most 40 characters), S3 bucket
+  names, prefixes of one or more segments ending in `/` (no leading `/`, no
+  `*`), an IAM role ARN, and never the workspace's own root or catalog bucket
+  or its own Unity Catalog role.
 
 ## S3 endpoint policy
 
@@ -68,9 +72,18 @@ pasted foreign credentials cannot read data outside Unity Catalog. It allows
   (artifacts, logs, system tables, sample datasets; see `local.databricks_buckets`),
 - the workspace root bucket (its own bucket policy is the real guard),
 - the catalog bucket, only under `ArnEquals aws:PrincipalArn` = the Unity
-  Catalog role.
+  Catalog role;
+- each of `read_only_datasets` (shared datasets), only `s3:GetObject` under
+  its prefix and `s3:ListBucket`/`s3:GetBucketLocation` on its bucket, only for
+  that dataset's own share role (`ReadOnlyDataset<Name>`, one statement per
+  dataset, so a role reaches only its own dataset).
 
-Everything else is denied at the endpoint. The role is named in a condition,
+Everything else is denied at the endpoint. The endpoint grants nothing: a
+dataset is readable only once its own bucket policy names the share role as a
+reader (a `dataset-bucket`'s `reader_role_arns`), so the project that owns the
+data decides. The share role and the dataset's one read-only external location
+come from `databricks-shared-dataset`, whose `endpoint_dataset` output is the
+value to pass here; every consumer workspace passes the same entry. The role is named in a condition,
 never in `Principal`, because the endpoint is created before the role exists.
 The policy depends on names, the account ID and the region only, so the
 account stack can pass it to `vpc` without a dependency cycle.
@@ -206,6 +219,7 @@ No modules.
 | component | Value of the `Component` tag on every AWS resource. | `string` | `"databricks-workspace"` | no |
 | deployment\_name | Deployment name, the first label of the workspace URL (`<deployment_name>.cloud.databricks.com`). `null` (the default) lets Databricks pick one. Only possible if the account allows custom deployment names. | `string` | `null` | no |
 | name\_root | Prefix of AWS resource names, in kebab-case. With `<p>` = `<name_root>-<project>`, the root bucket is `<p>-databricks-root`, the cross-account role `<p>-databricks-cross-account` and the security group `<p>-databricks-workspace`. | `string` | `"jwall-engineering"` | no |
+| read\_only\_datasets | Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ rusty-chess-nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "data/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-rusty-chess-nnue-databricks-share" } }`: the `endpoint_dataset` output of `databricks-shared-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader. | <pre>map(object({<br/>    bucket   = string<br/>    prefix   = string<br/>    role_arn = string<br/>  }))</pre> | `{}` | no |
 | user\_names | Databricks user names (email addresses) of the workspace's non-admin users. Each user must already exist in the account; they join `<project>-workspace-users`. | `list(string)` | `[]` | no |
 
 ## Outputs
@@ -215,7 +229,7 @@ No modules.
 | admin\_group\_name | Account group with ADMIN on the workspace (`<project>-workspace-admins`). |
 | cross\_account\_role\_arn | ARN of the cross-account role Databricks assumes to run clusters in the VPC. |
 | root\_bucket\_name | Name of the workspace root bucket (`<p>-databricks-root`). |
-| s3\_endpoint\_policy | Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, and the catalog bucket only for the Unity Catalog role. Built from names only, so it is known before the workspace exists. |
+| s3\_endpoint\_policy | Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, the catalog bucket only for the Unity Catalog role, and read actions on each of `read_only_datasets` (under its prefix) only for that dataset's role. Built from names only, so it is known before the workspace exists. |
 | security\_group\_id | ID of the workspace clusters' security group. |
 | users\_group\_name | Account group with USER on the workspace (`<project>-workspace-users`). |
 | workspace\_id | Numeric ID of the workspace. |

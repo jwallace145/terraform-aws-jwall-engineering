@@ -142,6 +142,49 @@ variable "service_principal_application_id" {
   }
 }
 
+variable "read_only_datasets" {
+  description = "Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ rusty-chess-nnue = { bucket = \"jwall-engineering-rusty-chess-nnue\", prefix = \"data/\", role_arn = \"arn:aws:iam::111122223333:role/jwall-engineering-rusty-chess-nnue-databricks-share\" } }`: the `endpoint_dataset` output of `databricks-shared-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader."
+  type = map(object({
+    bucket   = string
+    prefix   = string
+    role_arn = string
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k in keys(var.read_only_datasets) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", k)) && length(k) <= 40])
+    error_message = "every key of read_only_datasets must be kebab-case and at most 40 characters, for example `rusty-chess-nnue`; change the read_only_datasets variable."
+  }
+
+  validation {
+    condition     = alltrue([for d in values(var.read_only_datasets) : can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", d.bucket))])
+    error_message = "every bucket in read_only_datasets must be an S3 bucket name such as `jwall-engineering-rusty-chess-nnue`; change the read_only_datasets variable."
+  }
+
+  # A non-empty prefix, as a dataset's readers are granted: path segments
+  # ending in `/`, no leading `/`, no wildcard.
+  validation {
+    condition     = alltrue([for d in values(var.read_only_datasets) : can(regex("^([A-Za-z0-9!_.'()-]+/)+$", d.prefix))])
+    error_message = "every prefix in read_only_datasets must be one or more path segments ending in `/` with no leading `/` and no `*`, for example `data/`; change the read_only_datasets variable."
+  }
+
+  validation {
+    condition     = alltrue([for d in values(var.read_only_datasets) : can(regex("^arn:aws:iam::[0-9]{12}:role/.+$", d.role_arn))])
+    error_message = "every role_arn in read_only_datasets must be an IAM role ARN, the dataset role from databricks-shared-dataset's endpoint_dataset output; change the read_only_datasets variable."
+  }
+
+  # The workspace's own buckets are already covered, and its own Unity
+  # Catalog role reads only its catalog: a dataset must bring its own role.
+  validation {
+    condition = alltrue([
+      for d in values(var.read_only_datasets) :
+      !contains(["${var.name_root}-${var.project}-databricks-root", "${var.name_root}-${var.project}-databricks-catalog"], d.bucket) &&
+      !endswith(d.role_arn, ":role/${var.name_root}-${var.project}-databricks-uc")
+    ])
+    error_message = "read_only_datasets must not name the workspace's own root or catalog bucket, or its own Unity Catalog role; pass shared datasets from databricks-shared-dataset only."
+  }
+}
+
 variable "component" {
   description = "Value of the `Component` tag on every AWS resource."
   type        = string

@@ -34,6 +34,6 @@ output "security_group_id" {
 }
 
 output "s3_endpoint_policy" {
-  description = "Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, and the catalog bucket only for the Unity Catalog role. Built from names only, so it is known before the workspace exists."
+  description = "Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, the catalog bucket only for the Unity Catalog role, and read actions on each of `read_only_datasets` (under its prefix) only for that dataset's role. Built from names only, so it is known before the workspace exists."
   value       = local.s3_endpoint_policy
 }
