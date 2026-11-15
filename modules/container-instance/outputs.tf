@@ -72,3 +72,12 @@ output "records_sync_script" {
   description = "Internal: the installed records sync script text, for tests."
   value       = local.records_sync_script
 }
+
+output "schedule" {
+  description = "With a `schedule`: the names of its start, drain and stop schedules (EventBridge Scheduler, default group) and the UTC cron expression of each. Null without one."
+  value = local.scheduled ? {
+    start = { name = aws_scheduler_schedule.start[0].name, expression = local.schedule_expressions.start }
+    drain = { name = aws_scheduler_schedule.drain[0].name, expression = local.schedule_expressions.drain }
+    stop  = { name = aws_scheduler_schedule.stop[0].name, expression = local.schedule_expressions.stop }
+  } : null
+}

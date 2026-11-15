@@ -10,6 +10,11 @@ set -euo pipefail
 #
 #   container-reconcile            swap only if the desired tag is not running
 #   container-reconcile --restart  swap even if it is (picks up a new secret)
+#   container-reconcile --drain    stop the container gracefully, then power
+#                                  the instance off (its schedule, `bot stop`)
+#
+# A drained instance starts again with no container, so the run at boot
+# starts the desired tag.
 #
 # Guarantees:
 #   - everything that can fail for an ordinary reason (pulling the image,
@@ -28,6 +33,7 @@ RECORDS_OWNER=${CONTAINER_INSTANCE_RECORDS_OWNER:-1000}
 RUN_DIR=${CONTAINER_INSTANCE_RUN_DIR:-/run/container-instance}
 LOCK_FILE=${CONTAINER_INSTANCE_LOCK_FILE:-/run/lock/container-reconcile.lock}
 RECORDS_SYNC=${CONTAINER_INSTANCE_RECORDS_SYNC:-/usr/local/bin/container-records-sync}
+POWEROFF=${CONTAINER_INSTANCE_POWEROFF:-systemctl poweroff}
 ENV_FILE="$RUN_DIR/app.env"
 
 # shellcheck source=/dev/null
@@ -176,17 +182,46 @@ stop_gracefully() {
   docker rm app >/dev/null 2>&1 || true
 }
 
+# Stop the container the way a swap does (one signal, then wait as long as it
+# takes: the bot finishes its game), ship its records, then power off. The
+# instance's shutdown behaviour is `stop`, so it stays stopped until something
+# starts it. A hard stop scheduled after the drain bounds how long that wait can
+# keep the instance up.
+drain() {
+  local current
+  current=$(running_image)
+  if [ -n "$current" ]; then
+    stop_gracefully "${current##*:}"
+  elif app_exists; then
+    docker rm app >/dev/null 2>&1 || true
+  fi
+  status_soft stopped
+  log "drained; powering off"
+  $POWEROFF
+}
+
 main() {
   local force=0 desired latest running current previous
-  if [ "${1:-}" = "--restart" ]; then
-    force=1
-  fi
+  case "${1:-}" in
+    "") ;;
+    --restart) force=1 ;;
+    --drain) ;;
+    *)
+      log "unknown argument: $1 (expected --restart or --drain)"
+      exit 2
+      ;;
+  esac
 
   exec 9>"$LOCK_FILE"
   flock 9
   trap 'rm -f "$ENV_FILE"' EXIT
   set -E
   trap 'on_error $LINENO' ERR
+
+  if [ "${1:-}" = "--drain" ]; then
+    drain
+    exit 0
+  fi
 
   desired=$(param_get desired-version)
   if [ -z "$desired" ]; then

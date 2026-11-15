@@ -86,9 +86,9 @@ run "no_writes" {
   assert {
     condition = alltrue([
       for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) :
-      can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:GetReplicationConfiguration|s3:ListBucket$|logs:FilterLogEvents|logs:GetLogEvents)", a))
+      can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:GetReplicationConfiguration|s3:ListBucket$|logs:FilterLogEvents|logs:GetLogEvents|scheduler:GetSchedule$)", a))
     ])
-    error_message = "container/read must grant read-only actions: ${join(", ", [for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : a if !can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:GetReplicationConfiguration|s3:ListBucket$|logs:FilterLogEvents|logs:GetLogEvents)", a))])}"
+    error_message = "container/read must grant read-only actions: ${join(", ", [for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : a if !can(regex("^(ec2:Describe|ec2:Get|iam:Get|iam:List|ecr:Describe|ecr:List|ecr:GetRepositoryPolicy|ecr:GetLifecyclePolicy|ssm:GetParameter|ssm:DescribeParameters|ssm:ListTagsForResource|logs:Describe|logs:ListTagsForResource|s3:GetBucket|s3:GetEncryptionConfiguration|s3:GetLifecycleConfiguration|s3:GetAccelerateConfiguration|s3:GetReplicationConfiguration|s3:ListBucket$|logs:FilterLogEvents|logs:GetLogEvents|scheduler:GetSchedule$)", a))])}"
   }
 }
 
@@ -153,5 +153,19 @@ run "reads_the_bot_logs" {
       startswith(r, "arn:aws:logs:us-east-1:123456789012:log-group:/jwall-engineering/rusty-chess/")
     ])
     error_message = "log reads stay limited to the project's log groups"
+  }
+}
+
+run "reads_only_the_projects_schedules" {
+  command = plan
+
+  assert {
+    condition = [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadProjectSchedules"][0] == {
+      Sid      = "ReadProjectSchedules"
+      Effect   = "Allow"
+      Action   = "scheduler:GetSchedule"
+      Resource = "arn:aws:scheduler:us-east-1:123456789012:schedule/default/jwall-engineering-rusty-chess-*"
+    }
+    error_message = "the plan role may read only the project's schedules"
   }
 }

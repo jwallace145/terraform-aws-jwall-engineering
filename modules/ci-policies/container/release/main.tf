@@ -68,6 +68,19 @@ locals {
         }
       },
       {
+        # `bot start`: a scheduled instance started by hand. Stopping goes
+        # through the drain (SendCommand above), never StopInstances.
+        Sid      = "StartProjectInstances"
+        Effect   = "Allow"
+        Action   = "ec2:StartInstances"
+        Resource = "arn:aws:ec2:${local.region}:${local.account_id}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/Project" = var.project
+          }
+        }
+      },
+      {
         # Gap: command status actions have no resource-level support.
         Sid    = "FollowCommands"
         Effect = "Allow"

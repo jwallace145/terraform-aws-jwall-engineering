@@ -140,6 +140,45 @@ lichess-bot resumes it in a new container, the finished game is filed
 under the new container's tag, which played its last moves. Any change to the layout or
 the sidecar keys is a new `schema=` value, never an edit of `schema=1`.
 
+## Running hours
+
+`schedule` runs the instance only part of the day, in UTC, with EventBridge
+Scheduler and no Lambda. Without it the instance runs all the time.
+
+```hcl
+schedule = { days = "daily", start = "08:00", stop = "20:00" }   # daily | weekdays | weekends
+```
+
+| Schedule | When | What it does |
+|---|---|---|
+| `<name>-start` | `start` | `ec2:StartInstances`. At boot the reconciler starts the desired tag. |
+| `<name>-drain` | `stop` | Run Command: `container-reconcile --drain`. The container gets the one stop signal a swap sends (a bot stops taking challenges and finishes its game), its records are shipped and the instance powers off. `instance_initiated_shutdown_behavior` is `stop`, so the instance and its disk stay. |
+| `<name>-stop` | `stop` + `drain_minutes` (default 60) | `ec2:StopInstances`, in case the drain is still waiting or never ran. A game still in progress then is lost. |
+
+All three run as `<name>-scheduler`, which may start and stop this one
+instance and send it `AWS-RunShellScript`, nothing else. A drain sets the
+`status` parameter to `stopped`; the next boot sets it back to `ok`.
+
+The schedule is kept regular on purpose. `days` is `daily`, `weekdays`
+(Monday to Friday) or `weekends`; `start` and `stop` are on a quarter hour and
+on the same day, so a window never crosses midnight; the window is 4 to 20
+hours, so the instance is up and down at least 4 hours at a time; and the hard
+stop must fall before midnight. Anything else fails the plan.
+
+Things to know:
+
+- **A deploy while the instance is stopped** cannot run Run Command on it.
+  The desired tag is in the parameter, and the reconciler at the next start
+  converges to it.
+- **A start outside the window** (by hand, to test) lasts until the next drain,
+  which can be most of a day later. Drain it the way the schedule does with
+  `aws ssm send-command --document-name AWS-RunShellScript --instance-ids <id>
+  --parameters 'commands=["/usr/local/bin/container-reconcile-async --drain"]'`.
+- **Each start gets a new public IP.** The instance has no ingress, so nothing
+  depends on it.
+- **Adding the drain mode to an existing instance replaces it** once, like any
+  change to the on-instance scripts.
+
 ## Access
 
 ```sh
@@ -176,6 +215,9 @@ module "bot" {
   records_bucket_name    = module.records.name
   records_container_path = "/opt/lichess-bot/game_records"
   health_log_pattern     = "awaiting challenges"
+
+  # Optional: run 08:00-20:00 UTC every day instead of all the time.
+  schedule = { days = "daily", start = "08:00", stop = "20:00" }
 }
 ```
 
@@ -203,10 +245,15 @@ No modules.
 | ---- | ---- |
 | [aws_cloudwatch_log_group.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_iam_instance_profile.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
+| [aws_iam_role.scheduler](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.scheduler](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy_attachment.ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_instance.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
+| [aws_scheduler_schedule.drain](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/scheduler_schedule) | resource |
+| [aws_scheduler_schedule.start](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/scheduler_schedule) | resource |
+| [aws_scheduler_schedule.stop](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/scheduler_schedule) | resource |
 | [aws_security_group.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_vpc_security_group_egress_rule.all_ipv4](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_egress_rule) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
@@ -228,6 +275,7 @@ No modules.
 | bot\_name | Name of the account the container plays as (for example the Lichess bot user), recorded in every game record's sidecar. | `string` | `""` | no |
 | component | Value of the `Component` tag on every resource. The release CLI finds the instance by `Project` and this tag. | `string` | `"container-instance"` | no |
 | container\_environment | Plain environment variables for the container. Values must not contain spaces. | `map(string)` | `{}` | no |
+| drain\_minutes | With a `schedule`: how long after `stop` the instance is stopped regardless, if the container has not finished by then (a game still in progress is lost). | `number` | `60` | no |
 | health\_log\_pattern | Text the new container must log within `health_seconds` to count as healthy, for example `awaiting challenges`. Empty: it only has to stay up. | `string` | `""` | no |
 | health\_seconds | How long a new container has to prove it is healthy before it is rolled back. | `number` | `90` | no |
 | instance\_type | EC2 instance type. Must match `architecture` (t3 for x86\_64, t4g for arm64). | `string` | `"t3.micro"` | no |
@@ -237,6 +285,7 @@ No modules.
 | records\_container\_path | Absolute path inside the container where it writes one `.pgn` file per game. Required when `records_bucket_name` is set; the host directory mounted there is per image tag. | `string` | `null` | no |
 | records\_prefix | Key prefix in the records bucket. Below it the layout is fixed: `pgn/schema=1/engine=<tag>/date=<YYYY-MM-DD>/<game_id>.pgn` and the matching `meta/.../<game_id>.json` sidecar. | `string` | `"records/"` | no |
 | root\_volume\_gb | Size of the gp3 root volume in GB. It holds Docker images and the game records until they are shipped. | `number` | `16` | no |
+| schedule | When the instance runs, in UTC; null runs it all the time. `days` is `daily`,<br/>`weekdays` (Monday to Friday) or `weekends`; `start` and `stop` are `HH:MM` on a<br/>quarter hour, on the same day. At `start` the instance is started; at `stop` the<br/>container is asked to finish (a bot ends its game) and the instance powers off;<br/>`drain_minutes` later it is stopped regardless. The window is 4 to 20 hours, so<br/>the instance is up and down at least 4 hours each, and `stop` plus<br/>`drain_minutes` falls on the same day. | <pre>object({<br/>    days  = string<br/>    start = string<br/>    stop  = string<br/>  })</pre> | `null` | no |
 | secret\_parameters | Environment variables the container gets from SecureString parameters: variable name to parameter name, for example `{ LICHESS_TOKEN = "/jwall-engineering/rusty-chess/lichess-token" }`. The parameters are created out of band, never by Terraform; the instance may read exactly these. | `map(string)` | `{}` | no |
 | stop\_poll\_seconds | How often the reconciler checks whether the stopping container has exited. | `number` | `15` | no |
 | stop\_signal | Signal sent once to the running container to ask it to finish and exit. It is never followed by a kill. | `string` | `"SIGINT"` | no |
@@ -258,5 +307,6 @@ No modules.
 | records\_uri | S3 URI the game records are shipped under, or null without a records bucket. |
 | role\_arn | ARN of the instance role. |
 | role\_name | Name of the instance role. |
+| schedule | With a `schedule`: the names of its start, drain and stop schedules (EventBridge Scheduler, default group) and the UTC cron expression of each. Null without one. |
 | security\_group\_id | ID of the egress-only security group. |
 <!-- END_TF_DOCS -->

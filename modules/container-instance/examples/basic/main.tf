@@ -54,6 +54,8 @@ module "bot" {
   records_bucket_name    = module.records.name
   records_container_path = "/opt/lichess-bot/game_records"
   health_log_pattern     = "awaiting challenges"
+
+  schedule = { days = "daily", start = "08:00", stop = "20:00" }
 }
 
 output "instance_id" {

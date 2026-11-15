@@ -35,7 +35,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "policies" {
-  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`, `databricks/read`, `databricks/manage`. Each role accepts only some of them; see the README."
+  description = "Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `container/schedule`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`, `databricks/read`, `databricks/manage`. Each role accepts only some of them; see the README."
   type        = set(string)
 
   validation {
