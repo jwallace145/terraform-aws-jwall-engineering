@@ -10,7 +10,10 @@ the Databricks credentials and storage configuration, and the
 **Scope.** Databricks (the delivery role) may write only under
 `<prefix>/*` (`audit/*` by default); its bucket-level rights are
 `s3:GetBucketLocation` and listing limited by an `s3:prefix` condition to the
-prefix, as in Databricks' documented policy. The role trusts Databricks'
+prefix, as in Databricks' documented policy. Unlike that policy,
+`s3:ListMultipartUploadParts` is granted on the prefix's objects, not the bucket
+ARN: it is an object-level action, and S3 rejects a bucket policy statement
+whose actions apply to none of its resources (`MalformedPolicy`). The role trusts Databricks'
 `SaasUsageDeliveryRole` (not the account root) with the account ID as external ID. The bucket policy has no Deny besides non-TLS
 requests, so the bucket can also host a future `events/` prefix written by
 the account's own principals through their IAM policies.
