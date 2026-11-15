@@ -332,7 +332,7 @@ resource "databricks_mws_permission_assignment" "users" {
 locals {
   s3_endpoint_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Sid       = "DatabricksRequired"
         Effect    = "Allow"
@@ -360,6 +360,28 @@ locals {
           ArnEquals = { "aws:PrincipalArn" = local.uc_role_arn }
         }
       },
-    ]
+    ], local.read_only_dataset_statements)
   })
+
+  # Shared datasets this workspace may read, through Unity Catalog only: read
+  # actions, each dataset's prefix only, and only as that dataset's own Unity
+  # Catalog role (the role behind its one shared, read-only external
+  # location, `databricks-shared-dataset`). One statement per dataset, so a
+  # role can reach only its own dataset. The endpoint only lets requests
+  # through; the dataset's bucket policy (its readers) grants the reads.
+  read_only_dataset_statements = [
+    for key in sort(keys(var.read_only_datasets)) : {
+      Sid       = "ReadOnlyDataset${join("", [for w in split("-", key) : title(w)])}"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"]
+      Resource = [
+        "arn:aws:s3:::${var.read_only_datasets[key].bucket}",
+        "arn:aws:s3:::${var.read_only_datasets[key].bucket}/${var.read_only_datasets[key].prefix}*",
+      ]
+      Condition = {
+        ArnEquals = { "aws:PrincipalArn" = var.read_only_datasets[key].role_arn }
+      }
+    }
+  ]
 }
