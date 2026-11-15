@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.20.0...v0.21.0) (2026-11-15)
+
+
+### Features
+
+* **databricks:** share read-only datasets across workspaces through a serverless host ([#63](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/63)) ([7a62688](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/7a6268873ffbaa715ffaae1893923a088fd79281))
+
 ## [0.20.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.19.2...v0.20.0) (2026-11-15)
 
 
