@@ -71,6 +71,9 @@ resource "aws_instance" "this" {
   iam_instance_profile        = aws_iam_instance_profile.this.name
   monitoring                  = false
 
+  # A drain powers the instance off from inside; it must stop, not terminate.
+  instance_initiated_shutdown_behavior = "stop"
+
   user_data                   = local.user_data
   user_data_replace_on_change = true
 

@@ -99,6 +99,12 @@ locals {
         Resource = "*"
       },
       {
+        Sid      = "ReadProjectSchedules"
+        Effect   = "Allow"
+        Action   = "scheduler:GetSchedule"
+        Resource = "arn:aws:scheduler:${local.region}:${local.account_id}:schedule/default/${local.prefix}-*"
+      },
+      {
         Sid    = "ReadProjectLogGroups"
         Effect = "Allow"
         Action = [

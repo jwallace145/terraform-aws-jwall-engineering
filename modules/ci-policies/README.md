@@ -26,6 +26,7 @@ folder: `static-site/deploy` lives in [`static-site/deploy/`](static-site/deploy
 | [`container/read`](container/read) | read | Describe EC2, read the project's instance role and policies, image repository, parameters, log groups and their events, and records bucket configuration | none |
 | [`container/manage`](container/manage) | write | Create and manage the project's VPC, instance, instance role, image repository, log groups and records bucket configuration; never their objects, never parameter values | `container = { attachable_policy_arns? }` (optional) |
 | [`container/release`](container/release) | release | Push images to the project's repository, write `/<name_root>/<project>/bot/*` parameters, run `AWS-RunShellScript` on instances tagged with the project and follow it | none |
+| [`container/schedule`](container/schedule) | write | Create, update and delete the project's EventBridge Scheduler schedules (`<name_root>-<project>-*`, default group) and pass its `*-scheduler` role to `scheduler.amazonaws.com` | none |
 | [`compute/read`](compute/read) | read | Describe EC2, read the project's instance role and policies, its log groups and their events | none |
 | [`compute/manage`](compute/manage) | write | Create and manage the project's VPC, instance role and log groups; never instances, image repositories, parameters or buckets | none |
 | [`task/read`](task/read) | read | Read the configuration of the project's task results bucket | none |
@@ -42,7 +43,8 @@ project's prefix, for example `project=guitar/`).
 
 Write policies grant no reads. The apply role needs the matching read policy
 too, for refresh: `static-site/read` with `static-site/deploy`,
-`foundation/read` with `foundation/manage`, `compute/read` with
+`foundation/read` with `foundation/manage`, `container/read` with
+`container/manage` and `container/schedule`, `compute/read` with
 `compute/manage`, and `databricks/read` with `databricks/manage`.
 
 A Databricks workspace project holds `compute/*` and `databricks/*`
@@ -193,6 +195,7 @@ No providers.
 | container\_manage | ./container/manage | n/a |
 | container\_read | ./container/read | n/a |
 | container\_release | ./container/release | n/a |
+| container\_schedule | ./container/schedule | n/a |
 | databricks\_manage | ./databricks/manage | n/a |
 | databricks\_read | ./databricks/read | n/a |
 | dataset\_manage | ./dataset/manage | n/a |
@@ -219,7 +222,7 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | oidc\_provider\_arn | ARN of the account's GitHub Actions OIDC provider, which `foundation/read` may read. | `string` | n/a | yes |
-| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`, `databricks/read`, `databricks/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
+| policies | Policies to create, from the catalog: `tfstate/read`, `tfstate/write`, `static-site/read`, `static-site/deploy`, `static-site/previews`, `foundation/read`, `foundation/manage`, `ecr/pull`, `ecr/push`, `container/read`, `container/manage`, `container/release`, `container/schedule`, `compute/read`, `compute/manage`, `task/read`, `task/manage`, `task/launch`, `dataset/read`, `dataset/manage`, `databricks/read`, `databricks/manage`. Each role accepts only some of them; see the README. | `set(string)` | n/a | yes |
 | project | Project in kebab-case, for example `guitar` or `infra`. Used in policy names and as the `Project` tag value static-site policies are scoped to. | `string` | n/a | yes |
 | role | The CI role the policies are for: `plan`, `preview`, `apply`, `release` or `task`. It decides which policies may be requested. | `string` | n/a | yes |
 | name\_root | Prefix of every policy name, in kebab-case. Policies are named `<name_root>-<project>-ci-<role>-<family>-<name>`. | `string` | `"jwall-engineering"` | no |

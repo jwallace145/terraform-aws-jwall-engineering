@@ -147,6 +147,16 @@ json.dump(s, open(state_path, "w"))
 '''
 
 FAKE_FLOCK = "#!/bin/sh\nexit 0\n"
+FAKE_POWEROFF = r'''#!/usr/bin/env python3
+import json, os
+import fcntl
+state_path = os.environ["FAKE_STATE"]
+_lock = open(state_path + ".lock", "w")
+fcntl.flock(_lock, fcntl.LOCK_EX)
+s = json.load(open(state_path))
+s["calls"].append(["poweroff"])
+json.dump(s, open(state_path, "w"))
+'''
 FAKE_SYNC = '#!/bin/sh\necho sync >> "$FAKE_SYNC_LOG"\n'
 
 
@@ -156,7 +166,8 @@ class Reconciler:
         self.bin = tmp / "bin"
         self.bin.mkdir()
         for name, body in (("docker", FAKE_DOCKER), ("aws", FAKE_AWS), ("sleep", FAKE_SLEEP),
-                           ("flock", FAKE_FLOCK), ("container-records-sync", FAKE_SYNC)):
+                           ("flock", FAKE_FLOCK), ("container-records-sync", FAKE_SYNC),
+                           ("fake-poweroff", FAKE_POWEROFF)):
             path = self.bin / name
             path.write_text(body)
             path.chmod(0o755)
@@ -203,6 +214,7 @@ class Reconciler:
             "CONTAINER_INSTANCE_RUN_DIR": str(self.tmp / "run"),
             "CONTAINER_INSTANCE_LOCK_FILE": str(self.tmp / "reconcile.lock"),
             "CONTAINER_INSTANCE_RECORDS_SYNC": str(self.bin / "container-records-sync"),
+            "CONTAINER_INSTANCE_POWEROFF": str(self.bin / "fake-poweroff"),
         })
         environ.update(env)
         return subprocess.run(["bash", str(SCRIPT), *args], env=environ, capture_output=True, text=True)
@@ -232,6 +244,74 @@ class ReconcilerTests(unittest.TestCase):
 
     def assertDone(self, result: subprocess.CompletedProcess, code: int = 0) -> None:
         self.assertEqual(result.returncode, code, result.stderr)
+
+    def powered_off(self) -> bool:
+        return ["poweroff"] in self.r.state["calls"]
+
+    def test_drain_stops_the_container_gracefully_then_powers_off(self) -> None:
+        self.r.seed({"desired-version": "v1", "running-version": "v1"}, "v1")
+        self.assertDone(self.r.run("--drain", FAKE_STOP_POLLS="3"))
+        self.assertEqual(self.r.docker_calls("kill"), [["kill", "--signal=SIGINT", "app"]])
+        calls = [c[0] if c[0] != "docker" else c[1] for c in self.r.state["calls"]]
+        self.assertLess(calls.index("update"), calls.index("kill"), "restart policy is cleared before the signal")
+        self.assertGreaterEqual(self.r.state["sleeps"], 3, "it waits for the game to finish")
+        self.assertNotIn("app", self.r.state["containers"], "the container is removed")
+        self.assertGreaterEqual(len(self.r.sync_log.read_text().splitlines()), 2, "records shipped before and after")
+        self.assertEqual(self.r.param("status"), "stopped")
+        self.assertEqual(self.r.param("running-version"), "v1", "what ran is kept")
+        self.assertEqual(calls[-1], "poweroff", "power off comes last")
+        self.assertEqual(self.r.state["started"], [], "nothing is started")
+
+    def test_drain_with_nothing_running_still_powers_off(self) -> None:
+        self.r.seed({"desired-version": "v1"}, None)
+        self.assertDone(self.r.run("--drain"))
+        self.assertEqual(self.r.docker_calls("kill"), [])
+        self.assertEqual(self.r.param("status"), "stopped")
+        self.assertTrue(self.powered_off())
+
+    def test_drain_removes_an_exited_container(self) -> None:
+        self.r.seed({"desired-version": "v1"}, "v1", app_state="exited")
+        self.assertDone(self.r.run("--drain"))
+        self.assertEqual(self.r.docker_calls("kill"), [])
+        self.assertNotIn("app", self.r.state["containers"])
+        self.assertTrue(self.powered_off())
+
+    def test_drain_without_a_desired_version_still_drains(self) -> None:
+        # A drain never depends on the deploy parameters.
+        self.r.seed({}, "v1")
+        self.assertDone(self.r.run("--drain"))
+        self.assertEqual(self.r.docker_calls("kill"), [["kill", "--signal=SIGINT", "app"]])
+        self.assertTrue(self.powered_off())
+
+    def test_boot_after_a_drain_starts_the_desired_tag(self) -> None:
+        self.r.seed({"desired-version": "v1", "running-version": "v1"}, "v1")
+        self.assertDone(self.r.run("--drain"))
+        self.assertDone(self.r.run())  # container-reconcile.service at the next boot
+        self.assertEqual(self.r.app_tag(), "v1")
+        self.assertEqual(self.r.param("status"), "ok")
+
+    def test_boot_after_a_drain_picks_up_a_deploy_made_while_stopped(self) -> None:
+        self.r.seed({"desired-version": "v1", "running-version": "v1"}, "v1")
+        self.assertDone(self.r.run("--drain"))
+        state = self.r.state
+        state["params"][f"{PREFIX}/desired-version"] = "v2"  # a release while the instance was off
+        self.r.state_path.write_text(json.dumps(state))
+        self.assertDone(self.r.run())
+        self.assertEqual(self.r.app_tag(), "v2")
+        self.assertEqual(self.r.param("running-version"), "v2")
+
+    def test_a_reconcile_never_powers_off(self) -> None:
+        self.r.seed({"desired-version": "v2", "running-version": "v1"}, "v1")
+        self.assertDone(self.r.run())
+        self.assertFalse(self.powered_off())
+
+    def test_an_unknown_argument_is_refused(self) -> None:
+        self.r.seed({"desired-version": "v1"}, "v1")
+        result = self.r.run("--stop")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unknown argument", result.stderr)
+        self.assertEqual(self.r.docker_calls("kill"), [])
+        self.assertFalse(self.powered_off())
 
     def test_converged_does_nothing(self) -> None:
         self.r.seed({"desired-version": "v1", "running-version": "v1"}, "v1")

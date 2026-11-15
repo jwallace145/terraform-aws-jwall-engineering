@@ -131,3 +131,22 @@ run "fits_policy_size_limit" {
     error_message = "managed policies are limited to 6144 characters"
   }
 }
+
+run "starts_only_project_instances_and_never_stops_them" {
+  command = plan
+
+  assert {
+    condition = [for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "StartProjectInstances"][0] == {
+      Sid       = "StartProjectInstances"
+      Effect    = "Allow"
+      Action    = "ec2:StartInstances"
+      Resource  = "arn:aws:ec2:us-east-1:123456789012:instance/*"
+      Condition = { StringEquals = { "aws:ResourceTag/Project" = "rusty-chess" } }
+    }
+    error_message = "the release role may start the project's instances only"
+  }
+  assert {
+    condition     = !anytrue([for a in flatten([for s in jsondecode(aws_iam_policy.this.policy).Statement : tolist(flatten([s.Action]))]) : contains(["ec2:StopInstances", "ec2:TerminateInstances", "ec2:RunInstances"], a)])
+    error_message = "the release role never stops, terminates or launches an instance (bot stop drains through SendCommand)"
+  }
+}

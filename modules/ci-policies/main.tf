@@ -16,6 +16,7 @@ locals {
     "container/read"       = "read"
     "container/manage"     = "write"
     "container/release"    = "release"
+    "container/schedule"   = "write"
     "compute/read"         = "read"
     "compute/manage"       = "write"
     "task/read"            = "read"
@@ -172,6 +173,15 @@ module "container_release" {
   count  = contains(var.policies, "container/release") ? 1 : 0
 
   name      = local.names["container/release"]
+  name_root = var.name_root
+  project   = var.project
+}
+
+module "container_schedule" {
+  source = "./container/schedule"
+  count  = contains(var.policies, "container/schedule") ? 1 : 0
+
+  name      = local.names["container/schedule"]
   name_root = var.name_root
   project   = var.project
 }

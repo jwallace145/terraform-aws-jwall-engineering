@@ -239,3 +239,63 @@ variable "component" {
     error_message = "component must not be empty."
   }
 }
+
+variable "schedule" {
+  description = <<-EOT
+    When the instance runs, in UTC; null runs it all the time. `days` is `daily`,
+    `weekdays` (Monday to Friday) or `weekends`; `start` and `stop` are `HH:MM` on a
+    quarter hour, on the same day. At `start` the instance is started; at `stop` the
+    container is asked to finish (a bot ends its game) and the instance powers off;
+    `drain_minutes` later it is stopped regardless. The window is 4 to 20 hours, so
+    the instance is up and down at least 4 hours each, and `stop` plus
+    `drain_minutes` falls on the same day.
+  EOT
+  type = object({
+    days  = string
+    start = string
+    stop  = string
+  })
+  default = null
+
+  validation {
+    condition     = var.schedule == null || contains(["daily", "weekdays", "weekends"], try(var.schedule.days, ""))
+    error_message = "schedule.days must be daily, weekdays or weekends."
+  }
+
+  validation {
+    condition = var.schedule == null || alltrue([
+      for t in [try(var.schedule.start, ""), try(var.schedule.stop, "")] :
+      can(regex("^([01][0-9]|2[0-3]):(00|15|30|45)$", t))
+    ])
+    error_message = "schedule.start and schedule.stop must be HH:MM in UTC on a quarter hour, from 00:00 to 23:45, for example 08:00."
+  }
+
+  validation {
+    condition = var.schedule == null || !can(regex("^([01][0-9]|2[0-3]):(00|15|30|45)$", try(var.schedule.start, ""))) || !can(regex("^([01][0-9]|2[0-3]):(00|15|30|45)$", try(var.schedule.stop, ""))) || (
+      (tonumber(substr(var.schedule.stop, 0, 2)) * 60 + tonumber(substr(var.schedule.stop, 3, 2))) -
+      (tonumber(substr(var.schedule.start, 0, 2)) * 60 + tonumber(substr(var.schedule.start, 3, 2)))
+      ) >= 240 && (
+      (tonumber(substr(var.schedule.stop, 0, 2)) * 60 + tonumber(substr(var.schedule.stop, 3, 2))) -
+      (tonumber(substr(var.schedule.start, 0, 2)) * 60 + tonumber(substr(var.schedule.start, 3, 2)))
+    ) <= 1200
+    error_message = "schedule.stop must be 4 to 20 hours after schedule.start on the same day (no window across midnight), so the instance is up and down at least 4 hours each."
+  }
+
+  validation {
+    condition = var.schedule == null || !can(regex("^([01][0-9]|2[0-3]):(00|15|30|45)$", try(var.schedule.stop, ""))) || (
+      tonumber(substr(var.schedule.stop, 0, 2)) * 60 + tonumber(substr(var.schedule.stop, 3, 2)) + var.drain_minutes
+    ) <= 1439
+    error_message = "schedule.stop plus drain_minutes must fall before midnight UTC, so the hard stop is on the same day as the stop."
+  }
+}
+
+variable "drain_minutes" {
+  description = "With a `schedule`: how long after `stop` the instance is stopped regardless, if the container has not finished by then (a game still in progress is lost)."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.drain_minutes >= 15 && var.drain_minutes <= 120 && floor(var.drain_minutes) == var.drain_minutes
+    error_message = "drain_minutes must be an integer from 15 to 120."
+  }
+}
