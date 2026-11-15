@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.19.0...v0.19.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **databricks-audit-logs:** grant ListMultipartUploadParts on objects so S3 accepts the policy ([#57](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/57)) ([093d0f2](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/093d0f2f223c05d827cab1c154fd7380631a208b))
+
 ## [0.19.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.18.1...v0.19.0) (2026-11-14)
 
 
