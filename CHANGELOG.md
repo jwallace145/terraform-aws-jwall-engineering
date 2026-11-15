@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.20.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.19.2...v0.20.0) (2026-11-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **databricks:** stop managing system schemas and built-in users, drop the catalog URL slash ([#61](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/61))
+
+### Bug Fixes
+
+* **databricks:** stop managing system schemas and built-in users, drop the catalog URL slash ([#61](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/61)) ([1a60eda](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/1a60edab9ac0a3c38b9ffb971bfe0f8652ccadca))
+
 ## [0.19.2](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.19.1...v0.19.2) (2026-11-15)
 
 
