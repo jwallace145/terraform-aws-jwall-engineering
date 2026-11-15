@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.2](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.19.1...v0.19.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **databricks-audit-logs:** drop ListBucketMultipartUploads so S3 accepts the prefix condition ([#59](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/59)) ([11d90bd](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/11d90bd000d0f15d1bdbe4a95a7c6a614b4b6bfa))
+
 ## [0.19.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.19.0...v0.19.1) (2026-11-15)
 
 
