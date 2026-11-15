@@ -6,11 +6,13 @@ locals {
   # external ID assume this role.
   databricks_log_delivery_arn = "arn:aws:iam::414351767826:role/SaasUsageDeliveryRole-prod-IAMRole-3PLHICCRR1TK"
 
-  # Databricks' documented policy lists ListMultipartUploadParts with the
-  # bucket-level listing actions on the bucket ARN. It is an object-level
-  # action, and S3 rejects a bucket policy statement holding an action that
-  # applies to none of its resources (MalformedPolicy), so it is granted here,
-  # on the prefix's objects, instead.
+  # Two departures from Databricks' documented policy, both because S3 rejects
+  # it as a bucket policy (MalformedPolicy) while IAM accepts it:
+  # - ListMultipartUploadParts is object-level, so it is granted here, on the
+  #   prefix's objects, not on the bucket ARN.
+  # - ListBucketMultipartUploads is dropped. The documented statement puts it
+  #   under an s3:prefix condition, which that action does not support, so it
+  #   never granted anything; dropping it keeps the effective access the same.
   object_actions = [
     "s3:PutObject",
     "s3:GetObject",
@@ -37,11 +39,8 @@ locals {
       ]
     },
     {
-      Effect = "Allow"
-      Action = [
-        "s3:ListBucket",
-        "s3:ListBucketMultipartUploads",
-      ]
+      Effect   = "Allow"
+      Action   = "s3:ListBucket"
       Resource = aws_s3_bucket.this.arn
       Condition = {
         StringLike = {
