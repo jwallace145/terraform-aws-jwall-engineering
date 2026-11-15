@@ -116,6 +116,30 @@ run "audit_bucket_policy_scoped_to_prefix" {
     error_message = "the documented prefix-conditioned ListBucket / ListBucketMultipartUploads statement must be present"
   }
 
+  # S3 rejects a bucket policy statement holding an action that applies to none
+  # of its resources (MalformedPolicy: "Action does not apply to any resource(s)
+  # in statement"); IAM accepts the same statement. So a statement on the
+  # bucket ARN alone carries only bucket-level actions, and
+  # ListMultipartUploadParts (an object-level action) sits on the prefix's objects.
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
+      length(setsubtract(toset(flatten([s.Action])), toset(["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"]))) == 0
+      if s.Effect == "Allow" && toset(flatten([s.Resource])) == toset([aws_s3_bucket.this.arn])
+    ])
+    error_message = "a statement on the bucket ARN alone must carry only bucket-level actions (S3 rejects object-level ones there)"
+  }
+
+  assert {
+    condition = anytrue([
+      for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
+      contains(flatten([s.Action]), "s3:ListMultipartUploadParts") &&
+      toset(flatten([s.Resource])) == toset(["${aws_s3_bucket.this.arn}/audit/", "${aws_s3_bucket.this.arn}/audit/*"])
+      if s.Effect == "Allow"
+    ])
+    error_message = "ListMultipartUploadParts must be granted on the prefix's objects"
+  }
+
   assert {
     condition = length([
       for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s
