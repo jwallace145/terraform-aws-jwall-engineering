@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.21.0...v0.22.0) (2026-11-15)
+
+
+### Features
+
+* **container-instance:** run the instance on a daily UTC schedule with a graceful drain ([#65](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/65)) ([570412b](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/570412b5094cefb6158fea0fdc9ad1c4fe683806))
+
 ## [0.21.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.20.0...v0.21.0) (2026-11-15)
 
 
