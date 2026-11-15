@@ -179,8 +179,11 @@ resource "time_sleep" "uc_role_propagation" {
 # --------------------------------------------------------------- catalog
 
 resource "databricks_external_location" "this" {
-  name            = local.bucket_name
-  url             = "s3://${local.bucket_name}/managed/"
+  name = local.bucket_name
+  # No trailing slash: Databricks stores the URL without one, and the
+  # catalog's storage_root is taken from it, so a slash here makes the provider
+  # report an inconsistent final plan for the catalog.
+  url             = "s3://${local.bucket_name}/managed"
   credential_name = databricks_storage_credential.this.name
   comment         = "Unity Catalog managed storage of ${local.catalog_name}; managed by Terraform"
   isolation_mode  = "ISOLATION_MODE_ISOLATED"

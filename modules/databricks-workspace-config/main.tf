@@ -2,14 +2,20 @@ data "databricks_group" "users" {
   display_name = var.users_group_name
 }
 
-# Every workspace user belongs to the built-in `users` group, which Databricks
-# grants unrestricted cluster creation by default.
+# Every workspace user belongs to the built-in `users` group, so if it could
+# create clusters freely the policies would mean nothing. It is checked, not
+# written: new workspaces give it no entitlements and refuse changes to it
+# ("Entitlement modifications on the workspace-users and admins groups are not
+# permitted for this workspace"). An older workspace that grants it cluster or
+# pool creation fails the plan until an admin removes them.
 data "databricks_group" "builtin_users" {
   count = var.restrict_builtin_users_group ? 1 : 0
 
   display_name = "users"
 }
 
+# System schemas are not managed here: Databricks enables them itself (state
+# MANAGED), and databricks_system_schema reads a MANAGED schema as absent.
 data "databricks_current_metastore" "this" {}
 
 locals {
@@ -50,27 +56,14 @@ resource "databricks_entitlements" "users" {
   databricks_sql_access      = true
   allow_cluster_create       = false
   allow_instance_pool_create = false
-}
-
-resource "databricks_entitlements" "builtin_users" {
-  count = var.restrict_builtin_users_group ? 1 : 0
-
-  group_id                   = data.databricks_group.builtin_users[0].id
-  workspace_access           = true
-  databricks_sql_access      = true
-  allow_cluster_create       = false
-  allow_instance_pool_create = false
-}
-
-resource "databricks_system_schema" "this" {
-  for_each = var.enable_system_schemas ? toset(var.system_schemas) : toset([])
-
-  schema = each.key
 
   lifecycle {
     precondition {
-      condition     = data.databricks_current_metastore.this.id == var.metastore_id
-      error_message = "The workspace is assigned to a different metastore than metastore_id; system schemas are metastore-wide, so check the metastore_id variable."
+      condition = alltrue([
+        for g in data.databricks_group.builtin_users :
+        !coalesce(g.allow_cluster_create, false) && !coalesce(g.allow_instance_pool_create, false)
+      ])
+      error_message = "The workspace's built-in users group can create clusters or instance pools, which bypasses the compute policies. Remove those entitlements in the workspace (Settings > Identity and access > Groups > users), or set restrict_builtin_users_group = false if the group is managed elsewhere."
     }
   }
 }
@@ -90,5 +83,12 @@ resource "databricks_disable_legacy_access_setting" "this" {
 resource "databricks_workspace_conf" "this" {
   custom_config = {
     maxTokenLifetimeDays = tostring(var.max_token_lifetime_days)
+  }
+
+  lifecycle {
+    precondition {
+      condition     = data.databricks_current_metastore.this.id == var.metastore_id
+      error_message = "The workspace is assigned to a different metastore than metastore_id; check the metastore_id variable."
+    }
   }
 }

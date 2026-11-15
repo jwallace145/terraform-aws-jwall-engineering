@@ -12,7 +12,7 @@ project's **workspace stack**. Creates:
   (self-assuming), with Databricks' Unity Catalog permissions scoped to the
   bucket;
 - the storage credential and the external location
-  `s3://<p>-databricks-catalog/managed/`, both isolated;
+  `s3://<p>-databricks-catalog/managed`, both isolated;
 - the catalog `<project>` in snake_case (`databricks-poc` gives
   `databricks_poc`): isolated, `storage_root` = the external location, owned by
   `<project>-workspace-admins`, `tags` as its properties;
@@ -223,7 +223,7 @@ No modules.
 | ---- | ----------- |
 | bucket\_name | Name of the catalog bucket (`<p>-databricks-catalog`); Unity Catalog managed storage is under `managed/`. |
 | catalog\_name | Name of the workspace's catalog: the project in snake\_case, for example `databricks_poc`. |
-| external\_location\_name | Name of the Unity Catalog external location at `s3://<bucket>/managed/`, the catalog's storage root. |
+| external\_location\_name | Name of the Unity Catalog external location at `s3://<bucket>/managed`, the catalog's storage root. |
 | storage\_credential\_name | Name of the Unity Catalog storage credential for the role. |
 | uc\_role\_arn | ARN of the Unity Catalog role (`<p>-databricks-uc`), the only principal that may read or write the bucket's objects. |
 <!-- END_TF_DOCS -->

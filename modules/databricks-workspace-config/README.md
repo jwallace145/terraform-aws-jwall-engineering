@@ -10,14 +10,14 @@ compute policies and settings. Creates:
   override them;
 - `CAN_USE` on every policy for the users group (`users_group_name`), and
   nothing else;
-- `databricks_entitlements` for the users group and, by default, for the
-  built-in `users` group (Databricks grants it unrestricted cluster creation
-  and every user belongs to it), set explicitly (see "Entitlements");
-- with `enable_system_schemas`, one `databricks_system_schema` per entry of
-  `system_schemas` (default `access`, `billing`, `compute`, `lakeflow`,
-  `query`, `storage`). System schemas are metastore-wide: enable them in the
-  one governance workspace only. A precondition checks that the workspace's
-  current metastore is `metastore_id`;
+- `databricks_entitlements` for the users group, set explicitly (see
+  "Entitlements");
+- a check, by default, that the workspace's built-in `users` group (every user
+  belongs to it) cannot create clusters or instance pools. It is checked, not
+  written: new workspaces give that group no entitlements and refuse changes
+  to it. A workspace whose built-in group can do either fails the plan until an
+  admin removes the entitlement;
+- a check that the workspace's current metastore is `metastore_id`;
 - workspace settings: `databricks_disable_legacy_dbfs_setting` (true),
   `databricks_disable_legacy_access_setting` (true) and
   `databricks_workspace_conf` with `maxTokenLifetimeDays` (default 90).
@@ -59,6 +59,14 @@ default to `false`). Each entitlement is therefore stated:
 
 Destroying the resource removes these entitlements from the group.
 
+## System schemas
+
+System schemas (`system.access`, `system.billing` and the rest) are not
+managed here. Databricks enables them itself on current metastores (their
+state is `MANAGED`), and the provider's `databricks_system_schema` reads a
+`MANAGED` schema as absent, so applying it fails with "Root object was present,
+but now absent".
+
 ## Policy definitions are JSON strings
 
 `compute_policies[*].definition` is a JSON string, not an object: pass
@@ -77,7 +85,7 @@ from 0.18.0, which no consumer had pinned yet.
 - `fixed_tags`: no empty keys or values; must contain `Project`,
   `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy`, and no key
   Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`).
-- `metastore_id`: a UUID. `system_schemas`: lowercase schema names.
+- `metastore_id`: a UUID.
 - `max_token_lifetime_days`: a positive whole number.
 
 ## Known gaps
@@ -154,10 +162,8 @@ No modules.
 | [databricks_cluster_policy.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/cluster_policy) | resource |
 | [databricks_disable_legacy_access_setting.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/disable_legacy_access_setting) | resource |
 | [databricks_disable_legacy_dbfs_setting.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/disable_legacy_dbfs_setting) | resource |
-| [databricks_entitlements.builtin_users](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/entitlements) | resource |
 | [databricks_entitlements.users](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/entitlements) | resource |
 | [databricks_permissions.policy](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/permissions) | resource |
-| [databricks_system_schema.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/system_schema) | resource |
 | [databricks_workspace_conf.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/workspace_conf) | resource |
 | [databricks_current_metastore.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/data-sources/current_metastore) | data source |
 | [databricks_group.builtin_users](https://registry.terraform.io/providers/databricks/databricks/latest/docs/data-sources/group) | data source |
@@ -169,12 +175,10 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | compute\_policies | Platform-owned cluster policies, keyed by policy name (lowercase kebab-case, for example `team-a-jobs`). `definition` is the policy rules (Databricks' policy definition language) as a JSON string, so policies may have differently shaped definitions: pass `jsonencode({...})`. The module adds a `fixed` rule for every entry of `fixed_tags` under `custom_tags.<key>`. Each definition must set `autotermination_minutes` and must not set `custom_tags.*` itself. The CLI passes only this project's policies. | <pre>map(object({<br/>    description = string<br/>    definition  = string<br/>  }))</pre> | n/a | yes |
 | fixed\_tags | Tags pinned on every cluster created through a platform policy, as `custom_tags.<key>` rules of type `fixed` (for example `CostCenter`, `Project`). Must contain `Project`, `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy` (the same governance tags as `databricks-workspace`'s `tags`), and no key Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`). | `map(string)` | n/a | yes |
-| metastore\_id | ID of the metastore the workspace is assigned to: the `metastore_id` of `databricks-metastore`. When system schemas are enabled, the plan fails if the workspace's current metastore is a different one. | `string` | n/a | yes |
+| metastore\_id | ID of the metastore the workspace is assigned to: the `metastore_id` of `databricks-metastore`. The plan fails if the workspace's current metastore is a different one. | `string` | n/a | yes |
 | users\_group\_name | Account group that may use the policies (`CAN_USE`) and has cluster creation switched off: the `users_group_name` output of `databricks-workspace` (`<project>-workspace-users`). | `string` | n/a | yes |
-| enable\_system\_schemas | Enable Unity Catalog system schemas (`system.<schema>` tables). Metastore-wide: set it in exactly one workspace, the governance workspace. | `bool` | `false` | no |
 | max\_token\_lifetime\_days | Maximum lifetime of personal access tokens, in days (workspace setting `maxTokenLifetimeDays`). | `number` | `90` | no |
-| restrict\_builtin\_users\_group | Also switch off unrestricted cluster creation for the workspace's built-in `users` group. Databricks grants that entitlement to it by default and every user belongs to it, so leaving it on defeats the policies. Set to false only if the workspace's built-in group is managed elsewhere. | `bool` | `true` | no |
-| system\_schemas | System schemas to enable when `enable_system_schemas` is true. See the Databricks system tables documentation for the names. | `list(string)` | <pre>[<br/>  "access",<br/>  "billing",<br/>  "compute",<br/>  "lakeflow",<br/>  "query",<br/>  "storage"<br/>]</pre> | no |
+| restrict\_builtin\_users\_group | Fail the plan if the workspace's built-in `users` group can create clusters or instance pools. Every user belongs to it, so either entitlement defeats the policies. New workspaces give it none and refuse changes to it, so it is checked, not written. Set to false only if the group is managed elsewhere. | `bool` | `true` | no |
 
 ## Outputs
 
