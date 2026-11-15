@@ -174,26 +174,36 @@ run "cluster_create_entitlement_off" {
     condition     = databricks_entitlements.users.allow_cluster_create == false
     error_message = "the project users group must not have unrestricted cluster creation"
   }
-
-  assert {
-    condition     = databricks_entitlements.builtin_users[0].allow_cluster_create == false
-    error_message = "the built-in users group (which every user belongs to) must not have unrestricted cluster creation"
-  }
 }
 
-run "entitlements_explicit_on_both_groups" {
+run "entitlements_explicit_on_users_group" {
   command = plan
 
   assert {
-    condition = alltrue([
-      for e in [databricks_entitlements.users, databricks_entitlements.builtin_users[0]] :
-      e.workspace_access == true &&
-      e.databricks_sql_access == true &&
-      e.allow_cluster_create == false &&
-      e.allow_instance_pool_create == false &&
-      coalesce(e.workspace_consume, false) == false
-    ])
-    error_message = "both groups keep workspace and SQL access (the resource replaces the whole entitlement set) and lose cluster and pool creation; workspace_consume stays off"
+    condition = (
+      databricks_entitlements.users.workspace_access == true &&
+      databricks_entitlements.users.databricks_sql_access == true &&
+      databricks_entitlements.users.allow_cluster_create == false &&
+      databricks_entitlements.users.allow_instance_pool_create == false &&
+      coalesce(databricks_entitlements.users.workspace_consume, false) == false
+    )
+    error_message = "the users group keeps workspace and SQL access (the resource replaces the whole entitlement set) and loses cluster and pool creation; workspace_consume stays off"
+  }
+}
+
+# The built-in `users` group is checked, not written: new workspaces refuse
+# entitlement changes on it ("Entitlement modifications on the workspace-users
+# and admins groups are not permitted for this workspace") and already give it
+# none. The plan fails if it can create clusters or instance pools. The
+# failing path cannot be mocked: the data source's entitlement attributes are
+# optional, not computed, so overrides cannot set them. Checked live instead
+# (the provider reads admins as true and the new workspace's users as false).
+run "builtin_users_group_is_checked_not_written" {
+  command = plan
+
+  assert {
+    condition     = length(data.databricks_group.builtin_users) == 1
+    error_message = "the built-in users group is read so its entitlements can be checked"
   }
 }
 
@@ -205,41 +215,9 @@ run "builtin_users_group_optional" {
   }
 
   assert {
-    condition     = length(databricks_entitlements.builtin_users) == 0
-    error_message = "the built-in users group is left alone when restrict_builtin_users_group is false"
+    condition     = length(data.databricks_group.builtin_users) == 0
+    error_message = "the built-in users group is not read when restrict_builtin_users_group is false"
   }
-}
-
-run "system_schemas_off_by_default" {
-  command = plan
-
-  assert {
-    condition     = length(databricks_system_schema.this) == 0
-    error_message = "system schemas are enabled only when enable_system_schemas is true"
-  }
-}
-
-run "system_schemas_enabled" {
-  command = plan
-
-  variables {
-    enable_system_schemas = true
-  }
-
-  assert {
-    condition     = toset(keys(databricks_system_schema.this)) == toset(["access", "billing", "compute", "lakeflow", "query", "storage"])
-    error_message = "the default schemas are enabled"
-  }
-}
-
-run "system_schemas_rejects_unknown_name" {
-  command = plan
-
-  variables {
-    system_schemas = ["access", "Bogus Name"]
-  }
-
-  expect_failures = [var.system_schemas]
 }
 
 run "settings_applied" {
@@ -279,15 +257,17 @@ run "outputs_policy_ids" {
   }
 }
 
-run "system_schemas_reject_other_metastore" {
+# System schemas are not managed: Databricks enables them itself (state
+# MANAGED), and the provider's databricks_system_schema reads a MANAGED schema
+# as absent ("Root object was present, but now absent").
+run "workspace_rejects_other_metastore" {
   command = plan
 
   variables {
-    enable_system_schemas = true
-    metastore_id          = "99999999-2222-3333-4444-555555555555"
+    metastore_id = "99999999-2222-3333-4444-555555555555"
   }
 
-  expect_failures = [databricks_system_schema.this]
+  expect_failures = [databricks_workspace_conf.this]
 }
 
 run "rejects_fixed_tags_missing_owner" {

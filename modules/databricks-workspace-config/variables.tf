@@ -57,30 +57,13 @@ variable "users_group_name" {
 }
 
 variable "restrict_builtin_users_group" {
-  description = "Also switch off unrestricted cluster creation for the workspace's built-in `users` group. Databricks grants that entitlement to it by default and every user belongs to it, so leaving it on defeats the policies. Set to false only if the workspace's built-in group is managed elsewhere."
+  description = "Fail the plan if the workspace's built-in `users` group can create clusters or instance pools. Every user belongs to it, so either entitlement defeats the policies. New workspaces give it none and refuse changes to it, so it is checked, not written. Set to false only if the group is managed elsewhere."
   type        = bool
   default     = true
 }
 
-variable "enable_system_schemas" {
-  description = "Enable Unity Catalog system schemas (`system.<schema>` tables). Metastore-wide: set it in exactly one workspace, the governance workspace."
-  type        = bool
-  default     = false
-}
-
-variable "system_schemas" {
-  description = "System schemas to enable when `enable_system_schemas` is true. See the Databricks system tables documentation for the names."
-  type        = list(string)
-  default     = ["access", "billing", "compute", "lakeflow", "query", "storage"]
-
-  validation {
-    condition     = alltrue([for s in var.system_schemas : can(regex("^[a-z][a-z0-9_]*$", s))])
-    error_message = "system_schemas must be lowercase schema names such as `billing` or `access`; fix the system_schemas variable."
-  }
-}
-
 variable "metastore_id" {
-  description = "ID of the metastore the workspace is assigned to: the `metastore_id` of `databricks-metastore`. When system schemas are enabled, the plan fails if the workspace's current metastore is a different one."
+  description = "ID of the metastore the workspace is assigned to: the `metastore_id` of `databricks-metastore`. The plan fails if the workspace's current metastore is a different one."
   type        = string
 
   validation {

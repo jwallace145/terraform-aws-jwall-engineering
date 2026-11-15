@@ -19,6 +19,6 @@ output "storage_credential_name" {
 }
 
 output "external_location_name" {
-  description = "Name of the Unity Catalog external location at `s3://<bucket>/managed/`, the catalog's storage root."
+  description = "Name of the Unity Catalog external location at `s3://<bucket>/managed`, the catalog's storage root."
   value       = databricks_external_location.this.name
 }

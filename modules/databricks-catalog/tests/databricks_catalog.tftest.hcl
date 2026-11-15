@@ -344,11 +344,13 @@ run "external_location_under_managed_prefix" {
 
   assert {
     condition = (
-      databricks_external_location.this.url == "s3://jwall-engineering-databricks-poc-databricks-catalog/managed/" &&
+      # No trailing slash: Databricks stores the URL without one, and the
+      # catalog's storage_root (taken from it) must match what was planned.
+      databricks_external_location.this.url == "s3://jwall-engineering-databricks-poc-databricks-catalog/managed" &&
       databricks_catalog.this.storage_root == databricks_external_location.this.url &&
       databricks_external_location.this.credential_name == databricks_storage_credential.this.name
     )
-    error_message = "the external location must be s3://<bucket>/managed/ with the storage credential, and the catalog's storage root"
+    error_message = "the external location must be s3://<bucket>/managed (no trailing slash) with the storage credential, and the catalog's storage root"
   }
 }
 

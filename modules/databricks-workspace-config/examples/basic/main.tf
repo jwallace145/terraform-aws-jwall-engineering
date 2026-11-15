@@ -35,7 +35,6 @@ module "workspace_config" {
   }
 
   # Only in the one governance workspace.
-  enable_system_schemas = false
 }
 
 output "cluster_policy_ids" {
