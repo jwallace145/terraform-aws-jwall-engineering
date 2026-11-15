@@ -111,9 +111,22 @@ run "audit_bucket_policy_scoped_to_prefix" {
   assert {
     condition = anytrue([
       for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
-      s.Effect == "Allow" && contains(flatten([s.Action]), "s3:ListBucket") && contains(flatten([s.Action]), "s3:ListBucketMultipartUploads")
+      s.Effect == "Allow" && contains(flatten([s.Action]), "s3:ListBucket")
     ])
-    error_message = "the documented prefix-conditioned ListBucket / ListBucketMultipartUploads statement must be present"
+    error_message = "the prefix-conditioned ListBucket statement must be present"
+  }
+
+  # S3 also rejects a statement whose condition keys apply to none of its
+  # actions on its resources (MalformedPolicy: "Conditions do not apply to
+  # combination of actions and resources in statement"). s3:prefix applies to
+  # ListBucket only, so a statement conditioned on it carries nothing else.
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
+      toset(flatten([s.Action])) == toset(["s3:ListBucket"])
+      if s.Effect == "Allow" && can(s.Condition.StringLike["s3:prefix"])
+    ])
+    error_message = "a statement conditioned on s3:prefix must carry only s3:ListBucket (S3 rejects other actions there)"
   }
 
   # S3 rejects a bucket policy statement holding an action that applies to none
@@ -124,7 +137,7 @@ run "audit_bucket_policy_scoped_to_prefix" {
   assert {
     condition = alltrue([
       for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement :
-      length(setsubtract(toset(flatten([s.Action])), toset(["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"]))) == 0
+      length(setsubtract(toset(flatten([s.Action])), toset(["s3:GetBucketLocation", "s3:ListBucket"]))) == 0
       if s.Effect == "Allow" && toset(flatten([s.Resource])) == toset([aws_s3_bucket.this.arn])
     ])
     error_message = "a statement on the bucket ARN alone must carry only bucket-level actions (S3 rejects object-level ones there)"
