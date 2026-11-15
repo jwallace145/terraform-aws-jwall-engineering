@@ -112,6 +112,16 @@ override_data {
   }
 }
 
+# The workspace-config module checks that the workspace is assigned to the
+# metastore it was given (tests/stacks/main.tf's metastore_id).
+override_data {
+  target          = module.workspace_config.data.databricks_current_metastore.this
+  override_during = plan
+  values = {
+    id = "abcdef01-2345-6789-abcd-ef0123456789"
+  }
+}
+
 override_data {
   target          = module.catalog.data.databricks_aws_unity_catalog_policy.uc
   override_during = plan
