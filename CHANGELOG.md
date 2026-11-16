@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.1](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.25.0...v0.25.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **dataset-bucket:** let readers probe the prefix as a directory, as Unity Catalog does ([#74](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/74)) ([c26444a](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/c26444ae0e9b9cdb9d506c9e74640c5d7e80e35e))
+* wait for catalog storage and host bindings, and own each dataset credential's grants ([#73](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/73)) ([b666818](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/b66681885d76c0e142e8b614a57fe61b6733f5c7))
+
 ## [0.25.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.24.0...v0.25.0) (2026-11-16)
 
 
