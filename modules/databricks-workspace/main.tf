@@ -322,6 +322,61 @@ resource "databricks_mws_permission_assignment" "users" {
   depends_on = [databricks_metastore_assignment.this]
 }
 
+# ---------------------------------------------------------------- deployer
+
+# A project's deploy identity: GitHub Actions in the project's repository,
+# in its prod environment only, signs in as it (OAuth token federation), so
+# no secret exists anywhere. It is a workspace USER in the users group: it
+# deploys and runs the project's bundle with exactly the data access the
+# workspace's users hold under their handshakes, and administers nothing.
+locals {
+  deployer_subject = var.deployer == null ? null : format(
+    "repo:%s@%s/%s@%s:environment:%s",
+    split("/", var.deployer.repository)[0], var.deployer.owner_id,
+    split("/", var.deployer.repository)[1], var.deployer.repository_id,
+    var.deployer.environment,
+  )
+}
+
+resource "databricks_service_principal" "deployer" {
+  count = var.deployer == null ? 0 : 1
+
+  display_name = "${var.name_root}-${var.project}-deployer"
+}
+
+# GitHub issues the immutable subject for repositories created or moved since
+# 2026-07-15, and Databricks matches the subject exactly. The workflow sets
+# DATABRICKS_TOKEN_AUDIENCE to the account ID, so the token's audience is the
+# one trusted here.
+resource "databricks_service_principal_federation_policy" "deployer" {
+  count = var.deployer == null ? 0 : 1
+
+  service_principal_id = tonumber(databricks_service_principal.deployer[0].id)
+  description          = "GitHub Actions in ${var.deployer.repository}, environment ${var.deployer.environment}"
+  oidc_policy = {
+    issuer    = "https://token.actions.githubusercontent.com"
+    audiences = [var.account_id]
+    subject   = local.deployer_subject
+  }
+}
+
+resource "databricks_mws_permission_assignment" "deployer" {
+  count = var.deployer == null ? 0 : 1
+
+  workspace_id = databricks_mws_workspaces.this.workspace_id
+  principal_id = tonumber(databricks_service_principal.deployer[0].id)
+  permissions  = ["USER"]
+
+  depends_on = [databricks_metastore_assignment.this]
+}
+
+resource "databricks_group_member" "deployer" {
+  count = var.deployer == null ? 0 : 1
+
+  group_id  = databricks_group.users.id
+  member_id = databricks_service_principal.deployer[0].id
+}
+
 # ----------------------------------------------------- S3 endpoint policy
 
 # For vpc's s3_gateway_endpoint.policy. It depends on names only, never on

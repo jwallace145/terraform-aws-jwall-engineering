@@ -66,6 +66,13 @@ mock_provider "databricks" {
       id = "7777"
     }
   }
+
+  mock_resource "databricks_service_principal" {
+    defaults = {
+      id             = "8888"
+      application_id = "99999999-8888-7777-6666-555555555555"
+    }
+  }
 }
 
 mock_provider "time" {}
@@ -732,4 +739,113 @@ run "rejects_bad_dataset_role_arn" {
   }
 
   expect_failures = [var.read_only_datasets]
+}
+
+# ------------------------------------------------------------ the deployer
+
+run "without_a_deployer_nothing_is_created" {
+  command = plan
+
+  assert {
+    condition = (length(databricks_service_principal.deployer) == 0 && length(databricks_service_principal_federation_policy.deployer) == 0
+    && length(databricks_mws_permission_assignment.deployer) == 0 && length(databricks_group_member.deployer) == 0)
+    error_message = "without deployer, no principal, policy, assignment or membership is created"
+  }
+
+  assert {
+    condition     = output.deployer_application_id == null
+    error_message = "without deployer, deployer_application_id is null"
+  }
+}
+
+run "a_deployer_trusts_one_repository_environment" {
+  command = plan
+
+  variables {
+    deployer = {
+      repository    = "Braveheart-Chess/braveheart-databricks"
+      repository_id = "1458504699"
+      owner_id      = "356866252"
+    }
+  }
+
+  assert {
+    condition     = databricks_service_principal.deployer[0].display_name == "jwall-engineering-databricks-poc-deployer"
+    error_message = "the deployer is named <organization>-<project>-deployer"
+  }
+
+  assert {
+    condition = (databricks_service_principal_federation_policy.deployer[0].service_principal_id == 8888
+      && databricks_service_principal_federation_policy.deployer[0].oidc_policy.issuer == "https://token.actions.githubusercontent.com"
+    && databricks_service_principal_federation_policy.deployer[0].oidc_policy.audiences == tolist(["11111111-2222-3333-4444-555555555555"]))
+    error_message = "the policy trusts GitHub's issuer, for the account ID as the audience, on the deployer"
+  }
+
+  assert {
+    # The immutable form GitHub issues for repositories created or moved
+    # since 2026-07-15; Databricks matches it exactly.
+    condition     = databricks_service_principal_federation_policy.deployer[0].oidc_policy.subject == "repo:Braveheart-Chess@356866252/braveheart-databricks@1458504699:environment:prod"
+    error_message = "the policy trusts exactly the repository's prod environment, by immutable IDs"
+  }
+
+  assert {
+    condition     = output.deployer_application_id == "99999999-8888-7777-6666-555555555555"
+    error_message = "deployer_application_id is the principal's application ID"
+  }
+}
+
+run "a_deployer_is_a_workspace_user_not_an_admin" {
+  command = plan
+
+  variables {
+    deployer = {
+      repository    = "Braveheart-Chess/braveheart-databricks"
+      repository_id = "1458504699"
+      owner_id      = "356866252"
+    }
+  }
+
+  assert {
+    condition = (databricks_mws_permission_assignment.deployer[0].principal_id == 8888
+    && databricks_mws_permission_assignment.deployer[0].permissions == toset(["USER"]))
+    error_message = "the deployer is assigned to the workspace as USER"
+  }
+
+  assert {
+    condition     = databricks_group_member.deployer[0].group_id == "2222" && databricks_group_member.deployer[0].member_id == "8888"
+    error_message = "the deployer joins <project>-workspace-users, so it reads exactly what the workspace may"
+  }
+
+  assert {
+    condition     = alltrue([for m in databricks_group_member.admins : m.member_id != "8888"]) && databricks_group_member.service_principal.member_id != "8888"
+    error_message = "the deployer never joins the admins group"
+  }
+}
+
+run "a_deployer_repository_without_an_owner_is_refused" {
+  command = plan
+
+  variables {
+    deployer = {
+      repository    = "braveheart-databricks"
+      repository_id = "1458504699"
+      owner_id      = "356866252"
+    }
+  }
+
+  expect_failures = [var.deployer]
+}
+
+run "a_non_numeric_repository_id_is_refused" {
+  command = plan
+
+  variables {
+    deployer = {
+      repository    = "Braveheart-Chess/braveheart-databricks"
+      repository_id = "abc"
+      owner_id      = "356866252"
+    }
+  }
+
+  expect_failures = [var.deployer]
 }

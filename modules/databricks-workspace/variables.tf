@@ -190,3 +190,24 @@ variable "component" {
   type        = string
   default     = "databricks-workspace"
 }
+
+variable "deployer" {
+  description = "When set, a service principal that GitHub Actions signs in as, without a secret, to deploy into the workspace: `<name_root>-<project>-deployer`. A federation policy trusts GitHub's tokens for exactly `repository`'s `environment` (by the immutable `repository_id` and `owner_id`, `gh api repos/<owner>/<name> --jq '.id, .owner.id'`), with the account ID as the audience. It is a workspace USER and a member of `<project>-workspace-users`, so it reads exactly what the workspace's users may, and never an admin."
+  type = object({
+    repository    = string
+    repository_id = string
+    owner_id      = string
+    environment   = optional(string, "prod")
+  })
+  default = null
+
+  validation {
+    condition = var.deployer == null ? true : (
+      can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.deployer.repository))
+      && can(regex("^[0-9]+$", var.deployer.repository_id))
+      && can(regex("^[0-9]+$", var.deployer.owner_id))
+      && can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.deployer.environment))
+    )
+    error_message = "deployer needs repository as <owner>/<name>, numeric repository_id and owner_id (gh api repos/<owner>/<name> --jq '.id, .owner.id'), and a kebab-case environment."
+  }
+}
