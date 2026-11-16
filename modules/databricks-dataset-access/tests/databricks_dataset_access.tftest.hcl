@@ -61,6 +61,19 @@ run "two_consumers" {
   }
 }
 
+run "the_credential_grants_nothing_to_consumers" {
+  command = plan
+
+  # The credential is bound to consumer workspaces, so its grant set must be
+  # authoritative too: a grant made by hand on it would otherwise work there.
+  assert {
+    condition = (databricks_grants.credential.storage_credential == var.storage_credential_name
+      && jsonencode([for g in databricks_grants.credential.grant : g.principal]) == jsonencode(["jwall-engineering-metastore-admins"])
+    && alltrue([for g in databricks_grants.credential.grant : g.privileges == toset(["READ_FILES"])]))
+    error_message = "the storage credential's grants are authoritative and hold the owner group alone"
+  }
+}
+
 run "no_consumers" {
   command = plan
 

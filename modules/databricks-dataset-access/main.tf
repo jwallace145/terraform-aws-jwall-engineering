@@ -65,6 +65,18 @@ resource "databricks_grants" "volume" {
   }
 }
 
+# The credential is bound to consumer workspaces below, so its grant set is
+# authoritative too: a grant made by hand on it (READ FILES, say) would
+# otherwise work from those workspaces and survive every sweep.
+resource "databricks_grants" "credential" {
+  storage_credential = var.storage_credential_name
+
+  grant {
+    principal  = var.owner_group_name
+    privileges = ["READ_FILES"]
+  }
+}
+
 # Binding a consumer's workspace is what lets it use the isolated location and
 # credential at all. Depending on every grant set makes Terraform create each
 # binding last and destroy it first, so a run that stops half way leaves less
@@ -76,7 +88,7 @@ resource "databricks_workspace_binding" "consumer" {
   securable_type = "external_location"
   securable_name = var.external_location_name
 
-  depends_on = [databricks_grants.location, databricks_grants.schema, databricks_grants.volume]
+  depends_on = [databricks_grants.location, databricks_grants.credential, databricks_grants.schema, databricks_grants.volume]
 }
 
 resource "databricks_workspace_binding" "credential" {
@@ -86,5 +98,5 @@ resource "databricks_workspace_binding" "credential" {
   securable_type = "storage_credential"
   securable_name = var.storage_credential_name
 
-  depends_on = [databricks_grants.location, databricks_grants.schema, databricks_grants.volume]
+  depends_on = [databricks_grants.location, databricks_grants.credential, databricks_grants.schema, databricks_grants.volume]
 }

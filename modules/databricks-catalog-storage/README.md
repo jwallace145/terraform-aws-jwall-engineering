@@ -90,5 +90,5 @@ No modules.
 | external\_location\_name | Name of the external location the catalogs' managed locations sit under. |
 | storage\_credential\_name | Name of the storage credential. |
 | uc\_role\_arn | ARN of the Unity Catalog role, the only principal that may read or write the bucket's objects. |
-| url | The location's URL, `s3://<name>/managed`: each catalog's `storage_root` is `<url>/<catalog>`. |
+| url | The location's URL, `s3://<name>/managed`: each catalog's `storage_root` is `<url>/<catalog>`. It carries a dependency on the location, its host binding and its grants, so a catalog using it is created after them and destroyed before them. |
 <!-- END_TF_DOCS -->

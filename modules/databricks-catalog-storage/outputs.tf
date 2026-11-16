@@ -4,8 +4,13 @@ output "external_location_name" {
 }
 
 output "url" {
-  description = "The location's URL, `s3://<name>/managed`: each catalog's `storage_root` is `<url>/<catalog>`."
-  value       = local.url
+  description = "The location's URL, `s3://<name>/managed`: each catalog's `storage_root` is `<url>/<catalog>`. It carries a dependency on the location, its host binding and its grants, so a catalog using it is created after them and destroyed before them."
+  # Read from the location, never built from the name: a catalog using it is
+  # created after the location its storage lies under (built from the name,
+  # it was created first and Unity Catalog refused it, "External Location ...
+  # does not exist"). The binding and grants are waited for too.
+  value      = trimsuffix(databricks_external_location.this.url, "/")
+  depends_on = [databricks_workspace_binding.location, databricks_grants.location]
 }
 
 output "storage_credential_name" {
