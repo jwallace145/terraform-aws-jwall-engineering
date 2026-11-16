@@ -81,8 +81,8 @@ pasted foreign credentials cannot read data outside Unity Catalog. It allows
 Everything else is denied at the endpoint. The endpoint grants nothing: a
 dataset is readable only once its own bucket policy names the share role as a
 reader (a `dataset-bucket`'s `reader_role_arns`), so the project that owns the
-data decides. The share role and the dataset's one read-only external location
-come from `databricks-shared-dataset`, whose `endpoint_dataset` output is the
+data decides. The dataset's role and its one read-only external location
+come from `databricks-dataset`, whose `endpoint_dataset` output is the
 value to pass here; every consumer workspace passes the same entry. The role is named in a condition,
 never in `Principal`, because the endpoint is created before the role exists.
 The policy depends on names, the account ID and the region only, so the
@@ -219,7 +219,7 @@ No modules.
 | component | Value of the `Component` tag on every AWS resource. | `string` | `"databricks-workspace"` | no |
 | deployment\_name | Deployment name, the first label of the workspace URL (`<deployment_name>.cloud.databricks.com`). `null` (the default) lets Databricks pick one. Only possible if the account allows custom deployment names. | `string` | `null` | no |
 | name\_root | Prefix of AWS resource names, in kebab-case. With `<p>` = `<name_root>-<project>`, the root bucket is `<p>-databricks-root`, the cross-account role `<p>-databricks-cross-account` and the security group `<p>-databricks-workspace`. | `string` | `"jwall-engineering"` | no |
-| read\_only\_datasets | Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ rusty-chess-nnue = { bucket = "jwall-engineering-rusty-chess-nnue", prefix = "data/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-rusty-chess-nnue-databricks-share" } }`: the `endpoint_dataset` output of `databricks-shared-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader. | <pre>map(object({<br/>    bucket   = string<br/>    prefix   = string<br/>    role_arn = string<br/>  }))</pre> | `{}` | no |
+| read\_only\_datasets | Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ braveheart-selfplay-positions = { bucket = "jwall-engineering-braveheart-selfplay-positions", prefix = "data/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-ds-braveheart-selfplay-positions" } }`: the `endpoint_dataset` output of `databricks-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader. | <pre>map(object({<br/>    bucket   = string<br/>    prefix   = string<br/>    role_arn = string<br/>  }))</pre> | `{}` | no |
 | user\_names | Databricks user names (email addresses) of the workspace's non-admin users. Each user must already exist in the account; they join `<project>-workspace-users`. | `list(string)` | `[]` | no |
 
 ## Outputs

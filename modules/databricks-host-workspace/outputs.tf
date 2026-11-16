@@ -4,6 +4,6 @@ output "workspace_id" {
 }
 
 output "workspace_url" {
-  description = "URL of the host workspace: the `host` of the workspace-level `databricks` provider that manages shared objects (`databricks-shared-dataset`)."
+  description = "URL of the host workspace: the `host` of the workspace-level `databricks` provider that manages shared objects (`databricks-dataset` and `databricks-dataset-access`)."
   value       = databricks_mws_workspaces.this.workspace_url
 }
