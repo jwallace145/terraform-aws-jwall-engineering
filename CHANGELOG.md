@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.22.0...v0.23.0) (2026-11-16)
+
+
+### Features
+
+* **identity-center-access:** add one person's Identity Center access as a module ([#67](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/67)) ([02c0a1b](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/02c0a1b52c8138a4b11fbf44f49a572e9fce70b6))
+
 ## [0.22.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.21.0...v0.22.0) (2026-11-15)
 
 
