@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.24.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.23.0...v0.24.0) (2026-11-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace databricks-shared-dataset with databricks-dataset and databricks-dataset-access ([#69](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/69))
+
+### Features
+
+* replace databricks-shared-dataset with databricks-dataset and databricks-dataset-access ([#69](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/69)) ([46ae3e7](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/46ae3e75e605eae1449bce16f260c6ca8ab66e1c))
+
 ## [0.23.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.22.0...v0.23.0) (2026-11-16)
 
 
