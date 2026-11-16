@@ -141,6 +141,7 @@ jobs:
           - { module: ci-policies/databricks/read, path: modules/ci-policies/databricks/read, example: false }
           - { module: ci-policies/databricks/manage, path: modules/ci-policies/databricks/manage, example: false }
           - { module: ecr-repository, path: modules/ecr-repository }
+          - { module: identity-center-access, path: modules/identity-center-access }
           - { module: private-bucket, path: modules/private-bucket }
           - { module: dataset-bucket, path: modules/dataset-bucket }
           - { module: databricks-metastore, path: modules/databricks-metastore }
