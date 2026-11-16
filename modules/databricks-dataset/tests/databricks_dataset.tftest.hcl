@@ -66,3 +66,52 @@ run "a_prefix_without_its_trailing_slash_is_refused" {
 
   expect_failures = [var.prefix]
 }
+
+# In its producer's catalog: a schema holding one external volume, `files`, at
+# the location's URL, so consumers find the dataset in Catalog Explorer.
+
+run "with_a_catalog_a_schema_and_an_external_volume_at_the_url" {
+  command = plan
+
+  variables {
+    catalog_name = "braveheart_selfplay"
+    schema_name  = "positions"
+  }
+
+  assert {
+    condition = (databricks_schema.this[0].catalog_name == "braveheart_selfplay" && databricks_schema.this[0].name == "positions"
+      && databricks_schema.this[0].owner == var.owner_group_name
+      && databricks_volume.files[0].name == "files" && databricks_volume.files[0].volume_type == "EXTERNAL"
+      && databricks_volume.files[0].catalog_name == "braveheart_selfplay" && databricks_volume.files[0].schema_name == "positions"
+      && databricks_volume.files[0].storage_location == output.url
+    && databricks_volume.files[0].owner == var.owner_group_name)
+    error_message = "the dataset is a schema in the producer's catalog with an external volume files at the location's URL, both owned by the admin group"
+  }
+
+  assert {
+    condition = (output.schema_full_name == "braveheart_selfplay.positions"
+      && output.volume_full_name == "braveheart_selfplay.positions.files"
+    && output.volume_path == "/Volumes/braveheart_selfplay/positions/files")
+    error_message = "the outputs name the schema, the volume and the path consumers read"
+  }
+}
+
+run "without_a_catalog_nothing_is_added" {
+  command = plan
+
+  assert {
+    condition = (length(databricks_schema.this) == 0 && length(databricks_volume.files) == 0
+    && output.schema_full_name == null && output.volume_full_name == null && output.volume_path == null)
+    error_message = "without a catalog the dataset is onboarded as a location only"
+  }
+}
+
+run "a_schema_without_a_catalog_is_refused" {
+  command = plan
+
+  variables {
+    schema_name = "positions"
+  }
+
+  expect_failures = [var.schema_name]
+}

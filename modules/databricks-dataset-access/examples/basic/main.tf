@@ -8,7 +8,11 @@ provider "databricks" {
 module "positions_access" {
   source = "../../"
 
-  external_location_name = "jwall-engineering-ds-braveheart-selfplay-positions"
+  external_location_name  = "jwall-engineering-ds-braveheart-selfplay-positions"
+  storage_credential_name = "jwall-engineering-ds-braveheart-selfplay-positions"
+  owner_group_name        = "jwall-engineering-metastore-admins"
+  schema_full_name        = "braveheart_selfplay.positions"
+  volume_full_name        = "braveheart_selfplay.positions.files"
 
   consumers = {
     braveheart-databricks = { workspace_id = 2222222222222222, users_group_name = "braveheart-databricks-workspace-users" }

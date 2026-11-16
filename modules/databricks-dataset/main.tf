@@ -120,3 +120,34 @@ resource "databricks_workspace_binding" "credential" {
   securable_type = "storage_credential"
   securable_name = databricks_storage_credential.this.name
 }
+
+# ------------------------------------------ in the producer's catalog
+
+# With a catalog, the dataset is a schema there holding one external volume,
+# `files`, at the location's URL: consumers find it in Catalog Explorer and
+# read /Volumes/<catalog>/<schema>/files/. An external volume's files are never
+# deleted with it. Who may use either is databricks-dataset-access's.
+resource "databricks_schema" "this" {
+  count = var.catalog_name != null ? 1 : 0
+
+  catalog_name = var.catalog_name
+  name         = var.schema_name
+  owner        = var.owner_group_name
+  comment      = "Onboarded dataset ${local.url}, read-only; managed by Terraform"
+}
+
+resource "databricks_volume" "files" {
+  count = var.catalog_name != null ? 1 : 0
+
+  catalog_name     = var.catalog_name
+  schema_name      = databricks_schema.this[0].name
+  name             = "files"
+  volume_type      = "EXTERNAL"
+  storage_location = databricks_external_location.this.url
+  owner            = var.owner_group_name
+  comment          = "The files of ${local.url}, read-only; managed by Terraform"
+
+  # The location is isolated: it must be bound to the host first.
+  depends_on = [databricks_workspace_binding.location]
+}
+
