@@ -182,17 +182,36 @@ run "readers_read_the_prefix" {
       [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ReadDatasetObjects"][0].Effect == "Allow" &&
       [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ReadDatasetObjects"][0].Principal.AWS == ["arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-train"] &&
       [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ReadDatasetObjects"][0].Action == "s3:GetObject" &&
-      [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ReadDatasetObjects"][0].Resource == "arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/*"
+      [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ReadDatasetObjects"][0].Resource == ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/*", "arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data"]
     )
-    error_message = "readers may get objects under the prefix"
+    error_message = "readers may get objects under the prefix, and the prefix's own key, which a directory probe reads first"
   }
 
   assert {
     condition = (
       [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ListDatasetForReaders"][0].Action == "s3:ListBucket" &&
-      [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ListDatasetForReaders"][0].Condition.StringLike["s3:prefix"] == "data/*"
+      [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ListDatasetForReaders"][0].Resource == "arn:aws:s3:::jwall-engineering-rusty-chess-nnue" &&
+      !contains(keys([for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ListDatasetForReaders"][0]), "Condition")
     )
-    error_message = "readers may list under the prefix"
+    # S3 answers a request for a missing key with 404 only to a caller holding
+    # s3:ListBucket, and a grant conditioned on s3:prefix does not count (the
+    # request has no prefix): Unity Catalog's and Spark's directory probes
+    # would get 403 for every directory and fail with AccessDeniedException.
+    error_message = "readers may list the bucket, unconditioned, so a missing key is a 404 rather than a 403"
+  }
+}
+
+run "readers_probe_a_nested_prefix_as_a_directory" {
+  command = plan
+
+  variables {
+    prefix           = "data/selfplay/"
+    reader_role_arns = ["arn:aws:iam::123456789012:role/jwall-engineering-rusty-chess-train"]
+  }
+
+  assert {
+    condition     = [for s in jsondecode(aws_s3_bucket_policy.this.policy).Statement : s if s.Sid == "ReadDatasetObjects"][0].Resource == ["arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/selfplay/*", "arn:aws:s3:::jwall-engineering-rusty-chess-nnue/data/selfplay"]
+    error_message = "the prefix's own key is the prefix without its last slash, never a parent"
   }
 }
 

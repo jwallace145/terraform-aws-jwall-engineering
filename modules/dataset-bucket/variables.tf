@@ -13,7 +13,7 @@ variable "name" {
 }
 
 variable "prefix" {
-  description = "Key prefix the project's data lives under, ending in `/`, for example `data/`. Writers and readers are granted this prefix only."
+  description = "Key prefix the project's data lives under, ending in `/`, for example `data/`. Writers and grants are confined to this prefix; readers read only under it (and its own key), though they may list the bucket."
   type        = string
 
   validation {
@@ -45,7 +45,7 @@ variable "writer_role_names" {
 }
 
 variable "reader_role_arns" {
-  description = "IAM role ARNs granted `s3:GetObject` under the prefix and `s3:ListBucket` limited to it, through the bucket policy. The account's administrators can read without being listed."
+  description = "IAM role ARNs granted, through the bucket policy, `s3:GetObject` under the prefix and on the prefix's own key (the prefix without its last slash, which a directory probe reads first), and `s3:ListBucket` on the bucket, unconditioned: S3 answers a missing key with 404 only to a caller that may list, and Unity Catalog and Spark need that 404 to read the prefix as a directory. Listing shows key names, never contents. The account's administrators can read without being listed."
   type        = list(string)
   default     = []
 

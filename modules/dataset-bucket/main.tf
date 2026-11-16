@@ -143,13 +143,22 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 }
 
 locals {
+  # Readers can read the prefix as a filesystem, as Unity Catalog and Spark do.
+  # A directory probe first asks for the path's own key (the prefix without
+  # its last slash), expecting 404, then lists under it. S3 answers 404 for a
+  # missing key only to a caller holding s3:ListBucket, and a grant
+  # conditioned on s3:prefix does not count (that request carries no prefix),
+  # so listing is granted on the bucket: it shows key names, never contents,
+  # and every writer and grant here is confined to the prefix. Without both,
+  # every probe gets 403: Unity Catalog refused the volume over the
+  # positions ("AccessDeniedException error from cloud storage provider").
   reader_statements = [for statement in [
     {
       Sid       = "ReadDatasetObjects"
       Effect    = "Allow"
       Principal = { AWS = var.reader_role_arns }
       Action    = "s3:GetObject"
-      Resource  = local.objects_arn
+      Resource  = [local.objects_arn, "${local.arn}/${trimsuffix(var.prefix, "/")}"]
     },
     {
       Sid       = "ListDatasetForReaders"
@@ -157,7 +166,6 @@ locals {
       Principal = { AWS = var.reader_role_arns }
       Action    = "s3:ListBucket"
       Resource  = local.arn
-      Condition = local.list_prefix
     },
   ] : statement if length(var.reader_role_arns) > 0]
 
