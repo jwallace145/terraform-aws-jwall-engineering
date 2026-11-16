@@ -23,3 +23,45 @@ access, which would bypass the producer/consumer handshake.
 ## Usage
 
 See [examples/basic](examples/basic/main.tf).
+
+<!-- BEGIN_TF_DOCS -->
+## Requirements
+
+| Name | Version |
+| ---- | ------- |
+| terraform | >= 1.11 |
+| databricks | >= 1.142, < 2.0 |
+
+## Providers
+
+| Name | Version |
+| ---- | ------- |
+| databricks | >= 1.142, < 2.0 |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [databricks_catalog.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/catalog) | resource |
+| [databricks_workspace_binding.host](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/workspace_binding) | resource |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| host\_workspace\_id | Numeric ID of the shared-objects host (`databricks-host-workspace`'s `workspace_id`): the workspace this module's `databricks` provider points at, and the only one bound read-write. | `number` | n/a | yes |
+| owner\_group\_name | Account group that owns the catalog: the `admin_group_name` output of `databricks-metastore`. Never a producer or consumer group: a catalog's owner can grant anyone access. | `string` | n/a | yes |
+| producer | The producing project, in kebab-case, for example `braveheart-selfplay`. The catalog is named after it, `-` replaced by `_` (`braveheart_selfplay`). | `string` | n/a | yes |
+| storage\_url | The `url` output of `databricks-catalog-storage`, `s3://<bucket>/managed`: the catalog's managed location is `<storage_url>/<catalog>`. | `string` | n/a | yes |
+| properties | Extra catalog properties; `producer` is always set to `producer`. | `map(string)` | `{}` | no |
+
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| catalog\_name | The catalog's name: the producer with `-` replaced by `_`. |
+<!-- END_TF_DOCS -->
