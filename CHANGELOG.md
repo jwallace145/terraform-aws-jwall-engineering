@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.25.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.24.0...v0.25.0) (2026-11-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* producer catalogs, dataset schemas and volumes for shared datasets in Unity Catalog ([#71](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/71))
+
+### Features
+
+* producer catalogs, dataset schemas and volumes for shared datasets in Unity Catalog ([#71](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/71)) ([cdaa64c](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/cdaa64ce8b91b1a8d695426efe94999d260e03fe))
+
 ## [0.24.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.23.0...v0.24.0) (2026-11-16)
 
 
