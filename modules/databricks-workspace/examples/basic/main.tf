@@ -71,6 +71,14 @@ module "workspace" {
   admin_user_names                 = ["owner@example.com"]
   user_names                       = ["analyst@example.com"]
   service_principal_application_id = "00000000-0000-0000-0000-000000000000"
+
+  # Optional: a deploy identity for the project's repository (gh api
+  # repos/<owner>/<name> --jq '.id, .owner.id').
+  deployer = {
+    repository    = "example-org/example-databricks"
+    repository_id = "123456789"
+    owner_id      = "987654321"
+  }
 }
 
 # The workspace stack's provider: host = this output.

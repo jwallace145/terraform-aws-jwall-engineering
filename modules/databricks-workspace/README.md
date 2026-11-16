@@ -21,7 +21,17 @@ project's **account stack**. Creates:
   metastore;
 - the account groups `<project>-workspace-admins` (the admin users and the
   automation service principal; `ADMIN` on the workspace) and
-  `<project>-workspace-users` (the users; `USER`).
+  `<project>-workspace-users` (the users; `USER`);
+- with `deployer`, the service principal `<p>-deployer`: GitHub Actions in the
+  project's repository, in its `prod` environment only, signs in as it through
+  a federation policy (issuer `https://token.actions.githubusercontent.com`,
+  audience the account ID, subject
+  `repo:<owner>@<owner_id>/<name>@<repository_id>:environment:prod`), so no
+  secret exists. It is `USER` on the workspace and a member of
+  `<project>-workspace-users`, never an admin. Its workflow sets
+  `DATABRICKS_AUTH_TYPE=github-oidc`, `DATABRICKS_HOST`,
+  `DATABRICKS_CLIENT_ID` (`deployer_application_id`) and
+  `DATABRICKS_TOKEN_AUDIENCE` (the account ID), with `id-token: write`.
 
 `<p>` is `<name_root>-<project>`, for example
 `jwall-engineering-databricks-poc`.
@@ -183,15 +193,19 @@ No modules.
 | [databricks_group.admins](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/group) | resource |
 | [databricks_group.users](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/group) | resource |
 | [databricks_group_member.admins](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/group_member) | resource |
+| [databricks_group_member.deployer](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/group_member) | resource |
 | [databricks_group_member.service_principal](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/group_member) | resource |
 | [databricks_group_member.users](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/group_member) | resource |
 | [databricks_metastore_assignment.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/metastore_assignment) | resource |
 | [databricks_mws_credentials.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_credentials) | resource |
 | [databricks_mws_networks.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_networks) | resource |
 | [databricks_mws_permission_assignment.admins](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_permission_assignment) | resource |
+| [databricks_mws_permission_assignment.deployer](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_permission_assignment) | resource |
 | [databricks_mws_permission_assignment.users](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_permission_assignment) | resource |
 | [databricks_mws_storage_configurations.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_storage_configurations) | resource |
 | [databricks_mws_workspaces.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/mws_workspaces) | resource |
+| [databricks_service_principal.deployer](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/service_principal) | resource |
+| [databricks_service_principal_federation_policy.deployer](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/service_principal_federation_policy) | resource |
 | [time_sleep.iam_propagation](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
@@ -217,6 +231,7 @@ No modules.
 | tags | Tags Databricks puts on the workspace's cluster resources (`custom_tags`), as AWS does not apply the caller's default\_tags to them. Must contain `Project`, `Environment`, `CostCenter`, `Workspace`, `Owner` and `ManagedBy`, and no key Databricks reserves (`Vendor`, `Creator`, `ClusterName`, `ClusterId`, `Name`). | `map(string)` | n/a | yes |
 | vpc\_id | ID of the VPC the workspace's clusters run in, for example the `vpc_id` output of `vpc`. It needs a NAT (for example `nat-instance`) for the private subnets' internet egress. | `string` | n/a | yes |
 | component | Value of the `Component` tag on every AWS resource. | `string` | `"databricks-workspace"` | no |
+| deployer | When set, a service principal that GitHub Actions signs in as, without a secret, to deploy into the workspace: `<name_root>-<project>-deployer`. A federation policy trusts GitHub's tokens for exactly `repository`'s `environment` (by the immutable `repository_id` and `owner_id`, `gh api repos/<owner>/<name> --jq '.id, .owner.id'`), with the account ID as the audience. It is a workspace USER and a member of `<project>-workspace-users`, so it reads exactly what the workspace's users may, and never an admin. | <pre>object({<br/>    repository    = string<br/>    repository_id = string<br/>    owner_id      = string<br/>    environment   = optional(string, "prod")<br/>  })</pre> | `null` | no |
 | deployment\_name | Deployment name, the first label of the workspace URL (`<deployment_name>.cloud.databricks.com`). `null` (the default) lets Databricks pick one. Only possible if the account allows custom deployment names. | `string` | `null` | no |
 | name\_root | Prefix of AWS resource names, in kebab-case. With `<p>` = `<name_root>-<project>`, the root bucket is `<p>-databricks-root`, the cross-account role `<p>-databricks-cross-account` and the security group `<p>-databricks-workspace`. | `string` | `"jwall-engineering"` | no |
 | read\_only\_datasets | Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ braveheart-selfplay-positions = { bucket = "jwall-engineering-braveheart-selfplay-positions", prefix = "data/", role_arn = "arn:aws:iam::111122223333:role/jwall-engineering-ds-braveheart-selfplay-positions" } }`: the `endpoint_dataset` output of `databricks-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader. | <pre>map(object({<br/>    bucket   = string<br/>    prefix   = string<br/>    role_arn = string<br/>  }))</pre> | `{}` | no |
@@ -228,6 +243,7 @@ No modules.
 | ---- | ----------- |
 | admin\_group\_name | Account group with ADMIN on the workspace (`<project>-workspace-admins`). |
 | cross\_account\_role\_arn | ARN of the cross-account role Databricks assumes to run clusters in the VPC. |
+| deployer\_application\_id | The deployer's application (client) ID, for the project's deploy workflow (`DATABRICKS_CLIENT_ID`) and its bundle's `run_as`; null without `deployer`. Not a secret. |
 | root\_bucket\_name | Name of the workspace root bucket (`<p>-databricks-root`). |
 | s3\_endpoint\_policy | Policy for the VPC's S3 gateway endpoint (`vpc`'s `s3_gateway_endpoint.policy`): the Databricks-owned buckets, the root bucket, the catalog bucket only for the Unity Catalog role, and read actions on each of `read_only_datasets` (under its prefix) only for that dataset's role. Built from names only, so it is known before the workspace exists. |
 | security\_group\_id | ID of the workspace clusters' security group. |
