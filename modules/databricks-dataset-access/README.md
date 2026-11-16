@@ -14,7 +14,8 @@ Creates, per consumer:
   volume for the consumer's users group.
 
 Consumers read through the volume (`/Volumes/<catalog>/<schema>/files/`)
-only: the location grants `READ_FILES` to `owner_group_name` alone. Each grant
+only: the location, and the storage credential its consumers are bound to,
+grant `READ_FILES` to `owner_group_name` alone. Each grant
 set (location, schema, volume) is one authoritative `databricks_grants` that
 always holds `owner_group_name`, so it is never empty and a grant made by hand
 (`BROWSE` included) is removed. With no consumers, the three sets hold the
@@ -71,6 +72,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
+| [databricks_grants.credential](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/grants) | resource |
 | [databricks_grants.location](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/grants) | resource |
 | [databricks_grants.schema](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/grants) | resource |
 | [databricks_grants.volume](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/grants) | resource |
