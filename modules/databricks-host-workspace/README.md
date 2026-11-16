@@ -2,9 +2,10 @@
 
 The account's **shared-objects host**: a serverless Databricks workspace that
 exists only so that metastore-level objects which must be created through a
-workspace, but belong to no project, have a home. Today that is the shared
-datasets (`databricks-shared-dataset`): their storage credentials, read-only
-external locations, bindings to the consumer workspaces and grants. Applied
+workspace, but belong to no project, have a home. Today that is the onboarded
+datasets (`databricks-dataset`): their storage credentials and read-only
+external locations, and (`databricks-dataset-access`) their bindings to the
+consumer workspaces and grants. Applied
 once, in the infra repo's foundation stack, next to `databricks-metastore`.
 Account-level `databricks` provider.
 
@@ -100,7 +101,7 @@ No modules.
 | Name | Description |
 | ---- | ----------- |
 | workspace\_id | Numeric ID of the host workspace. |
-| workspace\_url | URL of the host workspace: the `host` of the workspace-level `databricks` provider that manages shared objects (`databricks-shared-dataset`). |
+| workspace\_url | URL of the host workspace: the `host` of the workspace-level `databricks` provider that manages shared objects (`databricks-dataset` and `databricks-dataset-access`). |
 <!-- END_TF_DOCS -->
 
 On the registry: <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest/submodules/databricks-host-workspace>

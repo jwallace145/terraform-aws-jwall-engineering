@@ -366,7 +366,7 @@ locals {
   # Shared datasets this workspace may read, through Unity Catalog only: read
   # actions, each dataset's prefix only, and only as that dataset's own Unity
   # Catalog role (the role behind its one shared, read-only external
-  # location, `databricks-shared-dataset`). One statement per dataset, so a
+  # location, `databricks-dataset`). One statement per dataset, so a
   # role can reach only its own dataset. The endpoint only lets requests
   # through; the dataset's bucket policy (its readers) grants the reads.
   read_only_dataset_statements = [

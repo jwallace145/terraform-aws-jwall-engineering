@@ -148,7 +148,8 @@ jobs:
           - { module: databricks-audit-logs, path: modules/databricks-audit-logs }
           - { module: databricks-host-workspace, path: modules/databricks-host-workspace }
           - { module: databricks-workspace, path: modules/databricks-workspace }
-          - { module: databricks-shared-dataset, path: modules/databricks-shared-dataset }
+          - { module: databricks-dataset, path: modules/databricks-dataset }
+          - { module: databricks-dataset-access, path: modules/databricks-dataset-access }
           - { module: databricks-catalog, path: modules/databricks-catalog }
           - { module: databricks-workspace-config, path: modules/databricks-workspace-config }
           - { module: vpc, path: modules/vpc }

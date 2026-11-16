@@ -9,21 +9,17 @@ provider "databricks" {
   host = "https://dbc-01234567-89ab.cloud.databricks.com"
 }
 
-module "nnue" {
+module "positions" {
   source = "../../"
 
-  name   = "rusty-chess-nnue"
-  bucket = "jwall-engineering-rusty-chess-nnue"
+  name   = "jwall-engineering-ds-braveheart-selfplay-positions"
+  bucket = "jwall-engineering-braveheart-selfplay-positions"
   prefix = "data/"
 
   host_workspace_id = 1111111111111111
   owner_group_name  = "jwall-engineering-metastore-admins"
-
-  consumers = {
-    braveheart = { workspace_id = 2222222222222222, users_group_name = "braveheart-workspace-users" }
-  }
 }
 
 output "endpoint_dataset" {
-  value = module.nnue.endpoint_dataset
+  value = module.positions.endpoint_dataset
 }

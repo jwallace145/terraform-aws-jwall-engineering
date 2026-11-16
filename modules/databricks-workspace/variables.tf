@@ -143,7 +143,7 @@ variable "service_principal_application_id" {
 }
 
 variable "read_only_datasets" {
-  description = "Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ rusty-chess-nnue = { bucket = \"jwall-engineering-rusty-chess-nnue\", prefix = \"data/\", role_arn = \"arn:aws:iam::111122223333:role/jwall-engineering-rusty-chess-nnue-databricks-share\" } }`: the `endpoint_dataset` output of `databricks-shared-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader."
+  description = "Shared datasets the workspace may read through Unity Catalog, keyed by the dataset's kebab-case name, for example `{ braveheart-selfplay-positions = { bucket = \"jwall-engineering-braveheart-selfplay-positions\", prefix = \"data/\", role_arn = \"arn:aws:iam::111122223333:role/jwall-engineering-ds-braveheart-selfplay-positions\" } }`: the `endpoint_dataset` output of `databricks-dataset`. Each adds one statement to the S3 endpoint policy allowing `s3:GetObject` under the prefix and `s3:ListBucket`/`s3:GetBucketLocation` on the bucket, only for that dataset's role. The endpoint grants nothing: the dataset's bucket policy must name the role as a reader."
   type = map(object({
     bucket   = string
     prefix   = string
@@ -170,7 +170,7 @@ variable "read_only_datasets" {
 
   validation {
     condition     = alltrue([for d in values(var.read_only_datasets) : can(regex("^arn:aws:iam::[0-9]{12}:role/.+$", d.role_arn))])
-    error_message = "every role_arn in read_only_datasets must be an IAM role ARN, the dataset role from databricks-shared-dataset's endpoint_dataset output; change the read_only_datasets variable."
+    error_message = "every role_arn in read_only_datasets must be an IAM role ARN, the dataset role from databricks-dataset's endpoint_dataset output; change the read_only_datasets variable."
   }
 
   # The workspace's own buckets are already covered, and its own Unity
@@ -181,7 +181,7 @@ variable "read_only_datasets" {
       !contains(["${var.name_root}-${var.project}-databricks-root", "${var.name_root}-${var.project}-databricks-catalog"], d.bucket) &&
       !endswith(d.role_arn, ":role/${var.name_root}-${var.project}-databricks-uc")
     ])
-    error_message = "read_only_datasets must not name the workspace's own root or catalog bucket, or its own Unity Catalog role; pass shared datasets from databricks-shared-dataset only."
+    error_message = "read_only_datasets must not name the workspace's own root or catalog bucket, or its own Unity Catalog role; pass onboarded datasets from databricks-dataset only."
   }
 }
 
