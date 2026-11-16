@@ -58,3 +58,25 @@ variable "component" {
   type        = string
   default     = "databricks-dataset"
 }
+
+variable "catalog_name" {
+  description = "The producer's catalog, the `catalog_name` output of `databricks-producer-catalog`. With it the dataset becomes a schema there holding an external volume `files` at the location's URL, which consumers find in Catalog Explorer. Null onboards the location only."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.catalog_name == null || can(regex("^[a-z0-9_]+$", var.catalog_name))
+    error_message = "catalog_name must be lowercase letters, digits and underscores, the catalog_name output of databricks-producer-catalog; change the catalog_name variable."
+  }
+}
+
+variable "schema_name" {
+  description = "The dataset's schema in `catalog_name`: the dataset's name with `-` replaced by `_`, for example `positions`. Set exactly when `catalog_name` is."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = (var.schema_name == null) == (var.catalog_name == null) && (var.schema_name == null || can(regex("^[a-z0-9_]+$", var.schema_name)))
+    error_message = "schema_name must be set exactly when catalog_name is, as lowercase letters, digits and underscores such as positions; change the schema_name variable."
+  }
+}

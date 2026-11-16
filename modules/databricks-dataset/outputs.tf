@@ -26,3 +26,19 @@ output "endpoint_dataset" {
     role_arn = local.role_arn
   }
 }
+
+output "schema_full_name" {
+  description = "`<catalog>.<schema>`, the dataset's schema; null without `catalog_name`. Built from names, so it is known before the schema exists."
+  value       = var.catalog_name != null ? "${var.catalog_name}.${var.schema_name}" : null
+}
+
+output "volume_full_name" {
+  description = "`<catalog>.<schema>.files`, the dataset's external volume; null without `catalog_name`."
+  value       = var.catalog_name != null ? "${var.catalog_name}.${var.schema_name}.files" : null
+}
+
+output "volume_path" {
+  description = "`/Volumes/<catalog>/<schema>/files`, the path consumers read; null without `catalog_name`."
+  value       = var.catalog_name != null ? "/Volumes/${var.catalog_name}/${var.schema_name}/files" : null
+}
+

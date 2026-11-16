@@ -50,6 +50,15 @@ changes.
   no leading `/`, no `*`.
 - `host_workspace_id`: a positive integer.
 
+## In the producer's catalog
+
+With `catalog_name` and `schema_name` (the producer's catalog from
+`databricks-producer-catalog`), the dataset is also a schema in that catalog
+holding one external volume, `files`, at the location's URL: consumers find it
+in Catalog Explorer and read `/Volumes/<catalog>/<schema>/files/` (outputs
+`schema_full_name`, `volume_full_name`, `volume_path`). An external volume's
+files are never deleted with it.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
@@ -79,7 +88,9 @@ No modules.
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [databricks_external_location.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/external_location) | resource |
+| [databricks_schema.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/schema) | resource |
 | [databricks_storage_credential.this](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/storage_credential) | resource |
+| [databricks_volume.files](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/volume) | resource |
 | [databricks_workspace_binding.credential](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/workspace_binding) | resource |
 | [databricks_workspace_binding.location](https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/workspace_binding) | resource |
 | [time_sleep.role_propagation](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
@@ -95,7 +106,9 @@ No modules.
 | name | The dataset's platform name, in kebab-case: the IAM role, the storage credential and the external location all take it, for example `jwall-engineering-ds-braveheart-selfplay-positions` (`<organization>-ds-<owner>-<dataset>`). | `string` | n/a | yes |
 | owner\_group\_name | Account group that owns the storage credential and external location, the `admin_group_name` output of `databricks-metastore`: no project owns an onboarded dataset's Databricks objects. | `string` | n/a | yes |
 | prefix | The prefix onboarded, one or more path segments ending in `/` with no leading `/`, for example `data/`. The dataset's bucket-policy readers grant must cover it. | `string` | n/a | yes |
+| catalog\_name | The producer's catalog, the `catalog_name` output of `databricks-producer-catalog`. With it the dataset becomes a schema there holding an external volume `files` at the location's URL, which consumers find in Catalog Explorer. Null onboards the location only. | `string` | `null` | no |
 | component | Value of the `Component` tag on every AWS resource. | `string` | `"databricks-dataset"` | no |
+| schema\_name | The dataset's schema in `catalog_name`: the dataset's name with `-` replaced by `_`, for example `positions`. Set exactly when `catalog_name` is. | `string` | `null` | no |
 
 ## Outputs
 
@@ -104,6 +117,9 @@ No modules.
 | endpoint\_dataset | The entry each consumer passes to `databricks-workspace`'s `read_only_datasets`. Built from names, so it is known before the role exists. |
 | external\_location\_name | Name of the read-only external location (the dataset's name): what `databricks-dataset-access` binds and grants. |
 | role\_arn | ARN of the dataset's IAM role, which reads only once the dataset's bucket policy names it as a reader. |
+| schema\_full\_name | `<catalog>.<schema>`, the dataset's schema; null without `catalog_name`. Built from names, so it is known before the schema exists. |
 | storage\_credential\_name | Name of the read-only storage credential (the dataset's name). |
 | url | The location's URL, `s3://<bucket>/<prefix>` without the trailing slash. |
+| volume\_full\_name | `<catalog>.<schema>.files`, the dataset's external volume; null without `catalog_name`. |
+| volume\_path | `/Volumes/<catalog>/<schema>/files`, the path consumers read; null without `catalog_name`. |
 <!-- END_TF_DOCS -->
