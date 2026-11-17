@@ -87,6 +87,73 @@ run "one_user_assigned_in_one_account" {
   }
 }
 
+run "no_other_account_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_ssoadmin_account_assignment.additional) == 0
+    error_message = "without additional_account_ids there must be exactly the one assignment"
+  }
+
+  assert {
+    condition     = output.account_ids == ["123456789012"]
+    error_message = "account_ids must list only account_id by default"
+  }
+}
+
+run "the_same_permission_set_in_other_accounts" {
+  command = plan
+
+  variables {
+    additional_account_ids = ["210987654321", "333333333333"]
+  }
+
+  assert {
+    condition     = toset(keys(aws_ssoadmin_account_assignment.additional)) == toset(["210987654321", "333333333333"])
+    error_message = "there must be one more assignment per additional account, keyed by its ID"
+  }
+
+  assert {
+    condition = alltrue([
+      for id, a in aws_ssoadmin_account_assignment.additional :
+      a.target_type == "AWS_ACCOUNT" && a.target_id == id && a.principal_type == "USER" &&
+      a.principal_id == aws_identitystore_user.this.user_id &&
+      a.permission_set_arn == aws_ssoadmin_permission_set.this.arn
+    ])
+    error_message = "each additional assignment must give the module's user the module's permission set in that account"
+  }
+
+  assert {
+    condition     = aws_ssoadmin_account_assignment.this.target_id == "123456789012"
+    error_message = "the first account's assignment must not move"
+  }
+
+  assert {
+    condition     = output.account_ids == ["123456789012", "210987654321", "333333333333"]
+    error_message = "account_ids must list account_id, then the additional accounts in order"
+  }
+}
+
+run "rejects_an_additional_account_that_repeats_the_first" {
+  command = plan
+
+  variables {
+    additional_account_ids = ["123456789012"]
+  }
+
+  expect_failures = [var.additional_account_ids]
+}
+
+run "rejects_a_malformed_additional_account" {
+  command = plan
+
+  variables {
+    additional_account_ids = ["prod"]
+  }
+
+  expect_failures = [var.additional_account_ids]
+}
+
 run "role_lookup_matches_the_permission_set" {
   command = plan
 
