@@ -22,6 +22,7 @@ module "role" {
   name                = local.name
   description         = "terraform apply for ${var.repository} releases (${var.environment} environment)"
   repository          = var.repository
+  repository_aliases  = var.repository_aliases
   owner_id            = var.owner_id
   repository_id       = var.repository_id
   oidc_provider_arn   = var.oidc_provider_arn

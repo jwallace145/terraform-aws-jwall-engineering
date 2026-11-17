@@ -132,6 +132,89 @@ run "trust_policy_with_ids" {
   }
 }
 
+run "an_alias_is_trusted_like_the_repository_itself" {
+  command = plan
+
+  variables {
+    repository_aliases = ["jwallace145/renamed"]
+    owner_id           = "35950238"
+    repository_id      = "1420037633"
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      "repo:jwallace145/example:pull_request",
+      "repo:jwallace145/example:environment:prod",
+      "repo:jwallace145/renamed:pull_request",
+      "repo:jwallace145/renamed:environment:prod",
+      "repo:jwallace145@35950238/example@1420037633:pull_request",
+      "repo:jwallace145@35950238/example@1420037633:environment:prod",
+      "repo:jwallace145@35950238/renamed@1420037633:pull_request",
+      "repo:jwallace145@35950238/renamed@1420037633:environment:prod",
+    ]
+    error_message = "an alias adds the same subjects under its name, with the same owner and repository IDs"
+  }
+}
+
+run "an_alias_without_ids_is_trusted_in_the_classic_form_only" {
+  command = plan
+
+  variables {
+    repository_aliases = ["jwallace145/renamed"]
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      "repo:jwallace145/example:pull_request",
+      "repo:jwallace145/example:environment:prod",
+      "repo:jwallace145/renamed:pull_request",
+      "repo:jwallace145/renamed:environment:prod",
+    ]
+    error_message = "without IDs an alias adds only the classic subjects"
+  }
+}
+
+run "an_alias_in_another_organization_keeps_its_own_owner_name" {
+  command = plan
+
+  variables {
+    repository_aliases = ["Some-Org/example"]
+    owner_id           = "35950238"
+    repository_id      = "1420037633"
+    subjects           = ["pull_request"]
+  }
+
+  assert {
+    condition = jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      "repo:jwallace145/example:pull_request",
+      "repo:Some-Org/example:pull_request",
+      "repo:jwallace145@35950238/example@1420037633:pull_request",
+      "repo:Some-Org@35950238/example@1420037633:pull_request",
+    ]
+    error_message = "an alias's immutable subject uses the alias's owner name"
+  }
+}
+
+run "rejects_an_alias_that_repeats_the_repository" {
+  command = plan
+
+  variables {
+    repository_aliases = ["jwallace145/example"]
+  }
+
+  expect_failures = [var.repository_aliases]
+}
+
+run "rejects_a_malformed_alias" {
+  command = plan
+
+  variables {
+    repository_aliases = ["renamed"]
+  }
+
+  expect_failures = [var.repository_aliases]
+}
+
 run "custom_trust_statement_sid" {
   command = plan
 

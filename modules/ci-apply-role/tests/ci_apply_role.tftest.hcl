@@ -73,6 +73,22 @@ run "trusts_the_environment_only" {
   }
 }
 
+run "trusts_a_repository_alias_for_the_environment_only" {
+  command = plan
+
+  variables {
+    repository_aliases = ["jwallace145/jaws"]
+  }
+
+  assert {
+    condition = jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      "repo:jwallace145/jwall-engineering-infra:environment:prod",
+      "repo:jwallace145/jaws:environment:prod",
+    ]
+    error_message = "the apply role must trust the alias for environment:prod only"
+  }
+}
+
 run "custom_environment" {
   command = plan
 

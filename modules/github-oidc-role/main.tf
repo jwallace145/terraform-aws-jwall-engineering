@@ -3,12 +3,15 @@ locals {
   # repository's OIDC settings: the classic repo:<owner>/<name> and the
   # immutable repo:<owner>@<owner_id>/<name>@<repository_id>. Trust both when
   # the IDs are supplied so the role works whichever form the repo uses.
-  github_owner = split("/", var.repository)[0]
-  github_name  = split("/", var.repository)[1]
+  # `repository` first, then each alias (another name of the same repository,
+  # for a rename), so a role without aliases keeps its trust policy unchanged.
+  repositories = concat([var.repository], var.repository_aliases)
 
   subject_prefixes = concat(
-    ["repo:${var.repository}"],
-    var.owner_id == null ? [] : ["repo:${local.github_owner}@${var.owner_id}/${local.github_name}@${var.repository_id}"],
+    [for r in local.repositories : "repo:${r}"],
+    var.owner_id == null ? [] : [
+      for r in local.repositories : "repo:${split("/", r)[0]}@${var.owner_id}/${split("/", r)[1]}@${var.repository_id}"
+    ],
   )
 
   # Every prefix joined to every suffix, prefixes outermost, so the classic
