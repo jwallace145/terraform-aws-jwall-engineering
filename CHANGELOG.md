@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.27.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.26.0...v0.27.0) (2026-11-17)
+
+
+### Features
+
+* **context:** take the name prefix and the ManagedBy value as inputs, in context and site-bucket ([#78](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/78)) ([2fe714c](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/2fe714c0bcb6d43827456a752a19bf0100db2d16))
+* **github-oidc-role:** trust a repository under more than one name, for a rename ([#80](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/80)) ([e44ae42](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/e44ae42addab74ca779d1cfbf08abfc1b67b088a))
+* **identity-center-access:** assign the permission set in more than one account ([#81](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/81)) ([a00861b](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/a00861b727391c8dd5213f50bcca728afd9dd7b6))
+
 ## [0.26.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.25.1...v0.26.0) (2026-11-16)
 
 
