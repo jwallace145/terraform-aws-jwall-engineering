@@ -1,3 +1,25 @@
+variable "name_root" {
+  description = "Prefix of every resource name, in kebab-case: `name_prefix` is `<name_root>-<project>-<environment>` and `bucket_name` is `<name_root>-<project>`. Independent of the `organization` tag value."
+  type        = string
+  default     = "jwall-engineering"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.name_root))
+    error_message = "name_root must be kebab-case: lowercase letters, digits and single hyphens."
+  }
+}
+
+variable "managed_by" {
+  description = "Value of the `ManagedBy` tag: the tool that manages the project's resources."
+  type        = string
+  default     = "jwall-engineering-infra"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.managed_by))
+    error_message = "managed_by must be kebab-case: lowercase letters, digits and single hyphens."
+  }
+}
+
 variable "project" {
   description = "Project name in kebab-case, for example `guitar`. Used in resource names and the `Project` tag."
   type        = string

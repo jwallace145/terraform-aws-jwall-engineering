@@ -74,8 +74,57 @@ run "honours_owner_and_organization_overrides" {
 
   assert {
     condition     = output.name_prefix == "jwall-engineering-guitar-preview"
-    error_message = "name_prefix must keep the jwall-engineering root regardless of the organization tag"
+    error_message = "name_prefix must keep its name_root regardless of the organization tag"
   }
+}
+
+run "names_follow_name_root" {
+  command = plan
+
+  variables {
+    name_root = "jaws"
+  }
+
+  assert {
+    condition     = output.name_prefix == "jaws-guitar-prod"
+    error_message = "name_prefix should be <name_root>-<project>-<environment>, got ${output.name_prefix}"
+  }
+
+  assert {
+    condition     = output.bucket_name == "jaws-guitar"
+    error_message = "bucket_name should be <name_root>-<project>, got ${output.bucket_name}"
+  }
+
+  assert {
+    condition     = output.tags["Organization"] == "jwall-engineering"
+    error_message = "name_root must not change the Organization tag, which has its own input"
+  }
+}
+
+run "managed_by_sets_the_tag_and_still_wins_over_extra_tags" {
+  command = plan
+
+  variables {
+    managed_by = "jaws"
+    extra_tags = {
+      ManagedBy = "hand"
+    }
+  }
+
+  assert {
+    condition     = output.tags["ManagedBy"] == "jaws"
+    error_message = "managed_by should be the ManagedBy tag, over any extra_tags value"
+  }
+}
+
+run "rejects_non_kebab_name_root" {
+  command = plan
+
+  variables {
+    name_root = "Jaws_"
+  }
+
+  expect_failures = [var.name_root]
 }
 
 run "rejects_non_kebab_project" {

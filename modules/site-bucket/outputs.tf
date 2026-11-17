@@ -1,5 +1,5 @@
 output "name" {
-  description = "Bucket name (`jwall-engineering-<project>`)."
+  description = "Bucket name (`<name_root>-<project>`)."
   value       = aws_s3_bucket.this.bucket
 }
 

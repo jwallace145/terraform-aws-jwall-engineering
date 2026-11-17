@@ -1,12 +1,12 @@
 # site-bucket
 
 Creates the single S3 bucket that holds every environment of a static site:
-`jwall-engineering-<project>`. One bucket per project; the infra repo calls
+`<name_root>-<project>`. One bucket per project; the infra repo calls
 this module once per project.
 
 ## What it creates
 
-- Bucket `jwall-engineering-<project>` with Block Public Access fully on,
+- Bucket `<name_root>-<project>` with Block Public Access fully on,
   `BucketOwnerEnforced` object ownership, SSE-S3 encryption and versioning.
 - Lifecycle rules:
   - noncurrent object versions expire after 30 days
@@ -115,8 +115,9 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| project | Project name in kebab-case. The bucket is named `jwall-engineering-<project>`. | `string` | n/a | yes |
+| project | Project name in kebab-case. The bucket is named `<name_root>-<project>`. | `string` | n/a | yes |
 | admin\_principal\_arns | IAM principal ARNs exempt from every deny in the bucket policy except TLS, for example the admin user and the role that applies this bucket. Being exempt grants nothing; the principal's own IAM policies still decide what it can do. Required when `prefix_writers` is set, so the policy can always be changed by someone. | `list(string)` | `[]` | no |
+| name\_root | Prefix of the bucket name, in kebab-case. The bucket is named `<name_root>-<project>`. | `string` | `"jwall-engineering"` | no |
 | prefix\_writers | Hardens the bucket policy when set: map of key prefix (ending in `/`) to the principals that may write objects under it, for example `{ "prod/" = [<apply role>], "dev/" = [<apply role>], "previews/" = [<preview role>] }`. Everyone else, including principals with `s3:*`, is denied writes, and only `admin_principal_arns` may write outside these prefixes or change the bucket's configuration. Reads are not restricted: the content is public through CloudFront. Leave empty for the TLS and CloudFront statements only. | `map(list(string))` | `{}` | no |
 
 ## Outputs
@@ -124,7 +125,7 @@ No modules.
 | Name | Description |
 | ---- | ----------- |
 | arn | Bucket ARN. |
-| name | Bucket name (`jwall-engineering-<project>`). |
+| name | Bucket name (`<name_root>-<project>`). |
 | policy | The bucket policy as a JSON string. |
 | regional\_domain\_name | Regional bucket domain name, to be used as a CloudFront origin (`<bucket>.s3.us-east-1.amazonaws.com`). |
 <!-- END_TF_DOCS -->
