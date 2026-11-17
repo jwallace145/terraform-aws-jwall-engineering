@@ -1,5 +1,5 @@
 variable "project" {
-  description = "Project name in kebab-case. The bucket is named `jwall-engineering-<project>`."
+  description = "Project name in kebab-case. The bucket is named `<name_root>-<project>`."
   type        = string
 
   validation {
@@ -10,6 +10,22 @@ variable "project" {
   validation {
     condition     = length(var.project) <= 30
     error_message = "project must be at most 30 characters so the bucket name stays within S3's 63-character limit."
+  }
+}
+
+variable "name_root" {
+  description = "Prefix of the bucket name, in kebab-case. The bucket is named `<name_root>-<project>`."
+  type        = string
+  default     = "jwall-engineering"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.name_root))
+    error_message = "name_root must be kebab-case: lowercase letters, digits and single hyphens."
+  }
+
+  validation {
+    condition     = length("${var.name_root}-${var.project}") <= 63
+    error_message = "name_root and project are too long: `<name_root>-<project>` must fit S3's 63-character bucket name limit."
   }
 }
 

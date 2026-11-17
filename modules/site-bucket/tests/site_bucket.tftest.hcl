@@ -127,6 +127,46 @@ run "bucket_policy" {
   }
 }
 
+run "bucket_name_follows_name_root" {
+  command = plan
+
+  variables {
+    name_root = "jaws"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.bucket == "jaws-guitar"
+    error_message = "bucket must be named <name_root>-<project>, got ${aws_s3_bucket.this.bucket}"
+  }
+
+  assert {
+    condition     = output.name == "jaws-guitar"
+    error_message = "name output must follow name_root"
+  }
+}
+
+run "rejects_non_kebab_name_root" {
+  command = plan
+
+  variables {
+    name_root = "Jaws_"
+  }
+
+  expect_failures = [var.name_root]
+}
+
+run "rejects_a_bucket_name_over_63_characters" {
+  command = plan
+
+  variables {
+    # 34 + 1 + 30 = 65 characters.
+    name_root = "a-name-root-that-is-far-too-long-x"
+    project   = "a-project-of-thirty-characters"
+  }
+
+  expect_failures = [var.name_root]
+}
+
 run "rejects_non_kebab_project" {
   command = plan
 

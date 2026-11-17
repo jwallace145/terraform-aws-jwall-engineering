@@ -2,7 +2,7 @@ data "aws_caller_identity" "current" {}
 
 locals {
   component   = "site-bucket"
-  bucket_name = "jwall-engineering-${var.project}"
+  bucket_name = "${var.name_root}-${var.project}"
 }
 
 resource "aws_s3_bucket" "this" {
