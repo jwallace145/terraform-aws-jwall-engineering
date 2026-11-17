@@ -23,6 +23,22 @@ variable "repository" {
   }
 }
 
+variable "repository_aliases" {
+  description = "Other names the same repository is trusted under, as `owner/repo`, for example its new name while it is being renamed. Each is trusted exactly like `repository`, with the same `owner_id` and `repository_id`. Remove an alias once no workflow run can carry it."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for a in var.repository_aliases : can(regex("^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]+$", a))])
+    error_message = "every repository alias must be an `owner/repo` string (e.g. `jwallace145/guitar`)."
+  }
+
+  validation {
+    condition     = !contains(var.repository_aliases, var.repository) && length(distinct(var.repository_aliases)) == length(var.repository_aliases)
+    error_message = "repository_aliases must not repeat `repository` or each other."
+  }
+}
+
 variable "owner_id" {
   description = "Numeric GitHub ID of the repository owner (`gh api users/<owner> --jq .id`). When set together with `repository_id`, the role also trusts GitHub's immutable subject form `repo:<owner>@<owner_id>/<name>@<repository_id>:...`."
   type        = string

@@ -79,6 +79,26 @@ run "trusts_pull_requests_only" {
   }
 }
 
+run "trusts_a_repository_alias_for_pull_requests_only" {
+  command = plan
+
+  variables {
+    repository_aliases = ["jwallace145/six-strings"]
+    owner_id           = "35950238"
+    repository_id      = "123456789"
+  }
+
+  assert {
+    condition = jsondecode(module.role.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == [
+      "repo:jwallace145/guitar:pull_request",
+      "repo:jwallace145/six-strings:pull_request",
+      "repo:jwallace145@35950238/guitar@123456789:pull_request",
+      "repo:jwallace145@35950238/six-strings@123456789:pull_request",
+    ]
+    error_message = "the plan role must trust the alias for pull_request only, with the same IDs"
+  }
+}
+
 run "attaches_requested_policies_as_managed_policies" {
   command = plan
 
