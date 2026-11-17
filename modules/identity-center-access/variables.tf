@@ -28,6 +28,22 @@ variable "account_id" {
   }
 }
 
+variable "additional_account_ids" {
+  description = "Other AWS accounts of the organization the user gets the same permission set in, as 12-digit strings. Identity Center provisions the permission set's role in each; `role_arn` is still the role in the account the provider runs in, so read another account's role ARN there (`aws iam list-roles --path-prefix /aws-reserved/sso.amazonaws.com/`)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for a in var.additional_account_ids : can(regex("^[0-9]{12}$", a))])
+    error_message = "every additional account must be a 12-digit AWS account ID."
+  }
+
+  validation {
+    condition     = !contains(var.additional_account_ids, var.account_id) && length(distinct(var.additional_account_ids)) == length(var.additional_account_ids)
+    error_message = "additional_account_ids must not repeat `account_id` or each other."
+  }
+}
+
 variable "user" {
   description = "The one Identity Center user who gets the permission set. `display_name` defaults to `<given_name> <family_name>`. The user is created without a password: set one at first sign-in through Identity Center's email one-time password, or generate one in the console."
   type = object({

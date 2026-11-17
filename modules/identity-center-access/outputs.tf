@@ -27,3 +27,8 @@ output "role_arn" {
   description = "Full ARN, path included, of the IAM role Identity Center provisioned for the permission set (`arn:aws:iam::<account>:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_<name>_<suffix>`): the value `aws:PrincipalArn` takes in bucket policies. Null until IAM lists the role; run `terraform apply -refresh-only` if it is null after the first apply."
   value       = try(one(data.aws_iam_roles.provisioned.arns), null)
 }
+
+output "account_ids" {
+  description = "Every account the user has the permission set in: `account_id` first, then `additional_account_ids` in order."
+  value       = concat([var.account_id], var.additional_account_ids)
+}

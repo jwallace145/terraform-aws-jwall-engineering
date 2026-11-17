@@ -1,4 +1,5 @@
-# One Identity Center user with one permission set in one account: a person's
+# One Identity Center user with one permission set in one account (and, on
+# request, the organization's other accounts): a person's
 # short-lived console and CLI access, with no IAM user and no access key.
 #
 # The user and the permission set refuse to be destroyed. Recreating the
@@ -71,6 +72,23 @@ resource "aws_ssoadmin_account_assignment" "this" {
   target_id   = var.account_id
 
   # Provision the role with its policies already attached.
+  depends_on = [aws_ssoadmin_managed_policy_attachment.this]
+}
+
+# The same permission set for the same user in the organization's other
+# accounts. Keyed by account ID, so adding or removing one touches only it.
+resource "aws_ssoadmin_account_assignment" "additional" {
+  for_each = toset(var.additional_account_ids)
+
+  instance_arn       = var.instance_arn
+  permission_set_arn = aws_ssoadmin_permission_set.this.arn
+
+  principal_type = "USER"
+  principal_id   = aws_identitystore_user.this.user_id
+
+  target_type = "AWS_ACCOUNT"
+  target_id   = each.value
+
   depends_on = [aws_ssoadmin_managed_policy_attachment.this]
 }
 
