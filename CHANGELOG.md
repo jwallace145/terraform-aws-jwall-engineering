@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.27.0...v0.28.0) (2026-11-18)
+
+
+### Features
+
+* **static-site:** let the alias records take over existing records, in static-site and preview-site ([#82](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/82)) ([eff0ba8](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/eff0ba84c1e8209e06729ae6109fc259e911637c))
+
 ## [0.27.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.26.0...v0.27.0) (2026-11-17)
 
 
