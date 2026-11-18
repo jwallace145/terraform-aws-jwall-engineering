@@ -166,6 +166,11 @@ run "dns_and_outputs" {
   }
 
   assert {
+    condition     = alltrue([for t in ["A", "AAAA"] : aws_route53_record.alias[t].allow_overwrite == true])
+    error_message = "the alias records must take over an existing record of their name: a site moving accounts finds its records copied into the new zone"
+  }
+
+  assert {
     condition     = output.url == "https://guitar.jwall.engineering"
     error_message = "url output must be https://<domain_name>"
   }

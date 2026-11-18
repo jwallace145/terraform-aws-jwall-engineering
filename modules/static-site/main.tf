@@ -165,6 +165,11 @@ resource "aws_route53_record" "alias" {
   name    = var.domain_name
   type    = each.key
 
+  # Take over a record of the same name that this stack does not own: when a
+  # site moves to another account, its records are first copied into the new
+  # account's zone, so the name keeps resolving until this stack replaces them.
+  allow_overwrite = true
+
   alias {
     name                   = aws_cloudfront_distribution.this.domain_name
     zone_id                = aws_cloudfront_distribution.this.hosted_zone_id
