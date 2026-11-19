@@ -89,7 +89,7 @@ No resources.
 | repository | GitHub repository whose workflows may assume the role, as `owner/repo`. | `string` | n/a | yes |
 | name\_root | Prefix of the role and policy names, in kebab-case. The role is named `<name_root>-<project>-ci-preview`. | `string` | `"jwall-engineering"` | no |
 | owner\_id | Numeric GitHub ID of the repository owner (`gh api users/<owner> --jq .id`). When set together with `repository_id`, the role also trusts GitHub's immutable subject form `repo:<owner>@<owner_id>/<name>@<repository_id>:...`. | `string` | `null` | no |
-| policy\_inputs | Values the requested policies are built from, one optional section per policy family: `tfstate = { bucket_arn, key or prefix }`, `static_site = { bucket_arn, zone_id?, record_names? }`, `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns? }`. Only the sections the requested policies need are required. The `ci-policies` module checks the shape. | `any` | `{}` | no |
+| policy\_inputs | Values the requested policies are built from, one optional section per policy family: `tfstate = { bucket_arn, key or prefix }`, `static_site = { bucket_arn, zone_id?, record_names? }`, `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns?, service_linked_role_services? }`. Only the sections the requested policies need are required. The `ci-policies` module checks the shape. | `any` | `{}` | no |
 | repository\_id | Numeric GitHub ID of the repository (`gh api repos/<owner>/<repo> --jq .id`). When set together with `owner_id`, the role also trusts GitHub's immutable subject form. | `string` | `null` | no |
 
 ## Outputs

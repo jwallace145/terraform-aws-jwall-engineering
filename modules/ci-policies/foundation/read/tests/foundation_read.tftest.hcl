@@ -83,3 +83,30 @@ run "description_is_frozen" {
     error_message = "the policy description must never change: it forces replacement"
   }
 }
+
+run "no_service_linked_role_statements_by_default" {
+  command = plan
+
+  assert {
+    condition     = length([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if s.Sid == "ReadServiceLinkedRoles"]) == 0
+    error_message = "without service_linked_role_services the policy must not mention service-linked roles"
+  }
+}
+
+run "reads_the_named_service_linked_roles" {
+  command = plan
+
+  variables {
+    service_linked_role_services = ["spot.amazonaws.com"]
+  }
+
+  assert {
+    condition = contains(jsondecode(aws_iam_policy.this.policy).Statement, {
+      Sid      = "ReadServiceLinkedRoles"
+      Effect   = "Allow"
+      Action   = ["iam:GetRole", "iam:ListRoleTags"]
+      Resource = ["arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/*"]
+    })
+    error_message = "the read policy must read only the named services' service-linked roles"
+  }
+}

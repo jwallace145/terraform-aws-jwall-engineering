@@ -2,8 +2,9 @@
 
 Read access for the foundation stack, replacing `ReadOnlyAccess`: the state
 bucket's and managed buckets' configuration (never their objects),
-`<name_root>-*` roles and policies, the GitHub OIDC provider and the hosted
-zone. Class: **read**.
+`<name_root>-*` roles and policies, the GitHub OIDC provider, the hosted
+zone and, for each service in `service_linked_role_services`, that service's
+service-linked role. Class: **read**.
 
 Part of the [`ci-policies`](../..) catalog. Request it from a CI role module
 with `policies = ["foundation/read"]`; it is not meant to be called directly.
@@ -43,6 +44,7 @@ No modules.
 | state\_bucket\_arn | ARN of the Terraform state bucket (output `arn` of `tfstate-bucket`). | `string` | n/a | yes |
 | managed\_bucket\_patterns | Bucket name patterns the foundation stack manages. Defaults to `["<name_root>-*"]`, which covers every `site-bucket`. The policies reach the buckets themselves, never their objects. | `list(string)` | `null` | no |
 | name\_root | Prefix of every role, policy and bucket the foundation stack manages, in kebab-case. | `string` | `"jwall-engineering"` | no |
+| service\_linked\_role\_services | AWS services whose service-linked role the foundation stack owns, for example `["spot.amazonaws.com"]` (the `service-linked-role` module). Empty, the default, adds no statement. | `list(string)` | `[]` | no |
 
 ## Outputs
 

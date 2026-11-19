@@ -73,7 +73,7 @@ variable "policies" {
 }
 
 variable "policy_inputs" {
-  description = "Values the requested policies are built from, one optional section per policy family: `tfstate = { bucket_arn, key or prefix }`, `static_site = { bucket_arn, zone_id?, record_names? }`, `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns? }`. Only the sections the requested policies need are required. The `ci-policies` module checks the shape."
+  description = "Values the requested policies are built from, one optional section per policy family: `tfstate = { bucket_arn, key or prefix }`, `static_site = { bucket_arn, zone_id?, record_names? }`, `foundation = { state_bucket_arn, hosted_zone_arn, managed_bucket_patterns?, attachable_policy_arns?, service_linked_role_services? }`. Only the sections the requested policies need are required. The `ci-policies` module checks the shape."
   # `any`: the catalog module owns the type, so adding a policy family does not
   # touch the role modules.
   type    = any

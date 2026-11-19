@@ -104,3 +104,56 @@ run "description_is_frozen" {
     error_message = "the policy description must never change: it forces replacement"
   }
 }
+
+run "no_service_linked_role_statements_by_default" {
+  command = plan
+
+  assert {
+    condition     = length([for s in jsondecode(aws_iam_policy.this.policy).Statement : s if strcontains(s.Sid, "ServiceLinkedRole")]) == 0
+    error_message = "without service_linked_role_services the policy must not mention service-linked roles"
+  }
+}
+
+run "service_linked_roles_are_created_only_for_the_named_services" {
+  command = plan
+
+  variables {
+    service_linked_role_services = ["spot.amazonaws.com"]
+  }
+
+  assert {
+    condition = contains(jsondecode(aws_iam_policy.this.policy).Statement, {
+      Sid       = "CreateServiceLinkedRoles"
+      Effect    = "Allow"
+      Action    = "iam:CreateServiceLinkedRole"
+      Resource  = ["arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/*"]
+      Condition = { StringEquals = { "iam:AWSServiceName" = ["spot.amazonaws.com"] } }
+    })
+    error_message = "CreateServiceLinkedRole must be limited to the named services, by resource and by iam:AWSServiceName"
+  }
+
+  assert {
+    condition     = [for s in jsondecode(aws_iam_policy.this.policy).Statement : s.Resource if s.Sid == "ManageServiceLinkedRoles"][0] == ["arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/*"]
+    error_message = "ManageServiceLinkedRoles must cover only the named services' roles"
+  }
+
+  # The module never deletes a service-linked role, so nothing grants it.
+  assert {
+    condition = !anytrue(flatten([
+      for s in jsondecode(aws_iam_policy.this.policy).Statement : [
+        for a in flatten([s.Action]) : s.Effect == "Allow" && contains(["iam:DeleteServiceLinkedRole", "iam:DeleteRole", "iam:*"], a) && anytrue([for r in flatten([s.Resource]) : strcontains(r, "aws-service-role")])
+      ]
+    ]))
+    error_message = "no statement may allow deleting a service-linked role"
+  }
+}
+
+run "rejects_a_non_service_principal" {
+  command = plan
+
+  variables {
+    service_linked_role_services = ["spot"]
+  }
+
+  expect_failures = [var.service_linked_role_services]
+}
