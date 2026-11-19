@@ -16,11 +16,44 @@ locals {
 
   attachable_policy_arns = coalesce(var.attachable_policy_arns, [local.managed_policy_arn])
 
+  # Service-linked roles live under /aws-service-role/<service>/, outside
+  # <name_root>-*. Creating one is allowed only for the services named, and
+  # nothing here can delete one (the service-linked-role module never does).
+  service_linked_role_arns = [for s in var.service_linked_role_services : "arn:aws:iam::${local.account_id}:role/aws-service-role/${s}/*"]
+
+  # A filtered `for` rather than a conditional: the two statements are objects
+  # of different shapes, which a conditional's branches cannot be.
+  service_linked_role_statements = [for st in [
+    {
+      Sid      = "CreateServiceLinkedRoles"
+      Effect   = "Allow"
+      Action   = "iam:CreateServiceLinkedRole"
+      Resource = local.service_linked_role_arns
+      Condition = {
+        StringEquals = {
+          "iam:AWSServiceName" = var.service_linked_role_services
+        }
+      }
+    },
+    {
+      Sid    = "ManageServiceLinkedRoles"
+      Effect = "Allow"
+      Action = [
+        "iam:GetRole",
+        "iam:UpdateRoleDescription",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRoleTags",
+      ]
+      Resource = local.service_linked_role_arns
+    },
+  ] : st if length(var.service_linked_role_services) > 0]
+
   # Write-only: pair with foundation/read for refresh, and with tfstate/write
   # for the stack's own state.
   policy = {
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       # --- S3: state bucket configuration and project site buckets ------------
       {
         Sid    = "ManageStateBucketConfiguration"
@@ -152,7 +185,7 @@ locals {
         Action   = "route53:GetChange"
         Resource = "arn:aws:route53:::change/*"
       },
-    ]
+    ], local.service_linked_role_statements)
   }
 }
 

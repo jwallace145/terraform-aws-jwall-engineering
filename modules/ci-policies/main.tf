@@ -119,6 +119,8 @@ module "foundation_read" {
   hosted_zone_arn         = local.foundation.hosted_zone_arn
   managed_bucket_patterns = local.foundation.managed_bucket_patterns
   oidc_provider_arn       = var.oidc_provider_arn
+
+  service_linked_role_services = try(local.foundation.service_linked_role_services, null) == null ? [] : local.foundation.service_linked_role_services
 }
 
 module "foundation_manage" {
@@ -131,6 +133,8 @@ module "foundation_manage" {
   hosted_zone_arn         = local.foundation.hosted_zone_arn
   managed_bucket_patterns = local.foundation.managed_bucket_patterns
   attachable_policy_arns  = local.foundation.attachable_policy_arns
+
+  service_linked_role_services = try(local.foundation.service_linked_role_services, null) == null ? [] : local.foundation.service_linked_role_services
 }
 
 module "ecr_pull" {

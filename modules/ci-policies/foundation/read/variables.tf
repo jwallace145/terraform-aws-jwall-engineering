@@ -64,3 +64,14 @@ variable "oidc_provider_arn" {
     error_message = "oidc_provider_arn must be `arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com`."
   }
 }
+
+variable "service_linked_role_services" {
+  description = "AWS services whose service-linked role the foundation stack owns, for example `[\"spot.amazonaws.com\"]` (the `service-linked-role` module). Empty, the default, adds no statement."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for s in var.service_linked_role_services : can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\\.amazonaws\\.com$", s))])
+    error_message = "every service_linked_role_services entry must be an AWS service principal like `spot.amazonaws.com`."
+  }
+}

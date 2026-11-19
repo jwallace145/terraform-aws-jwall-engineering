@@ -12,11 +12,24 @@ locals {
     [for p in local.managed_bucket_patterns : "arn:aws:s3:::${p}"],
   ))
 
+  # Service-linked roles live under /aws-service-role/<service>/, outside
+  # <name_root>-*, so each service the stack owns a role for is named here.
+  service_linked_role_arns = [for s in var.service_linked_role_services : "arn:aws:iam::${local.account_id}:role/aws-service-role/${s}/*"]
+
+  service_linked_role_statements = [for st in [
+    {
+      Sid      = "ReadServiceLinkedRoles"
+      Effect   = "Allow"
+      Action   = ["iam:GetRole", "iam:ListRoleTags"]
+      Resource = local.service_linked_role_arns
+    },
+  ] : st if length(var.service_linked_role_services) > 0]
+
   # Replaces ReadOnlyAccess. That AWS-managed policy grants s3:GetObject on
   # every bucket, which includes every project's Terraform state.
   policy = {
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         # s3:ListBucket is also what HeadBucket requires. It lists keys in the
         # state bucket, but cannot read them.
@@ -106,7 +119,7 @@ locals {
         Action   = "route53:GetChange"
         Resource = "arn:aws:route53:::change/*"
       },
-    ]
+    ], local.service_linked_role_statements)
   }
 }
 

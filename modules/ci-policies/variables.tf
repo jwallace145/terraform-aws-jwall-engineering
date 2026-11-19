@@ -100,7 +100,7 @@ variable "policies" {
 }
 
 variable "policy_inputs" {
-  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns` and `attachable_policy_arns`. `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `[\"cpu\"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; `databricks` takes `secret_parameter_arn` (the one SSM parameter holding the Databricks credential) and `events_object_arn` (`arn:aws:s3:::<audit bucket>/events/project=<project>/*`) for the `databricks/*` policies; the `container/*` policies are otherwise built from `project` alone, and the `compute/*` policies entirely."
+  description = "Values the requested policies are built from, one optional section per policy family. `tfstate` takes `bucket_arn` and exactly one of `key` or `prefix`. `static_site` takes `bucket_arn`, plus `zone_id` for `read` and `deploy` and `record_names` for `deploy`. `foundation` takes `state_bucket_arn`, `hosted_zone_arn` and optionally `managed_bucket_patterns`, `attachable_policy_arns` and `service_linked_role_services` (the AWS services whose service-linked role the stack owns, for example `[\"spot.amazonaws.com\"]`). `ecr` takes `repository_arn`. `container` optionally takes `attachable_policy_arns` for `container/manage`; `task` takes `instance_types` and optionally `profiles` (default `[\"cpu\"]`) for `task/launch`; `dataset` takes `bucket_names` for the `dataset/*` policies; `databricks` takes `secret_parameter_arn` (the one SSM parameter holding the Databricks credential) and `events_object_arn` (`arn:aws:s3:::<audit bucket>/events/project=<project>/*`) for the `databricks/*` policies; the `container/*` policies are otherwise built from `project` alone, and the `compute/*` policies entirely."
   type = object({
     tfstate = optional(object({
       bucket_arn = string
@@ -113,10 +113,11 @@ variable "policy_inputs" {
       record_names = optional(list(string))
     }))
     foundation = optional(object({
-      state_bucket_arn        = string
-      hosted_zone_arn         = string
-      managed_bucket_patterns = optional(list(string))
-      attachable_policy_arns  = optional(list(string))
+      state_bucket_arn             = string
+      hosted_zone_arn              = string
+      managed_bucket_patterns      = optional(list(string))
+      attachable_policy_arns       = optional(list(string))
+      service_linked_role_services = optional(list(string))
     }))
     ecr = optional(object({
       repository_arn = string

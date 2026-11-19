@@ -1038,3 +1038,49 @@ run "compute_manage_tags_the_nat_root_volume" {
     error_message = "databricks/manage must not tag volumes outside create calls without a ResourceTag condition"
   }
 }
+
+# The foundation stack owns the account's Spot service-linked role: the
+# services listed reach both foundation policies, and they still fit IAM's limit.
+run "foundation_policies_take_service_linked_role_services" {
+  command = plan
+
+  variables {
+    policies = ["foundation/read", "foundation/manage"]
+    policy_inputs = {
+      foundation = {
+        state_bucket_arn             = "arn:aws:s3:::jwall-engineering-tfstate"
+        hosted_zone_arn              = "arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ"
+        service_linked_role_services = ["spot.amazonaws.com"]
+      }
+    }
+  }
+
+  assert {
+    condition     = contains([for s in jsondecode(output.documents["foundation/read"]).Statement : s.Sid], "ReadServiceLinkedRoles")
+    error_message = "foundation/read must read the listed services' service-linked roles"
+  }
+
+  assert {
+    condition = alltrue([for sid in ["CreateServiceLinkedRoles", "ManageServiceLinkedRoles"] :
+    contains([for s in jsondecode(output.documents["foundation/manage"]).Statement : s.Sid], sid)])
+    error_message = "foundation/manage must create and tag the listed services' service-linked roles"
+  }
+
+  assert {
+    condition     = alltrue([for p, d in output.documents : length(d) <= 6144])
+    error_message = "the foundation policies must still fit IAM's 6,144-character managed policy limit"
+  }
+}
+
+run "foundation_policies_omit_service_linked_roles_by_default" {
+  command = plan
+
+  variables {
+    policies = ["foundation/read", "foundation/manage"]
+  }
+
+  assert {
+    condition     = !anytrue([for p, d in output.documents : strcontains(d, "aws-service-role")])
+    error_message = "without service_linked_role_services the foundation policies must not mention service-linked roles"
+  }
+}

@@ -3,8 +3,11 @@
 Write access for the foundation stack: configure the state bucket, manage
 buckets matching `managed_bucket_patterns` (never their objects), manage
 `<name_root>-*` roles and policies with an `ArnLike` allow-list on attaching
-managed policies, and change records in the hosted zone. Grants no reads
-beyond what managing requires; pair it with `foundation/read`. See the
+managed policies, change records in the hosted zone, and, for each service in
+`service_linked_role_services`, create that service's service-linked role
+(`iam:CreateServiceLinkedRole` limited by `iam:AWSServiceName`) and tag it or
+update its description. Nothing grants deleting a service-linked role. Grants
+no reads beyond what managing requires; pair it with `foundation/read`. See the
 known limitation in the [`ci-policies`](../..) README. Class: **write**.
 
 Part of the [`ci-policies`](../..) catalog. Request it from a CI role module
@@ -45,6 +48,7 @@ No modules.
 | attachable\_policy\_arns | Managed policy ARN patterns the policy allows attaching with `iam:AttachRolePolicy` (an `ArnLike` allow-list). Defaults to the account's `<name_root>-*` customer-managed policies, which include every policy `ci-policies` creates. | `list(string)` | `null` | no |
 | managed\_bucket\_patterns | Bucket name patterns the foundation stack manages. Defaults to `["<name_root>-*"]`, which covers every `site-bucket`. The policies reach the buckets themselves, never their objects. | `list(string)` | `null` | no |
 | name\_root | Prefix of every role, policy and bucket the foundation stack manages, in kebab-case. | `string` | `"jwall-engineering"` | no |
+| service\_linked\_role\_services | AWS services whose service-linked role the foundation stack owns, for example `["spot.amazonaws.com"]` (the `service-linked-role` module). Empty, the default, adds no statement. | `list(string)` | `[]` | no |
 
 ## Outputs
 

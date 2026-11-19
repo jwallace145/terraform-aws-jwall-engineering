@@ -70,3 +70,14 @@ variable "attachable_policy_arns" {
     error_message = "every attachable policy must be an IAM policy ARN or ARN pattern with a literal first character after `policy/` (`arn:aws:iam::aws:policy/ReadOnlyAccess`, `arn:aws:iam::<account-id>:policy/team-*`). A bare `*` would allow attaching any policy, including AdministratorAccess."
   }
 }
+
+variable "service_linked_role_services" {
+  description = "AWS services whose service-linked role the foundation stack owns, for example `[\"spot.amazonaws.com\"]` (the `service-linked-role` module). Empty, the default, adds no statement."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for s in var.service_linked_role_services : can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\\.amazonaws\\.com$", s))])
+    error_message = "every service_linked_role_services entry must be an AWS service principal like `spot.amazonaws.com`."
+  }
+}
