@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.28.0...v0.29.0) (2026-11-19)
+
+
+### Features
+
+* **service-linked-role:** add the module, and let the foundation policies create and read one ([#84](https://github.com/jwallace145/terraform-aws-jwall-engineering/issues/84)) ([bb75c69](https://github.com/jwallace145/terraform-aws-jwall-engineering/commit/bb75c695420a5bdbd38c78770bc2c12c5d9fe3d3))
+
 ## [0.28.0](https://github.com/jwallace145/terraform-aws-jwall-engineering/compare/v0.27.0...v0.28.0) (2026-11-18)
 
 
