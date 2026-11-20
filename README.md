@@ -17,13 +17,13 @@
 
 | New address | Repository | What it is | Modules |
 |---|---|---|---|
-| [`jwallace145/jaws-databricks/aws`](https://registry.terraform.io/modules/jwallace145/jaws-databricks/aws/latest) | [`terraform-aws-jaws-databricks`](https://github.com/jwallace145/terraform-aws-jaws-databricks) | Databricks on AWS with Unity Catalog | `databricks-metastore`, `databricks-audit-logs`, `databricks-host-workspace`, `databricks-workspace`, `databricks-workspace-config`, `databricks-catalog`, `databricks-catalog-storage`, `databricks-producer-catalog`, `databricks-producer-catalog-access`, `databricks-dataset`, `databricks-dataset-access` |
-| [`jwallace145/jaws-static-site/aws`](https://registry.terraform.io/modules/jwallace145/jaws-static-site/aws/latest) | [`terraform-aws-jaws-static-site`](https://github.com/jwallace145/terraform-aws-jaws-static-site) | Static sites on S3, CloudFront, ACM and Route 53 | the root module (the site stack), `static-site`, `preview-site`, `site-bucket`, `hosted-zone` |
-| [`jwallace145/jaws-ci/aws`](https://registry.terraform.io/modules/jwallace145/jaws-ci/aws/latest) | [`terraform-aws-jaws-ci`](https://github.com/jwallace145/terraform-aws-jaws-ci) | GitHub Actions OIDC roles and the policy catalog | `github-oidc-role`, `ci-plan-role`, `ci-preview-role`, `ci-apply-role`, `ci-release-role`, `ci-task-role`, `ci-policies` |
-| [`jwallace145/jaws-lichess-bot/aws`](https://registry.terraform.io/modules/jwallace145/jaws-lichess-bot/aws/latest) | [`terraform-aws-jaws-lichess-bot`](https://github.com/jwallace145/terraform-aws-jaws-lichess-bot) | A container on one EC2 instance, and its image repository | `container-instance`, `ecr-repository` |
-| [`jwallace145/jaws-research/aws`](https://registry.terraform.io/modules/jwallace145/jaws-research/aws/latest) | [`terraform-aws-jaws-research`](https://github.com/jwallace145/terraform-aws-jaws-research) | Ephemeral task instances and dataset buckets | `task-runner`, `dataset-bucket` |
-| [`jwallace145/jaws-network/aws`](https://registry.terraform.io/modules/jwallace145/jaws-network/aws/latest) | [`terraform-aws-jaws-network`](https://github.com/jwallace145/terraform-aws-jaws-network) | A VPC and a NAT instance | `vpc`, `nat-instance` |
-| [`jwallace145/jaws-foundation/aws`](https://registry.terraform.io/modules/jwallace145/jaws-foundation/aws/latest) | [`terraform-aws-jaws-foundation`](https://github.com/jwallace145/terraform-aws-jaws-foundation) | An account's naming, state bucket, private buckets, service-linked roles and Identity Center access | `context`, `tfstate-bucket`, `private-bucket`, `service-linked-role`, `identity-center-access` |
+| [`Jaws-Platform/jaws-databricks/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-databricks/aws/latest) | [`terraform-aws-jaws-databricks`](https://github.com/Jaws-Platform/terraform-aws-jaws-databricks) | Databricks on AWS with Unity Catalog | `databricks-metastore`, `databricks-audit-logs`, `databricks-host-workspace`, `databricks-workspace`, `databricks-workspace-config`, `databricks-catalog`, `databricks-catalog-storage`, `databricks-producer-catalog`, `databricks-producer-catalog-access`, `databricks-dataset`, `databricks-dataset-access` |
+| [`Jaws-Platform/jaws-static-site/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-static-site/aws/latest) | [`terraform-aws-jaws-static-site`](https://github.com/Jaws-Platform/terraform-aws-jaws-static-site) | Static sites on S3, CloudFront, ACM and Route 53 | the root module (the site stack), `static-site`, `preview-site`, `site-bucket`, `hosted-zone` |
+| [`Jaws-Platform/jaws-ci/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-ci/aws/latest) | [`terraform-aws-jaws-ci`](https://github.com/Jaws-Platform/terraform-aws-jaws-ci) | GitHub Actions OIDC roles and the policy catalog | `github-oidc-role`, `ci-plan-role`, `ci-preview-role`, `ci-apply-role`, `ci-release-role`, `ci-task-role`, `ci-policies` |
+| [`Jaws-Platform/jaws-lichess-bot/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-lichess-bot/aws/latest) | [`terraform-aws-jaws-lichess-bot`](https://github.com/Jaws-Platform/terraform-aws-jaws-lichess-bot) | A container on one EC2 instance, and its image repository | `container-instance`, `ecr-repository` |
+| [`Jaws-Platform/jaws-research/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-research/aws/latest) | [`terraform-aws-jaws-research`](https://github.com/Jaws-Platform/terraform-aws-jaws-research) | Ephemeral task instances and dataset buckets | `task-runner`, `dataset-bucket` |
+| [`Jaws-Platform/jaws-network/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-network/aws/latest) | [`terraform-aws-jaws-network`](https://github.com/Jaws-Platform/terraform-aws-jaws-network) | A VPC and a NAT instance | `vpc`, `nat-instance` |
+| [`Jaws-Platform/jaws-foundation/aws`](https://registry.terraform.io/modules/Jaws-Platform/jaws-foundation/aws/latest) | [`terraform-aws-jaws-foundation`](https://github.com/Jaws-Platform/terraform-aws-jaws-foundation) | An account's naming, state bucket, private buckets, service-linked roles and Identity Center access | `context`, `tfstate-bucket`, `private-bucket`, `service-linked-role`, `identity-center-access` |
 
 ### Moving a configuration
 
@@ -32,7 +32,7 @@ so moving changes no resource. For each module block:
 
 1. Change `source` and `version`. The module's name and its path under
    `//modules/` stay the same; this library's root module (the site stack) is
-   the root of `jwallace145/jaws-static-site/aws`.
+   the root of `Jaws-Platform/jaws-static-site/aws`.
 
    ```hcl
    # before
@@ -40,7 +40,7 @@ so moving changes no resource. For each module block:
    version = "0.29.0"
 
    # after
-   source  = "jwallace145/jaws-network/aws//modules/vpc"
+   source  = "Jaws-Platform/jaws-network/aws//modules/vpc"
    version = "0.1.0"
    ```
 
