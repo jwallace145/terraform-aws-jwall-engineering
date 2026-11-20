@@ -1,5 +1,9 @@
 # Contributing
 
+> **This library is deprecated** and takes no further changes: its modules
+> live on in the seven `terraform-aws-jaws-*` libraries listed in the
+> [README](README.md#where-the-modules-went). Open pull requests there.
+
 `terraform-aws-jwall-engineering` is the versioned Terraform module library for the
 jwall-engineering static sites. It follows the shared jwall-engineering repo
 conventions, which are summarised here. Coding agents should read
