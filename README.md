@@ -7,6 +7,61 @@
 
 **Registry:** <https://registry.terraform.io/modules/jwallace145/jwall-engineering/aws/latest>
 
+> [!WARNING]
+> **This library is deprecated.** Its 33 modules have moved, unchanged, to seven
+> smaller libraries, one per component, each with its own registry address and
+> its own version. `0.29.0` is the last release here: it keeps working, and it
+> gets no further changes. New work happens in the libraries below.
+
+## Where the modules went
+
+| New address | Repository | What it is | Modules |
+|---|---|---|---|
+| [`jwallace145/jaws-databricks/aws`](https://registry.terraform.io/modules/jwallace145/jaws-databricks/aws/latest) | [`terraform-aws-jaws-databricks`](https://github.com/jwallace145/terraform-aws-jaws-databricks) | Databricks on AWS with Unity Catalog | `databricks-metastore`, `databricks-audit-logs`, `databricks-host-workspace`, `databricks-workspace`, `databricks-workspace-config`, `databricks-catalog`, `databricks-catalog-storage`, `databricks-producer-catalog`, `databricks-producer-catalog-access`, `databricks-dataset`, `databricks-dataset-access` |
+| [`jwallace145/jaws-static-site/aws`](https://registry.terraform.io/modules/jwallace145/jaws-static-site/aws/latest) | [`terraform-aws-jaws-static-site`](https://github.com/jwallace145/terraform-aws-jaws-static-site) | Static sites on S3, CloudFront, ACM and Route 53 | the root module (the site stack), `static-site`, `preview-site`, `site-bucket`, `hosted-zone` |
+| [`jwallace145/jaws-ci/aws`](https://registry.terraform.io/modules/jwallace145/jaws-ci/aws/latest) | [`terraform-aws-jaws-ci`](https://github.com/jwallace145/terraform-aws-jaws-ci) | GitHub Actions OIDC roles and the policy catalog | `github-oidc-role`, `ci-plan-role`, `ci-preview-role`, `ci-apply-role`, `ci-release-role`, `ci-task-role`, `ci-policies` |
+| [`jwallace145/jaws-lichess-bot/aws`](https://registry.terraform.io/modules/jwallace145/jaws-lichess-bot/aws/latest) | [`terraform-aws-jaws-lichess-bot`](https://github.com/jwallace145/terraform-aws-jaws-lichess-bot) | A container on one EC2 instance, and its image repository | `container-instance`, `ecr-repository` |
+| [`jwallace145/jaws-research/aws`](https://registry.terraform.io/modules/jwallace145/jaws-research/aws/latest) | [`terraform-aws-jaws-research`](https://github.com/jwallace145/terraform-aws-jaws-research) | Ephemeral task instances and dataset buckets | `task-runner`, `dataset-bucket` |
+| [`jwallace145/jaws-network/aws`](https://registry.terraform.io/modules/jwallace145/jaws-network/aws/latest) | [`terraform-aws-jaws-network`](https://github.com/jwallace145/terraform-aws-jaws-network) | A VPC and a NAT instance | `vpc`, `nat-instance` |
+| [`jwallace145/jaws-foundation/aws`](https://registry.terraform.io/modules/jwallace145/jaws-foundation/aws/latest) | [`terraform-aws-jaws-foundation`](https://github.com/jwallace145/terraform-aws-jaws-foundation) | An account's naming, state bucket, private buckets, service-linked roles and Identity Center access | `context`, `tfstate-bucket`, `private-bucket`, `service-linked-role`, `identity-center-access` |
+
+### Moving a configuration
+
+Version `0.1.0` of each new library holds the module code of `0.29.0` here,
+so moving changes no resource. For each module block:
+
+1. Change `source` and `version`. The module's name and its path under
+   `//modules/` stay the same; this library's root module (the site stack) is
+   the root of `jwallace145/jaws-static-site/aws`.
+
+   ```hcl
+   # before
+   source  = "jwallace145/jwall-engineering/aws//modules/vpc"
+   version = "0.29.0"
+
+   # after
+   source  = "jwallace145/jaws-network/aws//modules/vpc"
+   version = "0.1.0"
+   ```
+
+2. Pass the names that used to default to `jwall-engineering`. The new
+   libraries have no organisation-specific defaults, so a block that relied on
+   one fails `terraform validate` with a missing argument instead of silently
+   changing a name. Pass the old default to keep every name as it is:
+
+   | Module | Input | Default in `0.29.0` |
+   |---|---|---|
+   | the five `ci-*-role` modules, `ci-policies`, `site-bucket`, `task-runner`, `container-instance`, `databricks-workspace`, `databricks-catalog`, `context` | `name_root` | `jwall-engineering` |
+   | `context` | `organization`, `owner`, `managed_by` | `jwall-engineering`, `jwallace145`, `jwall-engineering-infra` |
+   | `databricks-metastore` | `name`, `admin_group_name` | `jwall-engineering-us-east-1`, `jwall-engineering-metastore-admins` |
+   | `databricks-audit-logs` | `bucket_name`, `role_name` | `jwall-engineering-databricks-audit-logs`, `jwall-engineering-databricks-log-delivery` |
+   | `databricks-host-workspace` | `workspace_name` | `jwall-engineering-shared` |
+
+3. Run `terraform init -upgrade` and `terraform plan`. The plan should show no
+   changes.
+
+The rest of this README describes the library as of `0.29.0`.
+
 Versioned Terraform modules for the jwall-engineering static sites and the
 account-level foundation they run on. Public,
 MIT-licensed, and holds **no state**: this repo only publishes modules. The
